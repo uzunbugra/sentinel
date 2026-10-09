@@ -4,6 +4,12 @@ import { useEffect, useState, useCallback } from "react"
 import { Header } from "@/components/layout/header"
 import { useWebSocket } from "@/hooks/use-websocket"
 import { useAuth } from "@/contexts/auth-context"
+import { apiRequest } from "@/lib/auth"
+import {
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from "@/components/ui/request-state"
 import {
   FolderKanban,
   RefreshCw,
@@ -40,7 +46,13 @@ interface CasesResponse {
   cases: Case[]
 }
 
-import { config, getApiUrl } from "@/lib/config"
+interface CaseStats {
+  total: number
+  open: number
+  closed: number
+}
+
+import { config } from "@/lib/config"
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
   new: { label: "Yeni", color: "bg-blue-500/10 text-blue-400 border-blue-500/20", icon: AlertTriangle },
@@ -65,6 +77,7 @@ export default function CasesPage() {
   
   const [cases, setCases] = useState<Case[]>([])
   const [loading, setLoading] = useState(true)
+  const [listError, setListError] = useState<unknown>(null)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [pageSize] = useState(20)
@@ -74,10 +87,12 @@ export default function CasesPage() {
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null)
   
   // Stats
-  const [stats, setStats] = useState<any>(null)
+  const [stats, setStats] = useState<CaseStats | null>(null)
+  const [statsError, setStatsError] = useState<unknown>(null)
   
   const fetchCases = useCallback(async () => {
     setLoading(true)
+    setListError(null)
     try {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -87,27 +102,22 @@ export default function CasesPage() {
       if (statusFilter) params.append("status", statusFilter)
       if (priorityFilter) params.append("priority", priorityFilter)
       
-      const res = await fetch(getApiUrl(`${config.endpoints.cases}?${params}`))
-      if (res.ok) {
-        const data: CasesResponse = await res.json()
-        setCases(data.cases)
-        setTotal(data.total)
-      }
+      const data = await apiRequest<CasesResponse>(`${config.endpoints.cases}?${params}`)
+      setCases(data.cases)
+      setTotal(data.total)
     } catch (e) {
-      console.error("Failed to fetch cases", e)
+      setListError(e)
     } finally {
       setLoading(false)
     }
   }, [page, pageSize, statusFilter, priorityFilter])
   
   const fetchStats = useCallback(async () => {
+    setStatsError(null)
     try {
-      const res = await fetch(getApiUrl(`${config.endpoints.cases}/stats`))
-      if (res.ok) {
-        setStats(await res.json())
-      }
+      setStats(await apiRequest<CaseStats>(`${config.endpoints.cases}/stats`))
     } catch (e) {
-      console.error("Failed to fetch stats", e)
+      setStatsError(e)
     }
   }, [])
   
@@ -196,19 +206,22 @@ export default function CasesPage() {
               </div>
             </div>
           )}
+          {!stats && statsError !== null && (
+            <div className="flex items-center gap-2 text-xs text-zinc-500">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              <span>İstatistikler yüklenemedi</span>
+            </div>
+          )}
           
           {/* Cases list */}
           <div className="flex-1 bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
             <div className="flex-1 overflow-auto">
               {loading && cases.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <RefreshCw className="h-8 w-8 text-zinc-600 animate-spin" />
-                </div>
+                <LoadingState label="Vakalar yükleniyor..." />
+              ) : cases.length === 0 && listError ? (
+                <ErrorState error={listError} onRetry={fetchCases} />
               ) : cases.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-zinc-500">
-                  <FolderKanban className="h-12 w-12 mb-3 opacity-50" />
-                  <p>Vaka bulunamadı</p>
-                </div>
+                <EmptyState message="Vaka bulunamadı" />
               ) : (
                 <div className="divide-y divide-zinc-800">
                   {cases.map((caseItem) => {
