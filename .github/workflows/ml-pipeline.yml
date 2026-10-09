@@ -87,31 +87,9 @@ jobs:
 
       - name: Validate data schema
         id: validate
+        # Contract lives in src/sentinelflow/ml/dataset_schema.py (single source of truth)
         run: |
-          python -c "
-          import sys
-          from sentinelflow.ml.competition_dataset import CompetitionDatasetGenerator
-          
-          # Generate sample data
-          gen = CompetitionDatasetGenerator(seed=42, n_users=100)
-          df = gen.generate(n_transactions=1000, fraud_ratio=0.05)
-          
-          # Validate schema
-          required_cols = ['user_id', 'amount', 'is_fraud', 'timestamp']
-          missing = [c for c in required_cols if c not in df.columns]
-          
-          if missing:
-              print(f'Missing columns: {missing}')
-              sys.exit(1)
-          
-          # Validate data types
-          assert df['amount'].dtype in ['float64', 'float32', 'int64']
-          assert df['is_fraud'].dtype in ['int64', 'int32', 'bool']
-          
-          print('Data validation passed!')
-          print(f'Rows: {len(df)}, Columns: {len(df.columns)}')
-          print(f'Fraud ratio: {df.is_fraud.mean():.4f}')
-          "
+          python -m sentinelflow.ml.dataset_schema --sample-size 1000 --fraud-ratio 0.05
           echo "valid=true" >> $GITHUB_OUTPUT
 
   # ===========================================================================
@@ -168,10 +146,10 @@ jobs:
           # Load data
           df = pd.read_parquet('data/training/train_data.parquet')
           
-          # Prepare features
-          feature_cols = [c for c in df.columns if c not in ['user_id', 'receiver_id', 'is_fraud', 'timestamp', 'transaction_id']]
-          X = df[feature_cols].fillna(0)
-          y = df['is_fraud']
+          # Prepare features from the dataset contract (no IDs, raw strings or label leakage)
+          from sentinelflow.ml.dataset_schema import build_feature_frame, label_series
+          X = build_feature_frame(df)
+          y = label_series(df)
           
           X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
           
