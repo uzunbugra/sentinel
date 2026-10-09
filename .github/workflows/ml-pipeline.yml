@@ -7,7 +7,16 @@ on:
     paths:
       - 'src/sentinelflow/ml/**'
       - 'src/sentinelflow/mlops/**'
-  
+      - '.github/workflows/ml-pipeline.yml'
+
+  # PRs into main/develop run Data Validation only (training jobs are push/schedule-gated)
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/sentinelflow/ml/**'
+      - 'src/sentinelflow/mlops/**'
+      - '.github/workflows/ml-pipeline.yml'
+
   # Manual trigger for training
   workflow_dispatch:
     inputs:
