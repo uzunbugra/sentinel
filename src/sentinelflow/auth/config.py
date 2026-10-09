@@ -44,7 +44,7 @@ class AuthSettings(BaseSettings):
 
     @property
     def REFRESH_TOKEN_EXPIRE_DAYS(self) -> int:
-        return self.JWT_REFRESH_EXPIRE_DAYS
+        return self.JWT_REFRESH_TOKEN_EXPIRE_DAYS
 
     @property
     def access_token_expire(self) -> timedelta:
