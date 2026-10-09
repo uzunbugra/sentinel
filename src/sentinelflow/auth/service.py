@@ -11,7 +11,7 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from jose import JWTError, jwt
+import jwt
 from loguru import logger
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
@@ -26,6 +26,11 @@ from sentinelflow.contracts import (
     UserRole,
 )
 from sentinelflow.database.models import RefreshTokenModel, UserModel
+
+
+def _as_utc(value: datetime) -> datetime:
+    """Treat naive datetimes (e.g. from SQLite) as UTC so comparisons never raise."""
+    return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
 class AuthService:
@@ -114,8 +119,8 @@ class AuthService:
             raise ValueError("Invalid username or password")
 
         # Check if account is locked
-        if user.locked_until and user.locked_until > datetime.now(timezone.utc):
-            remaining = (user.locked_until - datetime.now(timezone.utc)).seconds // 60
+        if user.locked_until and _as_utc(user.locked_until) > datetime.now(timezone.utc):
+            remaining = (_as_utc(user.locked_until) - datetime.now(timezone.utc)).seconds // 60
             raise ValueError(f"Account locked. Try again in {remaining} minutes")
 
         # Check if account is active
@@ -192,7 +197,7 @@ class AuthService:
         token_hash = self._hash_token(refresh_token)
         stmt = select(RefreshTokenModel).where(
             RefreshTokenModel.token_hash == token_hash,
-            not RefreshTokenModel.is_revoked,
+            RefreshTokenModel.is_revoked.is_(False),
         )
         result = self._session.execute(stmt)
         token_model = result.scalar_one_or_none()
@@ -200,7 +205,7 @@ class AuthService:
         if not token_model:
             raise ValueError("Invalid refresh token")
 
-        if token_model.expires_at < datetime.now(timezone.utc):
+        if _as_utc(token_model.expires_at) < datetime.now(timezone.utc):
             raise ValueError("Refresh token expired")
 
         # Get user
@@ -246,7 +251,7 @@ class AuthService:
                 type=payload.get("type", "access"),
             )
 
-        except JWTError as e:
+        except jwt.PyJWTError as e:
             logger.debug(f"Token validation failed: {e}")
             return None
 

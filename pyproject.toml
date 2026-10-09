@@ -62,7 +62,9 @@ dependencies = [
     # =============================================================================
     # PostgreSQL - Primary Database
     # =============================================================================
-    "sqlalchemy>=2.0.0",
+    # asyncio extra pulls in greenlet, which SQLAlchemy 2.1+ no longer installs by
+    # default; database/postgres.py and the repositories use the async engine.
+    "sqlalchemy[asyncio]>=2.0.0",
     "psycopg2-binary>=2.9.0",
     "asyncpg>=0.29.0",
     "alembic>=1.13.0",
@@ -109,14 +111,10 @@ dependencies = [
     "torch-geometric>=2.4.0",
     
     # =============================================================================
-    # Federated Learning
-    # =============================================================================
-    "flwr>=1.5.0",
-    
-    # =============================================================================
     # Security
     # =============================================================================
-    "python-jose[cryptography]>=3.3.0",
+    # PyJWT replaces python-jose (unmaintained; pulled in vulnerable ecdsa).
+    "PyJWT>=2.10.1",
     "passlib[bcrypt]>=1.7.4",
     # passlib 1.7.4 is unmaintained and breaks with bcrypt>=4.1
     # (AttributeError: bcrypt has no __about__, 72-byte truncation errors).
@@ -138,6 +136,14 @@ dev = [
 ml = [
     # Additional ML tools for research/experimentation
     "optuna>=3.4.0",
+]
+
+# Flower is optional: sentinelflow.ml.federated implements FedAvg itself and only
+# uses Flower for the optional FlowerFraudClient adapter. Every flwr release pins
+# cryptography/protobuf below their patched versions, so it stays out of the
+# runtime dependency set that the CI security scan audits.
+federated = [
+    "flwr>=1.5.0",
 ]
 
 benchmark = [
