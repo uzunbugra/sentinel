@@ -53,7 +53,7 @@ flowchart LR
 ```
 src/sentinelflow/
 ├── api/            # FastAPI uygulaması, rotalar, şemalar, risk_scoring
-├── auth/           # JWT (python-jose), parola (passlib), rol bağımlılıkları
+├── auth/           # JWT (PyJWT), parola (passlib), rol bağımlılıkları
 ├── config/         # Pydantic-settings (.env) — Settings grupları
 ├── contracts/      # Domain Pydantic modelleri (Transaction, Alert, Case, User…)
 ├── database/       # SQLAlchemy async modeller + PostgreSQL oturumu, Alembic

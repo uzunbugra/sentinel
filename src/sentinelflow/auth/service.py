@@ -11,7 +11,7 @@ import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from jose import JWTError, jwt
+import jwt
 from loguru import logger
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
@@ -246,7 +246,7 @@ class AuthService:
                 type=payload.get("type", "access"),
             )
 
-        except JWTError as e:
+        except jwt.PyJWTError as e:
             logger.debug(f"Token validation failed: {e}")
             return None
 
