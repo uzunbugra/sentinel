@@ -93,7 +93,7 @@ models/
 *.parquet
 
 # Runtime / generated outputs
-mlops/
+/mlops/
 mlops_test/
 catboost_info/
 
