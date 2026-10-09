@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { Card } from "@/components/ui/card"
+import { LoadingState, ErrorState, EmptyState, describeError } from "@/components/ui/request-state"
 import { Maximize2, RefreshCw, AlertTriangle, Network } from "lucide-react"
-import { config, getApiUrl } from "@/lib/config"
+import { apiRequest } from "@/lib/auth"
+import { config } from "@/lib/config"
 
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
     ssr: false,
@@ -54,7 +56,7 @@ export function NetworkGraph({
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
     const [graphData, setGraphData] = useState<GraphData>({ nodes: [], links: [] })
     const [loading, setLoading] = useState(false)
-    const [error, setError] = useState<string | null>(null)
+    const [error, setError] = useState<unknown | null>(null)
     const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null)
 
     const fetchGraphData = useCallback(async () => {
@@ -70,18 +72,10 @@ export function NetworkGraph({
                 include_fraud_only: showFraudOnly.toString(),
             })
             
-            const res = await fetch(getApiUrl(`${config.endpoints.graphData}?${params}`))
-            
-            if (res.ok) {
-                const data: GraphData = await res.json()
-                setGraphData(data)
-            } else {
-                setError("API bağlantısı başarısız")
-            }
+            const data = await apiRequest<GraphData>(`${config.endpoints.graphData}?${params}`)
+            setGraphData(data)
         } catch (e) {
-            console.error("Failed to fetch graph data", e)
-            setError("Bağlantı hatası")
-            setGraphData(generateMockData())
+            setError(e)
         } finally {
             setLoading(false)
         }
@@ -164,10 +158,18 @@ export function NetworkGraph({
 
             {/* Graph Container */}
             <div ref={containerRef} className="flex-1 w-full relative">
-                {error && (
+                {error !== null && displayData.nodes.length > 0 && (
                     <div className="absolute top-2 left-2 right-2 z-10 px-3 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-400 text-xs">
-                        {error} - Demo verisi gösteriliyor
+                        {describeError(error)}
                     </div>
+                )}
+                
+                {loading && displayData.nodes.length === 0 && (
+                    <LoadingState label="Ağ yükleniyor..." />
+                )}
+                
+                {error !== null && !loading && displayData.nodes.length === 0 && (
+                    <ErrorState error={error} onRetry={fetchGraphData} />
                 )}
                 
                 {dimensions.width > 0 && displayData.nodes.length > 0 && (
@@ -209,11 +211,8 @@ export function NetworkGraph({
                     />
                 )}
                 
-                {displayData.nodes.length === 0 && !loading && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500">
-                        <Network className="w-12 h-12 mb-3 opacity-50" />
-                        <p>Henüz işlem verisi yok</p>
-                    </div>
+                {displayData.nodes.length === 0 && !loading && error === null && (
+                    <EmptyState message="Henüz işlem verisi yok" />
                 )}
             </div>
 
@@ -261,38 +260,3 @@ export function NetworkGraph({
     )
 }
 
-function generateMockData(): GraphData {
-    const nodes: GraphNode[] = []
-    const links: GraphEdge[] = []
-    
-    for (let i = 0; i < 30; i++) {
-        const isFraud = Math.random() < 0.15
-        nodes.push({
-            id: `ACC${i.toString().padStart(4, "0")}`,
-            label: `Hesap ${i}`,
-            group: isFraud ? 1 : (Math.random() < 0.3 ? 2 : 0),
-            amount_total: Math.random() * 100000,
-            tx_count: Math.floor(Math.random() * 20) + 1,
-            is_fraud: isFraud,
-        })
-    }
-    
-    for (let i = 0; i < 50; i++) {
-        const sourceIdx = Math.floor(Math.random() * nodes.length)
-        const targetIdx = Math.floor(Math.random() * nodes.length)
-        
-        if (sourceIdx === targetIdx) continue
-        
-        const isFraud = nodes[sourceIdx].is_fraud || nodes[targetIdx].is_fraud
-        
-        links.push({
-            source: nodes[sourceIdx].id,
-            target: nodes[targetIdx].id,
-            amount: Math.random() * 50000,
-            color: isFraud ? "#ef4444" : "#334155",
-            is_fraud: isFraud,
-        })
-    }
-    
-    return { nodes, links, metadata: { is_mock: true } }
-}
