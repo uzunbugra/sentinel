@@ -81,13 +81,16 @@ describe("NetworkGraph", () => {
     expect(graphProps.graphData?.links.length).toBe(2)
   })
 
-  it("shows the error state and recovers via Tekrar dene", async () => {
+  it("falls back to demo data on error and recovers via Tekrar dene", async () => {
     mockApi.mockRejectedValueOnce(new ApiError(0, "Network error"))
 
     render(<NetworkGraph />)
 
     const alert = await screen.findByRole("alert")
     expect(alert).toHaveTextContent("Sunucuya ulaşılamıyor. Bağlantınızı kontrol edin.")
+    expect(alert).toHaveTextContent("Demo verisi gösteriliyor.")
+    expect(screen.getByText("30 düğüm")).toBeInTheDocument()
+    expect(screen.getByTestId("force-graph-stub")).toBeInTheDocument()
 
     mockApi.mockResolvedValue(sampleData())
     await userEvent.click(screen.getByRole("button", { name: "Tekrar dene" }))
