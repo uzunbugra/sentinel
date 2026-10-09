@@ -178,8 +178,8 @@ app = FastAPI(
     description="""
 ## SentinelFlow Real-Time Fraud Detection Platform
 
-**TEKNOFEST 2026 Finans Teknolojileri** yarışması için geliştirilmiş,
-yapay zeka destekli dolandırıcılık tespit platformu.
+Bitirme projesi olarak geliştirilmiş, yapay zeka destekli
+gerçek zamanlı dolandırıcılık tespit platformu.
 
 ### Özellikler
 - **ML Ensemble**: IsolationForest + XGBoost + AutoEncoder ile çoklu model oylama

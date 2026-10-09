@@ -129,7 +129,7 @@ export default function LoginPage() {
         
         {/* Footer */}
         <p className="text-center text-xs text-zinc-600 mt-6">
-          TEKNOFEST 2026 Finans Teknolojileri
+          SentinelFlow &mdash; Bitirme Projesi
         </p>
       </div>
     </div>

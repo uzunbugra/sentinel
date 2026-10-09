@@ -5,7 +5,7 @@
 // NLP blacklist, Isolation Forest) uyumlu, sahte ama inandırıcı uyarı/örneklerle.
 // =============================================================================
 
-export const REPO_URL = "https://github.com/YusuffEren/sentinelflow"
+export const REPO_URL = "https://github.com/uzunbugra/sentinel"
 
 // --- Hızlı erişim rengi token'ları (JS tarafında kullanım için) ---------------
 export const COLORS = {
@@ -171,21 +171,21 @@ export interface SetupStep {
 export const SETUP_STEPS: SetupStep[] = [
   {
     prompt: "~",
-    command: "git clone https://github.com/YusuffEren/sentinelflow.git",
+    command: "git clone https://github.com/uzunbugra/sentinel.git",
     comment: "Repoyu klonla",
   },
   {
-    prompt: "~/sentinelflow",
-    command: "cd sentinelflow && docker-compose up -d",
+    prompt: "~/sentinel",
+    command: "cd sentinel && docker-compose up -d",
     comment: "Kafka, Neo4j, Redis — altyapı ayağa kalkar",
   },
   {
-    prompt: "~/sentinelflow",
+    prompt: "~/sentinel",
     command: "pip install -e \".[dev]\"",
     comment: "Python bağımlılıkları",
   },
   {
-    prompt: "~/sentinelflow",
+    prompt: "~/sentinel",
     command: "sentinelflow-generate --fraud-ratio 0.05",
     comment: "Sentetik işlem akışı başlar → alarmlar düşer",
   },

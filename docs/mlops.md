@@ -530,12 +530,10 @@ card.to_markdown("MODEL_CARD.md")
 
 ---
 
-## 📊 TEKNOFEST İçin Önemli Notlar
+## 📊 Neden Bu Bileşenler?
 
-1. **Experiment Tracking**: Tüm deneyleri loglayın, jüri tekrarlanabilirlik bekler
-2. **Model Registry**: Versiyon kontrolü profesyonellik gösterir
-3. **Drift Detection**: Production-ready sistem kanıtı
-4. **A/B Testing**: Güvenli deployment yaklaşımı
+1. **Experiment Tracking**: Deneylerin tekrarlanabilir olması
+2. **Model Registry**: Model sürümlerinin izlenebilmesi
+3. **Drift Detection**: Üretimde veri/model kaymasının fark edilmesi
+4. **A/B Testing**: Yeni modellerin güvenli devreye alınması
 5. **Model Cards**: Şeffaflık ve dokümantasyon
-
-Bu MLOps altyapısı, projenizi TEKNOFEST'te öne çıkaracak enterprise-grade bir ML operasyonu sağlar! 🏆

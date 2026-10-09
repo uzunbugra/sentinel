@@ -1,12 +1,13 @@
 [project]
 name = "sentinelflow"
 version = "2.1.0"
-description = "Enterprise-Grade Real-Time Financial Fraud Detection System"
+description = "Real-Time Financial Fraud Detection System (Graduation Project)"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
 authors = [
-    {name = "Teknofest Team", email = "team@sentinelflow.dev"}
+    {name = "Buğra Uzun"},
+    {name = "Yusuf Eren Bozkurt"},
 ]
 keywords = [
     "fraud-detection",
@@ -152,9 +153,8 @@ sentinelflow-detect = "sentinelflow.processor.detector:main"
 sentinelflow-dashboard = "sentinelflow.dashboard.app:main"
 
 [project.urls]
-Homepage = "https://github.com/teknofest/sentinelflow"
-Documentation = "https://sentinelflow.readthedocs.io"
-Repository = "https://github.com/teknofest/sentinelflow"
+Homepage = "https://github.com/uzunbugra/sentinel"
+Repository = "https://github.com/uzunbugra/sentinel"
 
 [build-system]
 requires = ["hatchling"]

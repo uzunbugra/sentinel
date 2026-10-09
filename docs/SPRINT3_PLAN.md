@@ -2,7 +2,7 @@
 
 **Tarih:** 12–23 Ekim 2026 (10 iş günü)  
 **Ekip:** 2 geliştirici  
-**Plan tabanı:** `origin/develop` / `6e68986`  
+**Plan tabanı:** `origin/develop` / `fcf3fbf` (yeni repo `uzunbugra/sentinel`, ilk commit)  
 **Sprint teması:** Stabilizasyon + alarmdan vakaya uçtan uca analist iş akışı
 
 ## 1. Sprint hedefi

@@ -2,20 +2,11 @@
 
 <div align="center">
 
-![SentinelFlow Banner](https://img.shields.io/badge/SentinelFlow-Enterprise%20Fraud%20Detection-0A0E17?style=for-the-badge&logo=shield&logoColor=00E5FF)
+**Real-Time Financial Fraud Detection & Anti-Money Laundering (AML) Platform**
 
-**Real-Time Enterprise Financial Fraud Detection & Anti-Money Laundering (AML) Platform**
+*Graduation Project (Bitirme Projesi)*
 
-[![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com)
-[![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org)
-[![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-231F20?style=for-the-badge&logo=apachekafka&logoColor=white)](https://kafka.apache.org)
-[![Neo4j](https://img.shields.io/badge/Neo4j-008CC1?style=for-the-badge&logo=neo4j&logoColor=white)](https://neo4j.com)
-[![Redis](https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io)
-[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com)
-[![PyTest](https://img.shields.io/badge/PyTest-146%20Tests%20Passed-0A9EDC?style=for-the-badge&logo=pytest&logoColor=white)](https://docs.pytest.org)
-[![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge)](https://github.com/psf/black)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+`Python 3.10–3.12` · `FastAPI` · `Next.js 16` · `Apache Kafka` · `Neo4j` · `Redis` · `PostgreSQL` · `Docker`
 
 [Architecture](#-architecture) • [Features](#-key-features) • [Detection Engines](#-fraud-detection-engines) • [Tech Stack](#-technology-stack) • [Quick Start](#-quick-start) • [API Reference](#-api-reference) • [Documentation](#-project-structure)
 
@@ -25,7 +16,7 @@
 
 ## 📋 Overview
 
-**SentinelFlow** is a next-generation, high-throughput, cloud-native financial intelligence and fraud detection engine. Engineered for commercial banks, fintech platforms, and payment providers, SentinelFlow analyzes streaming financial transactions with **sub-100ms latency** to neutralize multi-layer fraud vectors including:
+**SentinelFlow** is a graduation project: a real-time financial fraud detection and AML platform that analyzes streaming transactions and gives analysts an alert-to-case investigation workflow. It targets **sub-100ms** per-transaction analysis and covers multi-layer fraud vectors including:
 
 - 🔄 **Money Laundering Rings (AML)**: Circular fund flow detection ($A \rightarrow B \rightarrow C \rightarrow A$) using graph algorithms.
 - ✈️ **Impossible Travel Anomalies**: Geo-spatial velocity validation across consecutive card/transfer events via Redis Geo.
@@ -143,17 +134,17 @@ flowchart TB
 ## ⚡ Quick Start
 
 ### Prerequisites
-- [Docker & Docker Compose v2.0+](https://docs.docker.com/get-docker/)
-- [Python 3.9+](https://www.python.org/downloads/)
-- [Node.js 18+](https://nodejs.org/) *(for web dashboard)*
+- Docker & Docker Compose v2.0+
+- Python 3.10+
+- Node.js 18+ *(for web dashboard)*
 
 ---
 
 ### 1. Clone & Set Up Environment
 
 ```bash
-git clone https://github.com/YusuffEren/sentinelflow.git
-cd sentinelflow
+git clone https://github.com/uzunbugra/sentinel.git
+cd sentinel
 
 # Copy environment configuration
 cp .env.example .env
@@ -295,7 +286,7 @@ mypy src/
 ## 📂 Project Structure
 
 ```
-sentinelflow/
+sentinel/
 ├── .github/workflows/         # CI/CD & Automated ML Pipeline
 ├── alembic/                   # PostgreSQL Database Migration Scripts
 ├── data/                      # Sample Datasets & Benchmark Files (gitignored, generated)
@@ -354,30 +345,30 @@ Key configuration parameters (set in `.env`):
 
 ## 👥 Team Workflow
 
-This project is set up for multi-developer contribution. Read
-[CONTRIBUTING.md](CONTRIBUTING.md) before your first PR.
+This project is developed by a two-person team. Read `CONTRIBUTING.md` before your
+first PR; the current sprint plan is in `docs/SPRINT3_PLAN.md`.
 
 - **Branching**: `feature/*` → PR → `develop` → release PR → `main` (both protected, CI-gated)
-- **Reviews**: enforced by [.github/CODEOWNERS](.github/CODEOWNERS) per domain
+- **Reviews**: every PR is reviewed by the other team member
 - **API contract**: FastAPI OpenAPI is the single source of truth — after changing routes run
   `python scripts/export_openapi.py` and commit `sentinelflow-web/src/lib/api-schema.ts`;
   CI fails on stale schemas
 - **Quality gates**: black + ruff + mypy (pre-commit), pytest with coverage floor,
   `tsc --noEmit` + ESLint + Next build for the frontend
-- **Decisions**: architectural choices are recorded in [docs/adr/](docs/adr/)
-- **Releases**: documented in [CHANGELOG.md](CHANGELOG.md) (Conventional Commits required)
+- **Decisions**: architectural choices are recorded in `docs/adr/`
+- **Releases**: documented in `CHANGELOG.md` (Conventional Commits required)
 
 ---
 
 ## 📜 License
 
-This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the **MIT License**. See the `LICENSE` file for details.
 
 ---
 
 <div align="center">
 
-Made with ❤️ by **[Yusuf Eren Bozkurt](https://github.com/YusuffEren)**
+**Graduation Project** — Buğra Uzun · Yusuf Eren Bozkurt
 
 *SentinelFlow — Safeguarding Financial Systems with Real-Time Intelligence.*
 

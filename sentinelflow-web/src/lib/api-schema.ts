@@ -8,7 +8,7 @@ export const apiSchema = {
   "openapi": "3.1.0",
   "info": {
     "title": "SentinelFlow - Fraud Detection API",
-    "description": "\n## SentinelFlow Real-Time Fraud Detection Platform\n\n**TEKNOFEST 2026 Finans Teknolojileri** yarışması için geliştirilmiş,\nyapay zeka destekli dolandırıcılık tespit platformu.\n\n### Özellikler\n- **ML Ensemble**: IsolationForest + XGBoost + AutoEncoder ile çoklu model oylama\n- **PostgreSQL**: Kalıcı alert ve case yönetimi\n- **Case Management**: Alert korelasyonu, triage, audit log\n- **WebSocket**: Canlı alert akışı\n- **Explainability**: Neden dolandırıcılık tespit edildiğini açıklar\n\n### API Grupları\n- `/api/v1/alerts` - Alarm listesi ve detayları\n- `/api/v1/cases` - Vaka yönetimi\n- `/api/v1/transactions` - İşlem analizi\n- `/api/v1/system` - Sistem sağlık ve istatistikler\n- `/ws/alerts` - WebSocket canlı alert akışı\n    ",
+    "description": "\n## SentinelFlow Real-Time Fraud Detection Platform\n\nBitirme projesi olarak geliştirilmiş, yapay zeka destekli\ngerçek zamanlı dolandırıcılık tespit platformu.\n\n### Özellikler\n- **ML Ensemble**: IsolationForest + XGBoost + AutoEncoder ile çoklu model oylama\n- **PostgreSQL**: Kalıcı alert ve case yönetimi\n- **Case Management**: Alert korelasyonu, triage, audit log\n- **WebSocket**: Canlı alert akışı\n- **Explainability**: Neden dolandırıcılık tespit edildiğini açıklar\n\n### API Grupları\n- `/api/v1/alerts` - Alarm listesi ve detayları\n- `/api/v1/cases` - Vaka yönetimi\n- `/api/v1/transactions` - İşlem analizi\n- `/api/v1/system` - Sistem sağlık ve istatistikler\n- `/ws/alerts` - WebSocket canlı alert akışı\n    ",
     "version": "2.1.0"
   },
   "paths": {

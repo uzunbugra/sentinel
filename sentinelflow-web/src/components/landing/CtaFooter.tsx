@@ -102,7 +102,7 @@ export function CtaFooter() {
         </div>
         <div className="mx-auto max-w-7xl px-5 sm:px-8 pb-8">
           <p className="text-center sm:text-left text-[11px] font-mono text-muted/60">
-            &copy; {new Date().getFullYear()} YusuffEren &mdash; TEKNOFEST 2026
+            &copy; {new Date().getFullYear()} SentinelFlow &mdash; Bitirme Projesi
           </p>
         </div>
       </div>

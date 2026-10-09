@@ -166,7 +166,7 @@ export function Hero() {
           rel="noreferrer"
           className="font-mono text-[11px] text-muted/70 hover:text-signal transition-colors"
         >
-          github.com/YusuffEren/sentinelflow
+          github.com/uzunbugra/sentinel
         </a>
       </div>
     </section>

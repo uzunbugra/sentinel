@@ -33,7 +33,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # -----------------------------------------------------------------------------
 FROM python:3.11-slim AS production
 
-LABEL maintainer="Teknofest Team <team@sentinelflow.dev>"
+LABEL maintainer="Buğra Uzun, Yusuf Eren Bozkurt"
 LABEL description="SentinelFlow - Real-Time Financial Fraud Detection System"
 LABEL version="2.1.0"
 

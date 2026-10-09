@@ -17,8 +17,7 @@ Modules:
 """
 
 __version__ = "2.1.0"
-__author__ = "Teknofest Team"
-__email__ = "team@sentinelflow.dev"
+__author__ = "Buğra Uzun, Yusuf Eren Bozkurt"
 
 from typing import Final
 
