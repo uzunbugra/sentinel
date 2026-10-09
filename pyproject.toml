@@ -1,0 +1,227 @@
+[project]
+name = "sentinelflow"
+version = "2.1.0"
+description = "Enterprise-Grade Real-Time Financial Fraud Detection System"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Teknofest Team", email = "team@sentinelflow.dev"}
+]
+keywords = [
+    "fraud-detection",
+    "kafka",
+    "neo4j",
+    "redis",
+    "real-time",
+    "machine-learning",
+    "graph-analytics"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+
+dependencies = [
+    # =============================================================================
+    # Core Dependencies
+    # =============================================================================
+    "pydantic[email]>=2.5.0",
+    "pydantic-settings>=2.1.0",
+    "email-validator>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "loguru>=0.7.2",
+    "rich>=13.7.0",
+    
+    # =============================================================================
+    # Kafka - Message Streaming
+    # =============================================================================
+    "confluent-kafka>=2.3.0",
+    "aiokafka>=0.10.0",
+    
+    # =============================================================================
+    # Neo4j - Graph Database
+    # =============================================================================
+    "neo4j>=5.15.0",
+    
+    # =============================================================================
+    # Redis - Cache & Geo Operations
+    # =============================================================================
+    "redis>=5.0.0",
+    "hiredis>=2.3.0",
+    
+    # =============================================================================
+    # PostgreSQL - Primary Database
+    # =============================================================================
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.0",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.0",
+    
+    # =============================================================================
+    # Data Processing & Analysis
+    # =============================================================================
+    "pandas>=2.1.0",
+    "numpy>=1.26.0",
+    "faker>=22.0.0",
+    
+    # =============================================================================
+    # Web Framework & API
+    # =============================================================================
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "httpx>=0.26.0",
+    # Used by the Kafka ingestor, HTTP generator and replay scripts.
+    "requests>=2.31.0",
+    "python-multipart>=0.0.6",
+    
+    # =============================================================================
+    # Dashboard & Visualization
+    # =============================================================================
+    "streamlit>=1.30.0",
+    "plotly>=5.18.0",
+    "networkx>=3.2.0",
+    "matplotlib>=3.8.0",
+    
+    # =============================================================================
+    # Machine Learning & AI Pipeline
+    # =============================================================================
+    "scikit-learn>=1.4.0",
+    "xgboost>=2.0.3",
+    "lightgbm>=4.3.0",
+    "catboost>=1.2.2",
+    "imbalanced-learn>=0.12.0",
+    "shap>=0.44.0",
+    "torch>=2.1.0",
+    
+    # =============================================================================
+    # Graph Neural Networks
+    # =============================================================================
+    "torch-geometric>=2.4.0",
+    
+    # =============================================================================
+    # Federated Learning
+    # =============================================================================
+    "flwr>=1.5.0",
+    
+    # =============================================================================
+    # Security
+    # =============================================================================
+    "python-jose[cryptography]>=3.3.0",
+    "passlib[bcrypt]>=1.7.4",
+    # passlib 1.7.4 is unmaintained and breaks with bcrypt>=4.1
+    # (AttributeError: bcrypt has no __about__, 72-byte truncation errors).
+    "bcrypt>=4.0.1,<4.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "black>=26.5,<27",
+    "ruff>=0.15.22,<0.16",
+    "mypy>=1.8.0",
+    "pre-commit>=3.6.0",
+    "ipython>=8.20.0",
+]
+
+ml = [
+    # Additional ML tools for research/experimentation
+    "optuna>=3.4.0",
+]
+
+benchmark = [
+    # Tools for competition benchmarking
+    "memory-profiler>=0.61.0",
+    "line-profiler>=4.1.0",
+    "py-spy>=0.3.14",
+]
+
+[project.scripts]
+sentinelflow-generate = "sentinelflow.generator.cli:main"
+sentinelflow-detect = "sentinelflow.processor.detector:main"
+sentinelflow-dashboard = "sentinelflow.dashboard.app:main"
+
+[project.urls]
+Homepage = "https://github.com/teknofest/sentinelflow"
+Documentation = "https://sentinelflow.readthedocs.io"
+Repository = "https://github.com/teknofest/sentinelflow"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sentinelflow"]
+
+# =============================================================================
+# Tool Configurations
+# =============================================================================
+
+[tool.black]
+line-length = 100
+# Pin to the lowest supported version: black's AST safety check on a 3.11
+# runner warns/fails when py312 is listed as target.
+target-version = ['py310']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+    \.git
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+]
+ignore = ["E501", "B008", "C901", "E722", "F401", "B018", "B027", "F402", "B904", "C401", "B007", "SIM102", "E402", "B017", "B905", "UP035", "UP006", "UP007", "UP045"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+strict_optional = false
+warn_redundant_casts = false
+warn_unused_ignores = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = "-v --tb=short --strict-markers"
+markers = [
+    "integration: marks tests as integration tests (require external services)",
+    "slow: marks tests as slow running",
+]
