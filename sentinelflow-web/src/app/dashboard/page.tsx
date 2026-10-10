@@ -22,7 +22,9 @@ import Link from "next/link"
 import { AnimatePresence, motion } from "motion/react"
 
 import { useWebSocket } from "@/hooks/use-websocket"
-import { config, getApiUrl } from "@/lib/config"
+import { config } from "@/lib/config"
+import { apiRequest } from "@/lib/auth"
+import { describeError } from "@/components/ui/request-state"
 import { cn } from "@/lib/utils"
 import { fraudLabel, type Alert3D } from "@/components/3d/types"
 import {
@@ -49,6 +51,14 @@ function PanelLoader({ label }: { label: string }) {
       </div>
     </div>
   )
+}
+
+// --- Backend istatistikleri (/api/v1/system/stats) ---------------------------
+interface Stats {
+  transactions_processed: number
+  fraud_detected: number
+  fraud_rate: number
+  uptime_seconds: number
 }
 
 // --- Demo veri ureteci (backend yoksa) ---------------------------------------
@@ -198,18 +208,20 @@ export default function DashboardPage() {
     uptime_seconds: 0,
   })
   const [backendUp, setBackendUp] = useState(false)
+  const [statsError, setStatsError] = useState<unknown>(null)
 
   useEffect(() => {
     let alive = true
     const fetchStats = async () => {
       try {
-        const res = await fetch(getApiUrl(config.endpoints.stats))
-        if (res.ok && alive) {
-          setStats(await res.json())
-          setBackendUp(true)
-        }
-      } catch {
-        if (alive) setBackendUp(false)
+        const data = await apiRequest<Stats>(config.endpoints.stats)
+        if (!alive) return
+        setStats(data)
+        setBackendUp(true)
+        setStatsError(null)
+      } catch (err) {
+        // Polling hatasi onceki istatistikleri silmez; sadece hata gosterilir.
+        if (alive) setStatsError(err)
       }
     }
     fetchStats()
@@ -265,6 +277,7 @@ export default function DashboardPage() {
       <DashboardHeader
         isLive={isLive}
         backendUp={backendUp}
+        statsError={statsError}
       />
       <DashboardBody
         txValue={txValue}
@@ -281,9 +294,11 @@ export default function DashboardPage() {
 function DashboardHeader({
   isLive,
   backendUp,
+  statsError,
 }: {
   isLive: boolean
   backendUp: boolean
+  statsError: unknown
 }) {
   return (
     <header className="sticky top-0 z-40 h-14 border-b border-line bg-base/80 backdrop-blur-md flex items-center justify-between px-5">
@@ -304,6 +319,17 @@ function DashboardHeader({
         </span>
       </div>
       <div className="flex items-center gap-3">
+        {statsError !== null && (
+          <span
+            role="alert"
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-alarm/40 bg-alarm/10"
+          >
+            <ShieldAlert className="w-3 h-3 text-alarm" />
+            <span className="text-[10px] font-mono text-alarm">
+              {describeError(statsError)}
+            </span>
+          </span>
+        )}
         <div className="flex items-center gap-2 px-2.5 py-1 rounded-md border border-line bg-base-2/60">
           <span
             className={cn(

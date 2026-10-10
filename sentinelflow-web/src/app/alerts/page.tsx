@@ -18,6 +18,14 @@ import {
   Link as LinkIcon
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { apiRequest, canWrite } from "@/lib/auth"
+import { useAuth } from "@/contexts/auth-context"
+import {
+  LoadingState,
+  ErrorState,
+  EmptyState,
+  describeError,
+} from "@/components/ui/request-state"
 
 interface Alert {
   alert_id: string
@@ -47,7 +55,7 @@ interface AlertsResponse {
   alerts: Alert[]
 }
 
-import { config, getApiUrl } from "@/lib/config"
+import { config } from "@/lib/config"
 
 const severityColors: Record<string, string> = {
   low: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
@@ -69,9 +77,11 @@ const fraudTypeLabels: Record<string, string> = {
 
 export default function AlertsPage() {
   const { isConnected, alerts: wsAlerts } = useWebSocket()
+  const { user } = useAuth()
   
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [loading, setLoading] = useState(true)
+  const [listError, setListError] = useState<unknown>(null)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [pageSize] = useState(20)
@@ -82,9 +92,11 @@ export default function AlertsPage() {
   
   // Selected alert for detail view
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null)
+  const [dismissError, setDismissError] = useState<unknown>(null)
   
   const fetchAlerts = useCallback(async () => {
     setLoading(true)
+    setListError(null)
     try {
       const params = new URLSearchParams({
         page: page.toString(),
@@ -94,14 +106,11 @@ export default function AlertsPage() {
       if (severityFilter) params.append("severity", severityFilter)
       if (fraudTypeFilter) params.append("fraud_type", fraudTypeFilter)
       
-      const res = await fetch(getApiUrl(`${config.endpoints.alerts}?${params}`))
-      if (res.ok) {
-        const data: AlertsResponse = await res.json()
-        setAlerts(data.alerts)
-        setTotal(data.total)
-      }
+      const data = await apiRequest<AlertsResponse>(`${config.endpoints.alerts}?${params}`)
+      setAlerts(data.alerts)
+      setTotal(data.total)
     } catch (e) {
-      console.error("Failed to fetch alerts", e)
+      setListError(e)
     } finally {
       setLoading(false)
     }
@@ -147,23 +156,19 @@ export default function AlertsPage() {
   }, [wsAlerts, page, alerts, pageSize])
   
   const handleDismiss = async (alertId: string) => {
+    setDismissError(null)
     try {
-      const res = await fetch(
-        getApiUrl(config.endpoints.alertDismiss(alertId)),
-        { method: "POST" }
-      )
-      if (res.ok) {
-        setAlerts((prev) =>
-          prev.map((a) =>
-            a.alert_id === alertId ? { ...a, is_dismissed: true } : a
-          )
+      await apiRequest(config.endpoints.alertDismiss(alertId), { method: "POST" })
+      setAlerts((prev) =>
+        prev.map((a) =>
+          a.alert_id === alertId ? { ...a, is_dismissed: true } : a
         )
-        if (selectedAlert?.alert_id === alertId) {
-          setSelectedAlert({ ...selectedAlert, is_dismissed: true })
-        }
+      )
+      if (selectedAlert?.alert_id === alertId) {
+        setSelectedAlert({ ...selectedAlert, is_dismissed: true })
       }
     } catch (e) {
-      console.error("Failed to dismiss alert", e)
+      setDismissError(e)
     }
   }
   
@@ -226,14 +231,11 @@ export default function AlertsPage() {
             <div className="flex-1 bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
               <div className="flex-1 overflow-auto">
                 {loading && alerts.length === 0 ? (
-                  <div className="flex items-center justify-center h-full">
-                    <RefreshCw className="h-8 w-8 text-zinc-600 animate-spin" />
-                  </div>
+                  <LoadingState label="Alarmlar yükleniyor..." />
+                ) : listError && alerts.length === 0 ? (
+                  <ErrorState error={listError} onRetry={fetchAlerts} />
                 ) : alerts.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-zinc-500">
-                    <ShieldAlert className="h-12 w-12 mb-3 opacity-50" />
-                    <p>Alarm bulunamadı</p>
-                  </div>
+                  <EmptyState message="Alarm bulunamadı" />
                 ) : (
                   <div className="divide-y divide-zinc-800">
                     {alerts.map((alert) => (
@@ -411,7 +413,13 @@ export default function AlertsPage() {
                     
                     {/* Actions */}
                     <div className="flex flex-col gap-2">
-                      {!selectedAlert.is_dismissed && (
+                      {dismissError !== null && (
+                        <p className="text-center text-xs text-red-400">
+                          {describeError(dismissError)}
+                        </p>
+                      )}
+                      
+                      {!selectedAlert.is_dismissed && canWrite(user) && (
                         <button
                           onClick={() => handleDismiss(selectedAlert.alert_id)}
                           className="flex items-center justify-center gap-2 w-full py-2 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors"
@@ -421,7 +429,7 @@ export default function AlertsPage() {
                         </button>
                       )}
                       
-                      {!selectedAlert.case_id && (
+                      {!selectedAlert.case_id && canWrite(user) && (
                         <button className="flex items-center justify-center gap-2 w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors">
                           <LinkIcon className="h-4 w-4" />
                           Vaka Oluştur

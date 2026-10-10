@@ -3,18 +3,22 @@
 // =============================================================================
 // Centralized configuration for API endpoints and environment settings
 
-const getEnvVar = (key: string, defaultValue: string): string => {
-  if (typeof window !== "undefined") {
-    return (process.env[key] as string) || defaultValue
-  }
-  return process.env[key] || defaultValue
+// Next.js only inlines `process.env.NEXT_PUBLIC_*` into the browser bundle when
+// each variable is accessed literally; a dynamic `process.env[key]` lookup is
+// always undefined on the client and silently falls back to the default.
+const env = {
+  apiUrl: process.env.NEXT_PUBLIC_API_URL,
+  wsUrl: process.env.NEXT_PUBLIC_WS_URL,
+  enableAiChat: process.env.NEXT_PUBLIC_ENABLE_AI_CHAT,
+  enableNetworkGraph: process.env.NEXT_PUBLIC_ENABLE_NETWORK_GRAPH,
+  enableAuth: process.env.NEXT_PUBLIC_ENABLE_AUTH,
 }
 
 export const config = {
   // API Configuration
   api: {
-    baseUrl: getEnvVar("NEXT_PUBLIC_API_URL", "http://127.0.0.1:8000"),
-    wsUrl: getEnvVar("NEXT_PUBLIC_WS_URL", "ws://127.0.0.1:8000"),
+    baseUrl: env.apiUrl || "http://127.0.0.1:8000",
+    wsUrl: env.wsUrl || "ws://127.0.0.1:8000",
   },
 
   // API Endpoints
@@ -63,9 +67,11 @@ export const config = {
 
   // Feature Flags
   features: {
-    enableAiChat: getEnvVar("NEXT_PUBLIC_ENABLE_AI_CHAT", "true") === "true",
-    enableNetworkGraph: getEnvVar("NEXT_PUBLIC_ENABLE_NETWORK_GRAPH", "true") === "true",
-    enableAuth: getEnvVar("NEXT_PUBLIC_ENABLE_AUTH", "false") === "true",
+    enableAiChat: env.enableAiChat !== "false",
+    enableNetworkGraph: env.enableNetworkGraph !== "false",
+    // The backend always requires a JWT on data routes, so auth is on unless
+    // explicitly disabled.
+    enableAuth: env.enableAuth !== "false",
   },
 
   // UI Settings

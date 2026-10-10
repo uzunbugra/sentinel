@@ -119,7 +119,7 @@ flowchart TB
 - **Core ML**: scikit-learn, XGBoost, LightGBM, CatBoost
 - **Deep Learning & Graph**: PyTorch, PyTorch Geometric, AutoEncoder models
 - **Explainability**: SHAP (SHapley Additive exPlanations)
-- **Federated Learning**: Flower (Flwr)
+- **Federated Learning**: built-in FedAvg simulator; Flower adapter via the optional `pip install -e ".[federated]"` extra
 
 ### Streaming & Graph Storage
 - **Message Broker**: Apache Kafka 7.5.0 + Zookeeper
