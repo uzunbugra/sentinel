@@ -2,7 +2,9 @@
 
 import { useState, useRef, useEffect } from "react"
 import { Bot, Send, ChevronUp, ChevronDown, Sparkles } from "lucide-react"
-import { config, getApiUrl } from "@/lib/config"
+import { config } from "@/lib/config"
+import { apiRequest } from "@/lib/auth"
+import { describeError } from "@/components/ui/request-state"
 
 interface Message {
   role: "user" | "assistant"
@@ -32,23 +34,17 @@ export function AiChat() {
     setIsExpanded(true)
 
     try {
-      const res = await fetch(getApiUrl(config.endpoints.chat), {
+      const data = await apiRequest<{ response: string }>(config.endpoints.chat, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMsg,
-          context: { amount: 150000, fraud_type: "whale_anomaly" }
-        })
+          context: { amount: 150000, fraud_type: "whale_anomaly" },
+        }),
       })
 
-      if (res.ok) {
-        const data = await res.json()
-        setMessages(prev => [...prev, { role: "assistant", content: data.response }])
-      } else {
-        setMessages(prev => [...prev, { role: "assistant", content: "AI servisine bağlanılamıyor. Lütfen tekrar deneyin." }])
-      }
-    } catch {
-      setMessages(prev => [...prev, { role: "assistant", content: "Bağlantı hatası. Lütfen tekrar deneyin." }])
+      setMessages(prev => [...prev, { role: "assistant", content: data.response }])
+    } catch (err) {
+      setMessages(prev => [...prev, { role: "assistant", content: describeError(err) }])
     } finally {
       setIsTyping(false)
     }

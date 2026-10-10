@@ -9,7 +9,8 @@ import {
   logout as authLogout, 
   refreshTokens,
   login as authLogin,
-  fetchCurrentUser
+  fetchCurrentUser,
+  setSessionExpiredHandler
 } from "@/lib/auth"
 import { config } from "@/lib/config"
 
@@ -24,7 +25,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-const PUBLIC_PATHS = ["/login", "/register"]
+// Pages a signed-in user is sent away from.
+const AUTH_PAGES = ["/login", "/register"]
+// The landing page stays open; everything else needs a session.
+const PUBLIC_PATHS = ["/", ...AUTH_PAGES]
+const HOME_PATH = "/dashboard"
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
@@ -35,7 +40,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   const isPublicPath = PUBLIC_PATHS.includes(pathname)
   const authEnabled = config.features.enableAuth
-  
+
+  // fetchWithAuth calls this once refresh has failed; tokens are already cleared.
+  useEffect(() => {
+    setSessionExpiredHandler(() => {
+      setUser(null)
+      router.push("/login")
+    })
+    return () => setSessionExpiredHandler(null)
+  }, [router])
+
   useEffect(() => {
     const checkAuth = async () => {
       if (!authEnabled) {
@@ -50,8 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(storedUser)
         setIsLoading(false)
         
-        if (isPublicPath) {
-          router.push("/")
+        if (AUTH_PAGES.includes(pathname)) {
+          router.push(HOME_PATH)
         }
       } else if (token) {
         try {
@@ -82,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (username: string, password: string) => {
     const loggedInUser = await authLogin(username, password)
     setUser(loggedInUser)
-    router.push("/")
+    router.push(HOME_PATH)
   }, [router])
   
   const logout = useCallback(async () => {

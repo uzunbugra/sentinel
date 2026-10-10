@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { Card } from "@/components/ui/card"
+import { LoadingState, EmptyState, describeError } from "@/components/ui/request-state"
 import { Maximize2, RefreshCw, AlertTriangle, Network } from "lucide-react"
-import { config, getApiUrl } from "@/lib/config"
+import { apiRequest } from "@/lib/auth"
+import { config } from "@/lib/config"
 
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
     ssr: false,
@@ -54,7 +56,7 @@ export function NetworkGraph({
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
     const [graphData, setGraphData] = useState<GraphData>({ nodes: [], links: [] })
     const [loading, setLoading] = useState(false)
-    const [error, setError] = useState<string | null>(null)
+    const [error, setError] = useState<unknown | null>(null)
     const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null)
 
     const fetchGraphData = useCallback(async () => {
@@ -70,17 +72,11 @@ export function NetworkGraph({
                 include_fraud_only: showFraudOnly.toString(),
             })
             
-            const res = await fetch(getApiUrl(`${config.endpoints.graphData}?${params}`))
-            
-            if (res.ok) {
-                const data: GraphData = await res.json()
-                setGraphData(data)
-            } else {
-                setError("API bağlantısı başarısız")
-            }
+            const data = await apiRequest<GraphData>(`${config.endpoints.graphData}?${params}`)
+            setGraphData(data)
         } catch (e) {
-            console.error("Failed to fetch graph data", e)
-            setError("Bağlantı hatası")
+            // Demo icin panel bos kalmasin: hata gosterilir, yerine sahte veri cizilir.
+            setError(e)
             setGraphData(generateMockData())
         } finally {
             setLoading(false)
@@ -164,10 +160,25 @@ export function NetworkGraph({
 
             {/* Graph Container */}
             <div ref={containerRef} className="flex-1 w-full relative">
-                {error && (
-                    <div className="absolute top-2 left-2 right-2 z-10 px-3 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-400 text-xs">
-                        {error} - Demo verisi gösteriliyor
+                {error !== null && (
+                    <div
+                        role="alert"
+                        className="absolute top-2 left-2 right-2 z-10 flex items-center justify-between gap-2 px-3 py-2 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-400 text-xs"
+                    >
+                        <span>{describeError(error)} Demo verisi gösteriliyor.</span>
+                        <button
+                            type="button"
+                            onClick={fetchGraphData}
+                            disabled={loading}
+                            className="shrink-0 underline hover:text-yellow-300 disabled:opacity-50"
+                        >
+                            Tekrar dene
+                        </button>
                     </div>
+                )}
+
+                {loading && displayData.nodes.length === 0 && (
+                    <LoadingState label="Ağ yükleniyor..." />
                 )}
                 
                 {dimensions.width > 0 && displayData.nodes.length > 0 && (
@@ -209,11 +220,8 @@ export function NetworkGraph({
                     />
                 )}
                 
-                {displayData.nodes.length === 0 && !loading && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500">
-                        <Network className="w-12 h-12 mb-3 opacity-50" />
-                        <p>Henüz işlem verisi yok</p>
-                    </div>
+                {displayData.nodes.length === 0 && !loading && error === null && (
+                    <EmptyState message="Henüz işlem verisi yok" />
                 )}
             </div>
 
