@@ -45,7 +45,7 @@ class CaseCreate(ContractBase):
     description: str = Field(default="", max_length=5000)
 
     # Initial alerts
-    alert_ids: list[str] = Field(default_factory=list, min_length=1)
+    alert_ids: list[str] = Field(..., min_length=1)
 
     # Priority (can be auto-calculated from alerts)
     priority: CasePriority = Field(default=CasePriority.P3_MEDIUM)

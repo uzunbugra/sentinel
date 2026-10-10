@@ -342,3 +342,11 @@ class TestEventsAndSla:
         model.sla_due_at = datetime.now(timezone.utc) - timedelta(minutes=1)
         session.commit()
         assert svc.update_case(case.case_id, CaseUpdate(), actor=ACTOR).sla_breached is True
+
+
+class TestCreateContract:
+    def test_alert_ids_are_required(self):
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError, match="alert_ids"):
+            CaseCreate(title="No alerts")

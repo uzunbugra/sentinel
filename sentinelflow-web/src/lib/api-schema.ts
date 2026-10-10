@@ -2877,7 +2877,8 @@ export const apiSchema = {
         },
         "type": "object",
         "required": [
-          "title"
+          "title",
+          "alert_ids"
         ],
         "title": "CaseCreate",
         "description": "Schema for creating a new case.\nCases are created from correlated alerts."
