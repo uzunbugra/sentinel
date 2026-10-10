@@ -17,8 +17,9 @@ generator ile yenilenir ve fixture ile gerçek şema arasındaki fark kaldırıl
   | `GET` liste / detay / istatistik / olaylar | ✅ | ✅ | ✅ |
   | `POST` / `PATCH` (oluşturma, bağlama, durum, atama, not) | `403` | ✅ | ✅ |
 
-- **Tarih formatı:** API her zaman UTC döner, ISO-8601 ve `Z` sonekiyle:
-  `"2026-10-12T09:15:02.123456Z"`. Europe/Istanbul dönüşümü frontend'dedir.
+- **Tarih formatı:** API her zaman UTC döner, offset'li ISO-8601 olarak:
+  `"2026-10-12T09:15:02.123456+00:00"` (`new Date(...)` doğrudan okur).
+  Europe/Istanbul dönüşümü frontend'dedir.
 - **Hata gövdesi:** `401/403/404` için FastAPI varsayılanı `{"detail": "<mesaj>"}`.
   `409` ve iş kuralı kaynaklı `422` için yapılandırılmış gövde:
 
@@ -147,7 +148,7 @@ Yanıt `200`:
       "previous_value": null,
       "new_value": null,
       "alert_id": null,
-      "created_at": "2026-10-12T09:15:02.123456Z"
+      "created_at": "2026-10-12T09:15:02.123456+00:00"
     }
   ]
 }

@@ -827,8 +827,8 @@ export const apiSchema = {
         "tags": [
           "Cases"
         ],
-        "summary": "Create a new case",
-        "description": "Create a new investigation case from alerts.",
+        "summary": "Create a case from alerts",
+        "description": "Atomically creates a case and links the given alerts. Writes `case_created` followed by one `alert_linked_to_case` event per alert.",
         "operationId": "create_case_api_v1_cases_post",
         "security": [
           {
@@ -846,7 +846,7 @@ export const apiSchema = {
           }
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -856,15 +856,21 @@ export const apiSchema = {
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "404": {
+            "description": "Case or alert not found"
+          },
+          "409": {
+            "description": "Conflicts with the current case state",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ApiErrorResponse"
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation error or business rule violation"
           }
         }
       }
@@ -946,7 +952,7 @@ export const apiSchema = {
           "Cases"
         ],
         "summary": "Update case",
-        "description": "Update case fields.",
+        "description": "Change status, priority, assignment and/or add a note; one event per change.",
         "operationId": "update_case_api_v1_cases__case_id__patch",
         "security": [
           {
@@ -985,15 +991,21 @@ export const apiSchema = {
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
+          "404": {
+            "description": "Case or alert not found"
+          },
+          "409": {
+            "description": "Conflicts with the current case state",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ApiErrorResponse"
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation error or business rule violation"
           }
         }
       }
@@ -1027,6 +1039,7 @@ export const apiSchema = {
             "required": true,
             "schema": {
               "type": "string",
+              "minLength": 1,
               "description": "Username to assign to",
               "title": "Assigned To"
             },
@@ -1062,6 +1075,80 @@ export const apiSchema = {
               }
             }
           },
+          "404": {
+            "description": "Case or alert not found"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/cases/{case_id}/alerts": {
+      "post": {
+        "tags": [
+          "Cases"
+        ],
+        "summary": "Link an alert to a case",
+        "description": "Idempotent: linking an alert that is already in this case returns 200.",
+        "operationId": "link_alert_api_v1_cases__case_id__alerts_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseAlertLink"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Case"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Case or alert not found"
+          },
+          "409": {
+            "description": "Conflicts with the current case state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -1080,9 +1167,10 @@ export const apiSchema = {
         "tags": [
           "Cases"
         ],
-        "summary": "Add alert to case",
-        "description": "Add an alert to an existing case.",
+        "summary": "Add alert to case (deprecated)",
+        "description": "Deprecated alias of `POST /cases/{case_id}/alerts`.",
         "operationId": "add_alert_to_case_api_v1_cases__case_id__add_alert__alert_id__post",
+        "deprecated": true,
         "security": [
           {
             "HTTPBearer": []
@@ -1113,7 +1201,22 @@ export const apiSchema = {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/Case"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Case or alert not found"
+          },
+          "409": {
+            "description": "Conflicts with the current case state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
               }
             }
           },
@@ -1136,7 +1239,7 @@ export const apiSchema = {
           "Cases"
         ],
         "summary": "Get case events (audit log)",
-        "description": "Get audit log events for a case.",
+        "description": "Audit timeline, newest first. Timestamps are UTC.",
         "operationId": "get_case_events_api_v1_cases__case_id__events_get",
         "security": [
           {
@@ -1183,7 +1286,7 @@ export const apiSchema = {
             "schema": {
               "anyOf": [
                 {
-                  "type": "string"
+                  "$ref": "#/components/schemas/EventType"
                 },
                 {
                   "type": "null"
@@ -1198,9 +1301,14 @@ export const apiSchema = {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CaseEventListResponse"
+                }
               }
             }
+          },
+          "404": {
+            "description": "Case or alert not found"
           },
           "422": {
             "description": "Validation Error",
@@ -2278,6 +2386,94 @@ export const apiSchema = {
         "title": "AlertListResponse",
         "description": "Paginated list of alerts."
       },
+      "ApiErrorDetail": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "Stable error code, e.g. alert_already_linked"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "alert_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alert Id"
+          },
+          "case_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Id"
+          },
+          "field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field"
+          },
+          "from_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Status"
+          },
+          "to_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ApiErrorDetail",
+        "description": "Machine-readable error for 409 and business-rule 422 responses."
+      },
+      "ApiErrorResponse": {
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/ApiErrorDetail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "ApiErrorResponse",
+        "description": "Error envelope used by the case workflow endpoints."
+      },
       "BatchRiskRequest": {
         "properties": {
           "transactions": {
@@ -2595,6 +2791,22 @@ export const apiSchema = {
         "title": "Case",
         "description": "Full case record with database fields."
       },
+      "CaseAlertLink": {
+        "properties": {
+          "alert_id": {
+            "type": "string",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Alert Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "alert_id"
+        ],
+        "title": "CaseAlertLink",
+        "description": "Request body for linking an existing alert to a case."
+      },
       "CaseCreate": {
         "properties": {
           "title": {
@@ -2669,6 +2881,114 @@ export const apiSchema = {
         ],
         "title": "CaseCreate",
         "description": "Schema for creating a new case.\nCases are created from correlated alerts."
+      },
+      "CaseEventListResponse": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/CaseEventOut"
+            },
+            "type": "array",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "CaseEventListResponse",
+        "description": "Paginated audit timeline, newest first."
+      },
+      "CaseEventOut": {
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "title": "Event Id"
+          },
+          "case_id": {
+            "type": "string",
+            "title": "Case Id"
+          },
+          "event_type": {
+            "$ref": "#/components/schemas/EventType"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor"
+          },
+          "actor_type": {
+            "type": "string",
+            "title": "Actor Type"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "previous_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Value"
+          },
+          "new_value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Value"
+          },
+          "alert_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alert Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "event_id",
+          "case_id",
+          "event_type",
+          "actor",
+          "actor_type",
+          "created_at"
+        ],
+        "title": "CaseEventOut",
+        "description": "Audit timeline entry as served by the API (no IP / user-agent)."
       },
       "CaseListResponse": {
         "properties": {
@@ -2947,6 +3267,28 @@ export const apiSchema = {
         ],
         "title": "DetectorType",
         "description": "Types of detection engines."
+      },
+      "EventType": {
+        "type": "string",
+        "enum": [
+          "case_created",
+          "case_assigned",
+          "case_status_changed",
+          "case_priority_changed",
+          "case_escalated",
+          "case_closed",
+          "alert_created",
+          "alert_linked_to_case",
+          "alert_dismissed",
+          "note_added",
+          "tag_added",
+          "tag_removed",
+          "evidence_added",
+          "str_generated",
+          "str_submitted"
+        ],
+        "title": "EventType",
+        "description": "Audit event types for case_events table."
       },
       "Evidence": {
         "properties": {

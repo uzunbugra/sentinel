@@ -47,10 +47,15 @@ class EventRepository:
         extra_data: dict[str, Any] | None = None,
         ip_address: str | None = None,
         user_agent: str | None = None,
+        created_at: datetime | None = None,
     ) -> CaseEvent:
-        """Create a new audit event (sync)."""
+        """Create a new audit event (sync).
+
+        ``created_at`` lets a unit of work pass strictly increasing timestamps so
+        events written in one request keep their order in the timeline.
+        """
         event_id = generate_event_id()
-        now = datetime.now(timezone.utc)
+        now = created_at or datetime.now(timezone.utc)
 
         event_type_val = event_type.value if isinstance(event_type, EventType) else event_type
 
@@ -174,7 +179,7 @@ class EventRepository:
 
         total = self._session.execute(count_stmt).scalar() or 0
 
-        stmt = stmt.order_by(desc(CaseEventModel.created_at))
+        stmt = stmt.order_by(desc(CaseEventModel.created_at), desc(CaseEventModel.event_id))
         stmt = stmt.offset((page - 1) * page_size).limit(page_size)
 
         result = self._session.execute(stmt)
