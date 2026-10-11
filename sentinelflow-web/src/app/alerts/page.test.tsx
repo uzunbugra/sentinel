@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import userEvent from "@testing-library/user-event"
-import { render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import type { User } from "@/lib/auth"
 
 const mocks = vi.hoisted(() => ({
@@ -88,6 +88,154 @@ const emptyResponse = {
 beforeEach(() => {
   mocks.user = null
   mockApi.mockReset()
+})
+
+describe("Alarmdan vaka akışı", () => {
+  const caseResponse = { case_id: "CASE-123", title: "İnceleme" }
+
+  async function openDialog(alert = sampleAlert) {
+    mocks.user = analyst
+    mockApi.mockResolvedValueOnce({ ...listResponse, alerts: [alert] })
+    render(<AlertsPage />)
+    const user = userEvent.setup()
+    await user.click(await screen.findByText("Ali Yılmaz → Ayşe Demir"))
+    await user.click(screen.getByRole("button", { name: "Vaka Oluştur" }))
+    return { user, dialog: within(screen.getByRole("dialog")) }
+  }
+
+  it("yeni vaka için doğru POST gövdesini gönderir, satır ve seçili alarmı günceller", async () => {
+    const { user, dialog } = await openDialog()
+    expect(dialog.getByLabelText("Başlık")).toHaveValue("Mule Hesap — Ali Yılmaz")
+    await user.clear(dialog.getByLabelText("Başlık"))
+    await user.type(dialog.getByLabelText("Başlık"), "  Transfer incelemesi  ")
+    await user.selectOptions(dialog.getByLabelText("Öncelik"), "P2")
+    await user.type(dialog.getByLabelText("Açıklama (isteğe bağlı)"), "İncelenecek")
+    mockApi.mockResolvedValueOnce(caseResponse)
+    await user.click(dialog.getByRole("button", { name: "Vaka oluştur" }))
+    expect(mockApi).toHaveBeenLastCalledWith(config.endpoints.cases, {
+      method: "POST",
+      body: JSON.stringify({ title: "Transfer incelemesi", description: "İncelenecek", priority: "P2", alert_ids: ["alert-1"] }),
+    })
+    expect(screen.queryByRole("dialog")).toBeNull()
+    expect(screen.getByRole("link", { name: "CASE-123" })).toHaveAttribute("href", "/cases/CASE-123")
+    // Reselecting reads the updated list item rather than selectedAlert state.
+    await user.click(screen.getByText("Ali Yılmaz → Ayşe Demir"))
+    expect(screen.getByRole("link", { name: "CASE-123" })).toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: "Vaka Oluştur" })).toBeNull()
+  })
+
+  it("açık vakaları listeler ve seçilen vakaya alarmı bağlar", async () => {
+    const { user, dialog } = await openDialog()
+    mockApi.mockResolvedValueOnce({ cases: [caseResponse] })
+    await user.click(dialog.getByLabelText("Mevcut vakaya bağla"))
+    expect(mockApi).toHaveBeenLastCalledWith("/api/v1/cases?is_open=true&page_size=100")
+    await user.selectOptions(await dialog.findByLabelText("Açık vaka"), "CASE-123")
+    mockApi.mockResolvedValueOnce(caseResponse)
+    await user.click(dialog.getByRole("button", { name: "Alarmı bağla" }))
+    expect(mockApi).toHaveBeenLastCalledWith(config.endpoints.caseAlerts("CASE-123"), {
+      method: "POST", body: JSON.stringify({ alert_id: "alert-1" }),
+    })
+    expect(screen.queryByRole("dialog")).toBeNull()
+    expect(screen.getByRole("link", { name: "CASE-123" })).toBeInTheDocument()
+  })
+
+  it("art arda iki gönderimde yalnızca tek POST başlatır", async () => {
+    const { dialog } = await openDialog()
+    let resolve!: (value: typeof caseResponse) => void
+    mockApi.mockReturnValueOnce(new Promise((done) => { resolve = done }))
+    const button = dialog.getByRole("button", { name: "Vaka oluştur" })
+    act(() => { fireEvent.click(button); fireEvent.click(button) })
+    expect(mockApi.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(1)
+    expect(button).toBeDisabled()
+    await act(async () => { resolve(caseResponse) })
+    expect(screen.queryByRole("dialog")).toBeNull()
+  })
+
+  it("409 alert_already_linked mesajını ve vaka bağlantısını gösterip alarmı günceller", async () => {
+    const { user, dialog } = await openDialog()
+    mockApi.mockRejectedValueOnce(new ApiError(409, "Request failed (409)", {
+      code: "alert_already_linked", message: "Already linked", case_id: "CASE-456",
+    }))
+    await user.click(dialog.getByRole("button", { name: "Vaka oluştur" }))
+    expect(dialog.getByRole("alert")).toHaveTextContent("Bu alarm zaten CASE-456 vakasına bağlı.")
+    expect(dialog.getByRole("link")).toHaveAttribute("href", "/cases/CASE-456")
+    expect(dialog.getByRole("button", { name: "Vaka oluştur" })).toBeDisabled()
+    await user.click(dialog.getByRole("button", { name: "Kapat" }))
+    await user.click(screen.getByText("Ali Yılmaz → Ayşe Demir"))
+    expect(screen.getByRole("link", { name: "CASE-456" })).toHaveAttribute("href", "/cases/CASE-456")
+    expect(screen.queryByRole("button", { name: "Vaka Oluştur" })).toBeNull()
+  })
+
+  it.each([
+    [new ApiError(409, "Request failed (409)", { code: "alert_dismissed", message: "dismissed" }), "Reddedilmiş alarm vakaya bağlanamaz."],
+    [new ApiError(409, "Request failed (409)", { code: "case_not_open", message: "closed" }), "Seçilen vaka kapalı; alarm eklenemez."],
+    [new ApiError(422, "Request failed (422)", [{ msg: "invalid" }]), "Gönderilen bilgiler geçersiz."],
+    [new ApiError(403, "Forbidden"), "Bu işlem için yetkiniz yok."],
+    [new ApiError(404, "Not found"), "Kayıt bulunamadı."],
+    [new ApiError(0, "Network error"), "Sunucuya ulaşılamıyor. Bağlantınızı kontrol edin."],
+  ])("%s hatasında mesaj gösterir ve diyaloğu açık tutar", async (error, message) => {
+    const { user, dialog } = await openDialog()
+    mockApi.mockRejectedValueOnce(error)
+    await user.click(dialog.getByRole("button", { name: "Vaka oluştur" }))
+    expect(dialog.getByRole("alert")).toHaveTextContent(message)
+    expect(screen.getByRole("dialog")).toBeInTheDocument()
+    expect(dialog.getByRole("button", { name: "Vaka oluştur" })).toBeEnabled()
+  })
+
+  it("reddedilmiş alarmda vaka düğmesini göstermez", async () => {
+    mocks.user = analyst
+    mockApi.mockResolvedValueOnce({ ...listResponse, alerts: [{ ...sampleAlert, is_dismissed: true }] })
+    render(<AlertsPage />)
+    await userEvent.setup().click(await screen.findByText("Ali Yılmaz → Ayşe Demir"))
+    expect(screen.queryByRole("button", { name: "Vaka Oluştur" })).toBeNull()
+  })
+
+  it("boş veya yalnızca boşluk içeren başlık gönderilemez", async () => {
+    const { user, dialog } = await openDialog()
+    await user.clear(dialog.getByLabelText("Başlık"))
+    expect(dialog.getByRole("button", { name: "Vaka oluştur" })).toBeDisabled()
+    await user.type(dialog.getByLabelText("Başlık"), "   ")
+    expect(dialog.getByRole("button", { name: "Vaka oluştur" })).toBeDisabled()
+    fireEvent.submit(dialog.getByRole("button", { name: "Vaka oluştur" }).closest("form")!)
+    expect(mockApi.mock.calls.filter(([, options]) => options?.method === "POST")).toHaveLength(0)
+  })
+
+  it("açık vaka yüklenirken ve liste boşken gönderimi engeller", async () => {
+    const { user, dialog } = await openDialog()
+    let resolve!: (value: { cases: [] }) => void
+    mockApi.mockReturnValueOnce(new Promise((done) => { resolve = done }))
+    await user.click(dialog.getByLabelText("Mevcut vakaya bağla"))
+    expect(dialog.getByRole("status")).toHaveTextContent("Açık vakalar yükleniyor...")
+    expect(dialog.getByRole("button", { name: "Alarmı bağla" })).toBeDisabled()
+    await act(async () => { resolve({ cases: [] }) })
+    expect(dialog.getByText("Açık vaka bulunamadı.")).toBeInTheDocument()
+    expect(dialog.getByRole("button", { name: "Alarmı bağla" })).toBeDisabled()
+  })
+
+  it("açık vaka listesinin yükleme hatası tekrar denenebilir", async () => {
+    const { user, dialog } = await openDialog()
+    mockApi.mockRejectedValueOnce(new ApiError(0, "Network error"))
+    await user.click(dialog.getByLabelText("Mevcut vakaya bağla"))
+    expect(await dialog.findByRole("alert")).toHaveTextContent("Sunucuya ulaşılamıyor.")
+    expect(dialog.getByRole("button", { name: "Alarmı bağla" })).toBeDisabled()
+    mockApi.mockResolvedValueOnce({ cases: [caseResponse] })
+    await user.click(dialog.getByRole("button", { name: "Tekrar dene" }))
+    expect(await dialog.findByLabelText("Açık vaka")).toBeInTheDocument()
+  })
+
+  it("odak diyalog içinde kalır; Escape kapatır ve odağı açan düğmeye döndürür", async () => {
+    const { user, dialog } = await openDialog()
+    const modal = screen.getByRole("dialog")
+    expect(modal).toHaveAttribute("aria-modal", "true")
+    expect(modal).toHaveFocus()
+    await user.tab({ shift: true })
+    expect(dialog.getByRole("button", { name: "Vaka oluştur" })).toHaveFocus()
+    await user.tab()
+    expect(dialog.getByLabelText("Yeni vaka")).toHaveFocus()
+    await user.keyboard("{Escape}")
+    expect(screen.queryByRole("dialog")).toBeNull()
+    expect(screen.getByRole("button", { name: "Vaka Oluştur" })).toHaveFocus()
+  })
 })
 
 describe("Alarmlar sayfası", () => {
