@@ -128,7 +128,7 @@ describe("Alarmdan vaka akışı", () => {
     const { user, dialog } = await openDialog()
     mockApi.mockResolvedValueOnce({ cases: [caseResponse] })
     await user.click(dialog.getByLabelText("Mevcut vakaya bağla"))
-    expect(mockApi).toHaveBeenLastCalledWith("/api/v1/cases?is_open=true&page_size=100")
+    expect(mockApi).toHaveBeenLastCalledWith("/api/v1/cases?is_open=true&page_size=100&page=1")
     await user.selectOptions(await dialog.findByLabelText("Açık vaka"), "CASE-123")
     mockApi.mockResolvedValueOnce(caseResponse)
     await user.click(dialog.getByRole("button", { name: "Alarmı bağla" }))

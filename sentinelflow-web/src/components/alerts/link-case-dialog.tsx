@@ -40,6 +40,8 @@ export function LinkCaseDialog({
   const [priority, setPriority] = useState<CasePriority>("P3")
   const [cases, setCases] = useState<Case[]>([])
   const [caseId, setCaseId] = useState("")
+  const [search, setSearch] = useState("")
+  const [truncated, setTruncated] = useState(false)
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState<unknown>(null)
   const [retry, setRetry] = useState(0)
@@ -48,6 +50,13 @@ export function LinkCaseDialog({
   const pending = useRef(false)
   const dialog = useRef<HTMLDivElement>(null)
   const conflictCaseId = linkedCaseId(error)
+  const matchesSearch = (item: Case, query: string) => {
+    const term = query.trim().toLocaleLowerCase("tr-TR")
+    return [item.case_id, item.title].some((value) =>
+      value.toLocaleLowerCase("tr-TR").includes(term)
+    )
+  }
+  const filteredCases = cases.filter((item) => matchesSearch(item, search))
 
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null
@@ -62,9 +71,13 @@ export function LinkCaseDialog({
     let active = true
     setLoading(true)
     setListError(null)
+    setCaseId("")
     listOpenCases()
       .then((items) => {
-        if (active) setCases(items)
+        if (active) {
+          setCases(items.cases)
+          setTruncated(items.truncated)
+        }
       })
       .catch((err: unknown) => {
         if (active) setListError(err)
@@ -113,7 +126,9 @@ export function LinkCaseDialog({
     if (
       pending.current ||
       conflictCaseId ||
-      (mode === "new" ? !title.trim() : !caseId || loading || listError !== null)
+      (mode === "new"
+        ? !title.trim()
+        : !filteredCases.some((item) => item.case_id === caseId) || loading || listError !== null)
     ) return
     pending.current = true
     setSending(true)
@@ -232,25 +247,54 @@ export function LinkCaseDialog({
             ) : cases.length === 0 ? (
               <EmptyState message="Açık vaka bulunamadı." />
             ) : (
-              <label className="block">
-                Açık vaka
-                <select
-                  className={fieldClass}
-                  value={caseId}
-                  onChange={(e) => setCaseId(e.target.value)}
-                  required
-                >
-                  <option value="">Vaka seçin</option>
-                  {cases.map((item) => (
-                    <option
-                      key={item.case_id}
-                      value={item.case_id}
+              <>
+                {truncated && (
+                  <p className="text-sm text-zinc-400">
+                    İlk 500 açık vaka gösteriliyor.
+                  </p>
+                )}
+                <label className="block">
+                  Vaka ara
+                  <input
+                    type="search"
+                    className={fieldClass}
+                    value={search}
+                    onChange={(event) => {
+                      const query = event.target.value
+                      setSearch(query)
+                      const selectionVisible = cases.some((item) =>
+                        item.case_id === caseId && matchesSearch(item, query)
+                      )
+                      if (!selectionVisible) {
+                        setCaseId("")
+                      }
+                    }}
+                  />
+                </label>
+                {filteredCases.length === 0 ? (
+                  <EmptyState message="Eşleşen vaka yok." />
+                ) : (
+                  <label className="block">
+                    Açık vaka
+                    <select
+                      className={fieldClass}
+                      value={caseId}
+                      onChange={(e) => setCaseId(e.target.value)}
+                      required
                     >
-                      {item.case_id} — {item.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                      <option value="">Vaka seçin</option>
+                      {filteredCases.map((item) => (
+                        <option
+                          key={item.case_id}
+                          value={item.case_id}
+                        >
+                          {item.case_id} — {item.title}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+              </>
             )}
           </fieldset>
           {error !== null && (
@@ -288,7 +332,7 @@ export function LinkCaseDialog({
                   : loading ||
                     listError !== null ||
                     !caseId ||
-                    !cases.some((item) => item.case_id === caseId))
+                    !filteredCases.some((item) => item.case_id === caseId))
               }
               className="rounded-lg bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
             >

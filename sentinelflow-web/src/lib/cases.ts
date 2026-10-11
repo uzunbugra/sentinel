@@ -65,11 +65,23 @@ export function linkAlertToCase(caseId: string, alertId: string): Promise<Case> 
   })
 }
 
-export async function listOpenCases(): Promise<Case[]> {
-  const response = await apiRequest<{ cases: Case[] }>(
-    `${config.endpoints.cases}?is_open=true&page_size=100`
-  )
-  return response.cases
+export interface OpenCaseList {
+  cases: Case[]
+  truncated: boolean
+}
+
+export async function listOpenCases(): Promise<OpenCaseList> {
+  const cases: Case[] = []
+  let total = 0
+  for (let page = 1; page <= 5; page += 1) {
+    const response = await apiRequest<{ cases: Case[]; total: number }>(
+      `${config.endpoints.cases}?is_open=true&page_size=100&page=${page}`
+    )
+    cases.push(...response.cases)
+    total = response.total ?? cases.length
+    if (cases.length >= total || response.cases.length === 0) break
+  }
+  return { cases, truncated: cases.length === 500 && total > cases.length }
 }
 
 export function caseErrorCode(err: unknown): string | null {

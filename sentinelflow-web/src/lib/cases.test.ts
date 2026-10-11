@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { apiRequest, ApiError } from "./auth"
 import {
   allowedTransitions, caseErrorCode, describeCaseError, getCase,
-  linkedCaseId, listCaseEvents, updateCase, type CaseStatus,
+  linkedCaseId, listCaseEvents, listOpenCases, updateCase, type CaseStatus,
 } from "./cases"
 import { sampleCase, sampleEvents } from "@/test/case-fixtures"
 
@@ -103,5 +103,53 @@ describe("Vaka detay API yardımcıları", () => {
     expect(mockApi).toHaveBeenCalledWith("/api/v1/cases/CASE-001", {
       method: "PATCH", body: JSON.stringify({ note: "İncele" }),
     })
+  })
+})
+
+describe("Açık vaka sayfalaması", () => {
+  const mockApi = vi.mocked(apiRequest)
+  beforeEach(() => { mockApi.mockReset() })
+
+  it("250 vakayı üç ardışık sayfada yükler", async () => {
+    const items = Array.from({ length: 250 }, (_, index) => ({
+      ...sampleCase, case_id: `CASE-${index + 1}`,
+    }))
+    mockApi.mockImplementation(async (endpoint) => {
+      const page = Number(new URLSearchParams(endpoint.split("?")[1]).get("page"))
+      return { cases: items.slice((page - 1) * 100, page * 100), total: 250 }
+    })
+    const result = await listOpenCases()
+    expect(result.cases).toEqual(items)
+    expect(result.truncated).toBe(false)
+    expect(mockApi.mock.calls.map(([endpoint]) => endpoint)).toEqual([1, 2, 3].map(
+      (page) => `/api/v1/cases?is_open=true&page_size=100&page=${page}`,
+    ))
+  })
+
+  it.each([500, 650])("%s vakada en fazla beş sayfa yükler", async (total) => {
+    mockApi.mockImplementation(async (endpoint) => {
+      const page = Number(new URLSearchParams(endpoint.split("?")[1]).get("page"))
+      return { total, cases: Array.from({ length: 100 }, (_, index) => ({
+        ...sampleCase, case_id: `CASE-${(page - 1) * 100 + index + 1}`,
+      })) }
+    })
+    const result = await listOpenCases()
+    expect(result.cases).toHaveLength(500)
+    expect(result.truncated).toBe(total > 500)
+    expect(mockApi).toHaveBeenCalledTimes(5)
+  })
+
+  it("erken boş sayfa gelirse daha fazla istek atmaz", async () => {
+    mockApi.mockResolvedValueOnce({ total: 250, cases: [] })
+    expect(await listOpenCases()).toEqual({ cases: [], truncated: false })
+    expect(mockApi).toHaveBeenCalledOnce()
+  })
+
+  it("ikinci sayfa hatasını kısmi liste yerine çağırana iletir", async () => {
+    mockApi.mockResolvedValueOnce({ total: 250, cases: [sampleCase] })
+    const error = new ApiError(0, "Network error")
+    mockApi.mockRejectedValueOnce(error)
+    await expect(listOpenCases()).rejects.toBe(error)
+    expect(mockApi).toHaveBeenCalledTimes(2)
   })
 })
