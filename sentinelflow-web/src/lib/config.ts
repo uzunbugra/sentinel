@@ -35,6 +35,8 @@ export const config = {
     // Cases
     cases: "/api/v1/cases",
     caseDetail: (id: string) => `/api/v1/cases/${id}`,
+    caseAlerts: (id: string) => `/api/v1/cases/${id}/alerts`,
+    caseEvents: (id: string) => `/api/v1/cases/${id}/events`,
 
     // Transactions
     transactions: "/api/v1/transactions",

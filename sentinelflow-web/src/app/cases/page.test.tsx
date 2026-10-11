@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import userEvent from "@testing-library/user-event"
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import type { User } from "@/lib/auth"
 
 const mocks = vi.hoisted(() => ({
@@ -79,6 +79,26 @@ beforeEach(() => {
 })
 
 describe("CasesPage", () => {
+  it("filtreler ve yenile düğmesi erişilebilir adlarıyla bulunur", async () => {
+    mockApiResolve()
+    render(<CasesPage />)
+    await screen.findByText("Kara para aklama şüphesi")
+    expect(screen.getByRole("combobox", { name: "Durum filtresi" })).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Öncelik filtresi" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Yenile" })).toBeEnabled()
+  })
+
+  it("sayfalama gezinmesi adlandırılmıştır ve önceki düğmesi kilitlidir", async () => {
+    mockApi.mockImplementation(async (endpoint) => {
+      if (endpoint.includes("/stats")) return statsResponse
+      return { ...casesResponse, total: 40 }
+    })
+    render(<CasesPage />)
+    const nav = await screen.findByRole("navigation", { name: "Sayfalama" })
+    expect(within(nav).getByRole("button", { name: "Önceki" })).toBeDisabled()
+    expect(within(nav).getByRole("button", { name: "Sonraki" })).toBeEnabled()
+  })
+
   it("shows the loading state while the list is being fetched", () => {
     mockApi.mockImplementation(() => new Promise(() => {}))
     render(<CasesPage />)
@@ -128,5 +148,21 @@ describe("CasesPage", () => {
     render(<CasesPage />)
 
     expect(await screen.findByText("Vaka bulunamadı")).toBeInTheDocument()
+  })
+
+  it("vaka satırı detay bağlantısıdır ve pending_info ortak etiketini kullanır", async () => {
+    mockApi.mockImplementation(async (endpoint: string) => {
+      if (endpoint.includes("/stats")) return statsResponse
+      return { ...casesResponse, cases: [{
+        ...sampleCase,
+        status: "pending_info",
+        created_at: "2026-10-12T21:30:00+00:00",
+      }] }
+    })
+    render(<CasesPage />)
+    const row = await screen.findByRole("link", { name: /Kara para aklama şüphesi/ })
+    expect(row).toHaveAttribute("href", "/cases/CASE-001")
+    expect(row).toHaveTextContent("Bilgi Bekleniyor")
+    expect(row).toHaveTextContent("13.10.2026")
   })
 })
