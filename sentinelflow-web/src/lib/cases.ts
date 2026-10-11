@@ -89,6 +89,85 @@ export function describeCaseError(err: unknown): string {
       return linkedCaseId(err) ? `Bu alarm zaten ${linkedCaseId(err)} vakasına bağlı.` : "Bu alarm zaten bir vakaya bağlı."
     case "alert_dismissed": return "Reddedilmiş alarm vakaya bağlanamaz."
     case "case_not_open": return "Seçilen vaka kapalı; alarm eklenemez."
+    case "invalid_status_transition": return "Bu durum değişikliğine izin verilmiyor."
+    case "resolution_required": return "Bu durum için çözüm açıklaması zorunlu."
+    case "unsupported_field": return "Bu alan bu ekrandan değiştirilemez."
     default: return describeError(err)
   }
+}
+
+export type CaseEventType =
+  | "case_created"
+  | "alert_linked_to_case"
+  | "case_status_changed"
+  | "case_priority_changed"
+  | "case_assigned"
+  | "note_added"
+
+export interface CaseEvent {
+  event_id: string
+  case_id: string
+  event_type: CaseEventType
+  actor: string
+  actor_type: string
+  description: string
+  previous_value: string | null
+  new_value: string | null
+  alert_id: string | null
+  created_at: string
+}
+
+export interface CaseEventListResponse {
+  total: number
+  page: number
+  page_size: number
+  events: CaseEvent[]
+}
+
+export interface CaseUpdateRequest {
+  status?: CaseStatus
+  priority?: CasePriority
+  assigned_to?: string | null
+  assigned_team?: string | null
+  resolution?: string | null
+  note?: string
+}
+
+export function getCase(id: string): Promise<Case> {
+  return apiRequest<Case>(config.endpoints.caseDetail(id))
+}
+
+export function listCaseEvents(
+  id: string,
+  { page = 1, pageSize = 20, eventType }: {
+    page?: number
+    pageSize?: number
+    eventType?: CaseEventType
+  } = {},
+): Promise<CaseEventListResponse> {
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+  if (eventType) params.set("event_type", eventType)
+  return apiRequest<CaseEventListResponse>(`${config.endpoints.caseEvents(id)}?${params}`)
+}
+
+export function updateCase(id: string, patch: CaseUpdateRequest): Promise<Case> {
+  return apiRequest<Case>(config.endpoints.caseDetail(id), {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  })
+}
+
+const openStatuses: CaseStatus[] = [
+  "new", "triage", "investigating", "escalated", "pending_info",
+]
+
+export function allowedTransitions(status: CaseStatus): CaseStatus[] {
+  if (status === "closed") return []
+  if (status === "resolved_true_positive" || status === "resolved_false_positive") {
+    return ["closed", "investigating"]
+  }
+  return [
+    ...openStatuses.filter((target) => target !== status),
+    "resolved_true_positive", "resolved_false_positive", "closed",
+  ]
 }

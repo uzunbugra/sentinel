@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react"
 import { Header } from "@/components/layout/header"
 import { useWebSocket } from "@/hooks/use-websocket"
-import { useAuth } from "@/contexts/auth-context"
 import { apiRequest } from "@/lib/auth"
 import {
   EmptyState,
@@ -17,27 +16,13 @@ import {
   Clock,
   User,
   AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Plus,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-interface Case {
-  case_id: string
-  title: string
-  description: string
-  status: string
-  priority: string
-  primary_fraud_type: string | null
-  alert_count: number
-  total_amount: number
-  max_severity: string
-  assigned_to: string | null
-  created_at: string
-  updated_at: string
-  sla_breached: boolean
-}
+import Link from "next/link"
+import type { Case } from "@/lib/cases"
+import { formatDate } from "@/lib/datetime"
+import { statusConfig, priorityColors } from "@/components/cases/case-labels"
 
 interface CasesResponse {
   total: number
@@ -54,26 +39,8 @@ interface CaseStats {
 
 import { config } from "@/lib/config"
 
-const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
-  new: { label: "Yeni", color: "bg-blue-500/10 text-blue-400 border-blue-500/20", icon: AlertTriangle },
-  triage: { label: "Triage", color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20", icon: AlertTriangle },
-  investigating: { label: "İnceleniyor", color: "bg-orange-500/10 text-orange-400 border-orange-500/20", icon: Clock },
-  escalated: { label: "Üst Seviye", color: "bg-red-500/10 text-red-400 border-red-500/20", icon: AlertTriangle },
-  resolved_true_positive: { label: "Doğru Tespit", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", icon: CheckCircle },
-  resolved_false_positive: { label: "Yanlış Alarm", color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20", icon: XCircle },
-  closed: { label: "Kapatıldı", color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20", icon: CheckCircle },
-}
-
-const priorityColors: Record<string, string> = {
-  P1: "bg-red-500/20 text-red-400",
-  P2: "bg-orange-500/20 text-orange-400",
-  P3: "bg-yellow-500/20 text-yellow-400",
-  P4: "bg-zinc-500/20 text-zinc-400",
-}
-
 export default function CasesPage() {
   const { isConnected } = useWebSocket()
-  const { user } = useAuth()
   
   const [cases, setCases] = useState<Case[]>([])
   const [loading, setLoading] = useState(true)
@@ -156,6 +123,7 @@ export default function CasesPage() {
                 <option value="triage">Triage</option>
                 <option value="investigating">İnceleniyor</option>
                 <option value="escalated">Üst Seviye</option>
+                <option value="pending_info">Bilgi Bekleniyor</option>
                 <option value="resolved_true_positive">Doğru Tespit</option>
                 <option value="resolved_false_positive">Yanlış Alarm</option>
                 <option value="closed">Kapatıldı</option>
@@ -229,9 +197,10 @@ export default function CasesPage() {
                     const StatusIcon = statusInfo.icon
                     
                     return (
-                      <div
+                      <Link
                         key={caseItem.case_id}
-                        className="p-4 hover:bg-zinc-800/50 transition-colors cursor-pointer"
+                        href={`/cases/${caseItem.case_id}`}
+                        className="block p-4 hover:bg-zinc-800/50 transition-colors cursor-pointer"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
@@ -274,14 +243,14 @@ export default function CasesPage() {
                               )}
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
-                                {new Date(caseItem.created_at).toLocaleDateString("tr-TR")}
+                                {formatDate(caseItem.created_at)}
                               </span>
                             </div>
                           </div>
                           
                           <ChevronRight className="w-5 h-5 text-zinc-600 flex-shrink-0" />
                         </div>
-                      </div>
+                      </Link>
                     )
                   })}
                 </div>
