@@ -17,10 +17,15 @@ export function CaseAlerts({ alertIds }: { alertIds: string[] }) {
   const [items, setItems] = useState<(LinkedAlert | null)[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Every PATCH returns a fresh `alert_ids` array; key on its content so the
+  // alerts are only refetched when the linked set actually changes.
+  const shownIds = alertIds.slice(0, 20).join(",")
+
   useEffect(() => {
     let active = true
     setLoading(true)
-    Promise.allSettled(alertIds.slice(0, 20).map((id) =>
+    const ids = shownIds ? shownIds.split(",") : []
+    Promise.allSettled(ids.map((id) =>
       apiRequest<LinkedAlert>(config.endpoints.alertDetail(id))
     )).then((results) => {
       if (!active) return
@@ -28,7 +33,7 @@ export function CaseAlerts({ alertIds }: { alertIds: string[] }) {
       setLoading(false)
     })
     return () => { active = false }
-  }, [alertIds])
+  }, [shownIds])
 
   return (
     <section aria-labelledby="linked-alerts-title" className="rounded-xl border border-zinc-800 p-4">

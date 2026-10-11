@@ -57,7 +57,7 @@ export function CaseTimeline({ caseId, revision }: { caseId: string; revision: n
         : <ol className="mt-4 space-y-4">
           {data.events.map((event) => (
             <li key={event.event_id} className="min-w-0 break-words border-l-2 border-blue-500 pl-3 text-sm">
-              <h3 className="font-medium text-blue-400">{eventLabels[event.event_type]}</h3>
+              <h3 className="font-medium text-blue-400">{eventLabels[event.event_type] ?? event.event_type}</h3>
               <p>{event.actor} · {event.actor_type === "user" ? "Kullanıcı" : event.actor_type}</p>
               <p className="whitespace-pre-wrap">{event.description}</p>
               {(event.previous_value !== null || event.new_value !== null) && (

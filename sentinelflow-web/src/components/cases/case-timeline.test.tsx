@@ -53,6 +53,14 @@ describe("Vaka timeline", () => {
     expect(await screen.findByText("İnceleme başlatıldı")).toBeInTheDocument()
   })
 
+  it("tanımadığı olay türünü ham adıyla gösterir", async () => {
+    mockApi.mockResolvedValue({ ...sampleEvents, events: [
+      { ...sampleEvent, event_type: "case_escalated" as never },
+    ] })
+    render(<CaseTimeline caseId="CASE-001" revision={0} />)
+    expect(await screen.findByRole("heading", { name: "case_escalated" })).toBeInTheDocument()
+  })
+
   it("sunucunun en yeni önce sırasını korur ve boş önceki değeri gösterir", async () => {
     mockApi.mockResolvedValue({ ...sampleEvents, events: [
       { ...sampleEvent, event_id: "EVT-2", description: "Son olay", previous_value: null },

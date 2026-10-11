@@ -33,7 +33,8 @@ beforeEach(() => {
     if (options?.method === "PATCH") {
       if (patchError) throw patchError
       currentCase = { ...currentCase, ...JSON.parse(options.body as string) }
-      return currentCase
+      // Like a real JSON response, every PATCH yields a fresh alert_ids array.
+      return { ...currentCase, alert_ids: [...currentCase.alert_ids] }
     }
     if (endpoint.includes("/events?")) return sampleEvents
     if (endpoint.includes("/alerts/")) {
@@ -191,6 +192,17 @@ describe("Vaka mutasyonları", () => {
     if (kind === "öncelik") expect(summary).toHaveTextContent("P1")
     if (kind === "atama") expect(summary).toHaveTextContent("analyst2")
     if (kind === "not") expect(screen.getByLabelText("Not")).toHaveValue("")
+  })
+
+  it("PATCH sonrası bağlı alarmları yeniden istemez", async () => {
+    const user = await openPage()
+    const alertCalls = () => mockApi.mock.calls.filter(([endpoint]) => endpoint.includes("/alerts/"))
+    await waitFor(() => expect(alertCalls()).toHaveLength(2))
+    const before = eventCalls().length
+    await user.type(screen.getByLabelText("Not"), "İnceleme notu")
+    await user.click(screen.getByRole("button", { name: "Notu ekle" }))
+    await waitFor(() => expect(eventCalls()).toHaveLength(before + 1))
+    expect(alertCalls()).toHaveLength(2)
   })
 
   it.each(["resolved_true_positive", "resolved_false_positive"])(
