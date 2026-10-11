@@ -3,11 +3,16 @@
 # =============================================================================
 """
 Case management endpoints.
+
+Write endpoints delegate to ``CaseService`` (one transaction per request).
+Contract: docs/contracts/sprint3-case-api.md.
 """
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from typing import Any
+
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 
 from sentinelflow.api.deps import get_db_session
 from sentinelflow.api.schemas import (
@@ -17,9 +22,27 @@ from sentinelflow.api.schemas import (
     CaseUpdate,
 )
 from sentinelflow.auth.dependencies import require_analyst, require_viewer
-from sentinelflow.contracts import User
+from sentinelflow.contracts import EventType, User
+from sentinelflow.contracts.case import (
+    ApiErrorResponse,
+    CaseAlertLink,
+    CaseEventListResponse,
+)
+from sentinelflow.services import CaseService, CaseServiceError
 
 router = APIRouter(prefix="/cases", tags=["Cases"])
+
+_NOT_FOUND: dict[int | str, dict[str, Any]] = {404: {"description": "Case or alert not found"}}
+_CONFLICT: dict[int | str, dict[str, Any]] = {
+    409: {"model": ApiErrorResponse, "description": "Conflicts with the current case state"}
+}
+_RULE: dict[int | str, dict[str, Any]] = {
+    422: {"description": "Validation error or business rule violation"}
+}
+
+
+def _http_error(exc: CaseServiceError) -> HTTPException:
+    return HTTPException(status_code=exc.status_code, detail=exc.detail())
 
 
 @router.get(
@@ -79,28 +102,24 @@ async def get_case_stats(
 @router.post(
     "",
     response_model=Case,
-    summary="Create a new case",
-    description="Create a new investigation case from alerts.",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a case from alerts",
+    description=(
+        "Atomically creates a case and links the given alerts. Writes `case_created` "
+        "followed by one `alert_linked_to_case` event per alert."
+    ),
+    responses={**_NOT_FOUND, **_CONFLICT, **_RULE},
 )
 async def create_case(
     case_data: CaseCreate,
     session=Depends(get_db_session),
-    _user: User = Depends(require_analyst),
+    user: User = Depends(require_analyst),
 ):
-    """Create a new case."""
-    from sentinelflow.repository import CaseRepository, EventRepository
-
-    case_repo = CaseRepository(session)
-    event_repo = EventRepository(session)
-
-    case = case_repo.create(case_data)
-
-    # Log creation event
-    event_repo.log_case_created(case.case_id)
-
-    session.commit()
-
-    return case
+    """Create a new case from one or more alerts."""
+    try:
+        return CaseService(session).create_from_alerts(case_data, actor=user.username)
+    except CaseServiceError as exc:
+        raise _http_error(exc) from exc
 
 
 @router.get(
@@ -129,6 +148,8 @@ async def get_case(
     "/{case_id}",
     response_model=Case,
     summary="Update case",
+    description="Change status, priority, assignment and/or add a note; one event per change.",
+    responses={**_NOT_FOUND, **_CONFLICT, **_RULE},
 )
 async def update_case(
     case_id: str,
@@ -137,125 +158,92 @@ async def update_case(
     user: User = Depends(require_analyst),
 ):
     """Update case fields."""
-    from sentinelflow.repository import CaseRepository, EventRepository
-
-    case_repo = CaseRepository(session)
-    event_repo = EventRepository(session)
-
-    # Get current case
-    current = case_repo.get_by_id(case_id)
-    if not current:
-        raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
-
-    # Update status if changed
-    if update_data.status and update_data.status != current.status:
-        old_status = current.status
-        case_repo.update_status(
-            case_id,
-            update_data.status,
-            resolution=update_data.resolution,
-        )
-        event_repo.log_status_change(case_id, old_status, update_data.status.value)
-
-    # Update assignment if changed
-    if update_data.assigned_to is not None:
-        old_assignee = current.assigned_to
-        case_repo.assign(case_id, update_data.assigned_to, update_data.assigned_team)
-        event_repo.log_assignment(case_id, old_assignee, update_data.assigned_to)
-
-    # Add note if provided
-    if update_data.note:
-        event_repo.log_note_added(case_id, update_data.note, actor=user.username)
-
-    session.commit()
-
-    return case_repo.get_by_id(case_id)
+    try:
+        return CaseService(session).update_case(case_id, update_data, actor=user.username)
+    except CaseServiceError as exc:
+        raise _http_error(exc) from exc
 
 
 @router.post(
     "/{case_id}/assign",
     response_model=Case,
     summary="Assign case",
+    responses={**_NOT_FOUND},
 )
 async def assign_case(
     case_id: str,
-    assigned_to: str = Query(..., description="Username to assign to"),
+    assigned_to: str = Query(..., min_length=1, description="Username to assign to"),
     assigned_team: str | None = Query(None, description="Team name"),
     session=Depends(get_db_session),
-    _user: User = Depends(require_analyst),
+    user: User = Depends(require_analyst),
 ):
     """Assign case to analyst/team."""
-    from sentinelflow.repository import CaseRepository, EventRepository
+    try:
+        return CaseService(session).assign(case_id, assigned_to, assigned_team, actor=user.username)
+    except CaseServiceError as exc:
+        raise _http_error(exc) from exc
 
-    case_repo = CaseRepository(session)
-    event_repo = EventRepository(session)
 
-    current = case_repo.get_by_id(case_id)
-    if not current:
-        raise HTTPException(status_code=404, detail=f"Case {case_id} not found")
-
-    case = case_repo.assign(case_id, assigned_to, assigned_team)
-    event_repo.log_assignment(case_id, current.assigned_to, assigned_to)
-
-    session.commit()
-
-    return case
+@router.post(
+    "/{case_id}/alerts",
+    response_model=Case,
+    summary="Link an alert to a case",
+    description="Idempotent: linking an alert that is already in this case returns 200.",
+    responses={**_NOT_FOUND, **_CONFLICT},
+)
+async def link_alert(
+    case_id: str,
+    link: CaseAlertLink = Body(...),
+    session=Depends(get_db_session),
+    user: User = Depends(require_analyst),
+):
+    """Link an existing alert to an existing open case."""
+    try:
+        return CaseService(session).link_alert(case_id, link.alert_id, actor=user.username)
+    except CaseServiceError as exc:
+        raise _http_error(exc) from exc
 
 
 @router.post(
     "/{case_id}/add-alert/{alert_id}",
-    summary="Add alert to case",
+    response_model=Case,
+    summary="Add alert to case (deprecated)",
+    description="Deprecated alias of `POST /cases/{case_id}/alerts`.",
+    deprecated=True,
+    responses={**_NOT_FOUND, **_CONFLICT},
 )
 async def add_alert_to_case(
     case_id: str,
     alert_id: str,
     session=Depends(get_db_session),
-    _user: User = Depends(require_analyst),
+    user: User = Depends(require_analyst),
 ):
     """Add an alert to an existing case."""
-    from sentinelflow.repository import CaseRepository, EventRepository
-
-    case_repo = CaseRepository(session)
-    event_repo = EventRepository(session)
-
-    success = case_repo.add_alert(case_id, alert_id)
-
-    if not success:
-        raise HTTPException(status_code=404, detail="Case or alert not found")
-
-    event_repo.log_alert_linked(case_id, alert_id)
-
-    session.commit()
-
-    return {"status": "added", "case_id": case_id, "alert_id": alert_id}
+    try:
+        return CaseService(session).link_alert(case_id, alert_id, actor=user.username)
+    except CaseServiceError as exc:
+        raise _http_error(exc) from exc
 
 
 @router.get(
     "/{case_id}/events",
+    response_model=CaseEventListResponse,
     summary="Get case events (audit log)",
+    description="Audit timeline, newest first. Timestamps are UTC.",
+    responses={**_NOT_FOUND},
 )
 async def get_case_events(
     case_id: str,
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
-    event_type: str | None = Query(None),
+    event_type: EventType | None = Query(None),
     session=Depends(get_db_session),
     _user: User = Depends(require_viewer),
 ):
     """Get audit log events for a case."""
-    from sentinelflow.repository import EventRepository
-
-    repo = EventRepository(session)
-    events, total = repo.list_by_case(
-        case_id,
-        page=page,
-        page_size=page_size,
-        event_type=event_type,
-    )
-
-    return {
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "events": [e.model_dump() for e in events],
-    }
+    try:
+        return CaseService(session).list_events(
+            case_id, page=page, page_size=page_size, event_type=event_type
+        )
+    except CaseServiceError as exc:
+        raise _http_error(exc) from exc

@@ -14,7 +14,7 @@ from uuid import uuid4
 from loguru import logger
 from sqlalchemy import and_, desc, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from sentinelflow.contracts import Case, CaseCreate, CasePriority, CaseStatus
 from sentinelflow.database.models import AlertModel, CaseModel
@@ -116,11 +116,9 @@ class CaseRepository:
             await self._link_alerts_async(case_id, case_data.alert_ids)
             await self._update_case_aggregates_async(case_id)
 
-        await self._session.refresh(model)
-
         logger.info(f"Case created: {case_id} | {len(case_data.alert_ids)} alerts")
 
-        return Case.model_validate(model.to_dict())
+        return await self.get_by_id_async(case_id)
 
     # =========================================================================
     # Read Operations
@@ -135,7 +133,11 @@ class CaseRepository:
 
     async def get_by_id_async(self, case_id: str) -> Case | None:
         """Get case by ID (async)."""
-        stmt = select(CaseModel).where(CaseModel.case_id == case_id)
+        stmt = (
+            select(CaseModel)
+            .options(selectinload(CaseModel.alerts))
+            .where(CaseModel.case_id == case_id)
+        )
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
         return Case.model_validate(model.to_dict()) if model else None
@@ -193,7 +195,7 @@ class CaseRepository:
         assigned_to: str | None = None,
     ) -> tuple[list[Case], int]:
         """List cases with pagination and filtering (async)."""
-        stmt = select(CaseModel)
+        stmt = select(CaseModel).options(selectinload(CaseModel.alerts))
         count_stmt = select(func.count(CaseModel.case_id))
 
         conditions = []
@@ -322,6 +324,10 @@ class CaseRepository:
     # =========================================================================
     # Helper Methods
     # =========================================================================
+
+    def refresh_aggregates(self, case_id: str) -> None:
+        """Recompute alert-derived case fields (count, amount, severity, ...)."""
+        self._update_case_aggregates_sync(case_id)
 
     def _link_alerts_sync(self, case_id: str, alert_ids: list[str]) -> bool:
         """Link alerts to case (sync)."""
