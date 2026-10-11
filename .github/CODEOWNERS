@@ -1,37 +1,9 @@
-# CODEOWNERS — domain reviewers (replace @handles with real GitHub usernames)
+# CODEOWNERS — Sprint 3 review rule (docs/SPRINT3_PLAN.md §3, §8):
+# every PR is reviewed by the other team member.
 #
-# Backend core
-/src/sentinelflow/api/        @YusuffEren
-/src/sentinelflow/auth/       @YusuffEren
-/src/sentinelflow/security/   @YusuffEren
-/src/sentinelflow/config/     @YusuffEren
+# GitHub never requests a review from the PR author, so listing both members
+# means a PR from Kişi A requests Kişi B and vice versa.
+#   Kişi A — platform, backend, API contract: @uzunbugra
+#   Kişi B — frontend, user flows, browser tests: @alper-tekin
 
-# Detection engines
-/src/sentinelflow/processor/  @YusuffEren
-/src/sentinelflow/detectors/  @YusuffEren
-/src/sentinelflow/generator/  @YusuffEren
-/src/sentinelflow/ingestor/   @YusuffEren
-
-# Data & intelligence
-/src/sentinelflow/ml/         @YusuffEren
-/src/sentinelflow/mlops/      @YusuffEren
-/src/sentinelflow/kyc/        @YusuffEren
-/src/sentinelflow/compliance/ @YusuffEren
-/src/sentinelflow/database/   @YusuffEren
-/src/sentinelflow/repository/ @YusuffEren
-/alembic/                     @YusuffEren
-
-# Frontend
-/sentinelflow-web/            @YusuffEren
-
-# Platform / CI / secrets
-/.github/                     @YusuffEren
-/docker-compose.yml           @YusuffEren
-/Dockerfile                   @YusuffEren
-/.env.example                 @YusuffEren
-
-# Tests must be reviewed by a backend owner as well
-/tests/                       @YusuffEren
-
-# Docs & process
-*.md                          @YusuffEren
+*   @uzunbugra @alper-tekin
