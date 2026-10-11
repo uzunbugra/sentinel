@@ -103,6 +103,8 @@ export function describeCaseError(err: unknown): string {
     case "case_not_open": return "Seçilen vaka kapalı; alarm eklenemez."
     case "invalid_status_transition": return "Bu durum değişikliğine izin verilmiyor."
     case "resolution_required": return "Bu durum için çözüm açıklaması zorunlu."
+    case "resolution_not_allowed":
+      return "Çözüm açıklaması yalnızca çözülmüş vakalarda değiştirilebilir."
     case "unsupported_field": return "Bu alan bu ekrandan değiştirilemez."
     default: return describeError(err)
   }
@@ -111,8 +113,10 @@ export function describeCaseError(err: unknown): string {
 export type CaseEventType =
   | "case_created"
   | "alert_linked_to_case"
+  | "alert_unlinked_from_case"
   | "case_status_changed"
   | "case_priority_changed"
+  | "case_resolution_updated"
   | "case_assigned"
   | "note_added"
 

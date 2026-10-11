@@ -42,8 +42,10 @@ export const priorityColors: Record<CasePriority, string> = {
 export const eventLabels: Record<CaseEventType, string> = {
   case_created: "Vaka oluşturuldu",
   alert_linked_to_case: "Alarm bağlandı",
+  alert_unlinked_from_case: "Alarm başka vakaya taşındı",
   case_status_changed: "Durum değişti",
   case_priority_changed: "Öncelik değişti",
+  case_resolution_updated: "Çözüm güncellendi",
   case_assigned: "Vaka atandı",
   note_added: "Not eklendi",
 }

@@ -34,7 +34,7 @@ describe("Vaka timeline", () => {
     expect(await screen.findByText("Sayfa 1 / 3")).toBeInTheDocument()
     await user.selectOptions(screen.getByLabelText("Olay türü"), "")
     expect(mockApi).toHaveBeenLastCalledWith("/api/v1/cases/CASE-001/events?page=1&page_size=20")
-    expect(screen.getAllByRole("option")).toHaveLength(7)
+    expect(screen.getAllByRole("option")).toHaveLength(9)
   })
 
   it("boş olay listesinde boş durumunu gösterir", async () => {
@@ -51,6 +51,18 @@ describe("Vaka timeline", () => {
     mockApi.mockResolvedValueOnce(sampleEvents)
     await userEvent.click(screen.getByRole("button", { name: "Tekrar dene" }))
     expect(await screen.findByText("İnceleme başlatıldı")).toBeInTheDocument()
+  })
+
+  it.each([
+    ["case_resolution_updated", "Çözüm güncellendi"],
+    ["alert_unlinked_from_case", "Alarm başka vakaya taşındı"],
+  ] as const)("%s olayını etiketiyle gösterir ve filtrede sunar", async (eventType, label) => {
+    mockApi.mockResolvedValue({ ...sampleEvents, events: [
+      { ...sampleEvent, event_type: eventType },
+    ] })
+    render(<CaseTimeline caseId="CASE-001" revision={0} />)
+    expect(await screen.findByRole("heading", { name: label })).toBeInTheDocument()
+    expect(screen.getByRole("option", { name: label })).toBeInTheDocument()
   })
 
   it("tanımadığı olay türünü ham adıyla gösterir", async () => {
