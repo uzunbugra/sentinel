@@ -640,9 +640,10 @@ export const apiSchema = {
         "tags": [
           "Alerts"
         ],
-        "summary": "Link alert to case",
-        "description": "Link an alert to an existing case.",
+        "summary": "Link alert to case (deprecated)",
+        "description": "Deprecated alias of `POST /cases/{case_id}/alerts`; applies the same rules (no second open case, no dismissed alerts, open target case only).",
         "operationId": "link_alert_to_case_api_v1_alerts__alert_id__link_case__case_id__post",
+        "deprecated": true,
         "security": [
           {
             "HTTPBearer": []
@@ -673,7 +674,22 @@ export const apiSchema = {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/Case"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Case or alert not found"
+          },
+          "409": {
+            "description": "Conflicts with the current case state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
               }
             }
           },
