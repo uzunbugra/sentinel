@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest"
-import { ApiError } from "./auth"
-import { caseErrorCode, describeCaseError, linkedCaseId } from "./cases"
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { apiRequest, ApiError } from "./auth"
+import {
+  allowedTransitions, caseErrorCode, describeCaseError, getCase,
+  linkedCaseId, listCaseEvents, updateCase, type CaseStatus,
+} from "./cases"
+import { sampleCase, sampleEvents } from "@/test/case-fixtures"
+
+vi.mock("./auth", async (original) => ({ ...(await original()), apiRequest: vi.fn() }))
 
 describe("Vaka hataları", () => {
   it.each([
@@ -37,5 +43,65 @@ describe("Vaka hataları", () => {
     [new Error("error"), "Beklenmeyen bir hata oluştu."],
   ])("%s için Türkçe açıklama döndürür", (error, message) => {
     expect(describeCaseError(error)).toBe(message)
+  })
+})
+
+describe("Vaka durum geçişleri", () => {
+  const open: CaseStatus[] = ["new", "triage", "investigating", "escalated", "pending_info"]
+  it.each(open)("%s için diğer açık ve tüm kapanış durumlarını sunar", (status) => {
+    expect(allowedTransitions(status)).toEqual([
+      ...open.filter((target) => target !== status),
+      "resolved_true_positive", "resolved_false_positive", "closed",
+    ])
+  })
+  it.each(["resolved_true_positive", "resolved_false_positive"] as const)(
+    "%s yalnızca kapatılır veya yeniden açılır", (status) => {
+      expect(allowedTransitions(status)).toEqual(["closed", "investigating"])
+    },
+  )
+  it("closed son durumdur", () => {
+    expect(allowedTransitions("closed")).toEqual([])
+  })
+})
+
+describe("Vaka güncelleme hataları", () => {
+  it.each([
+    [409, "invalid_status_transition", "Bu durum değişikliğine izin verilmiyor."],
+    [422, "resolution_required", "Bu durum için çözüm açıklaması zorunlu."],
+    [422, "unsupported_field", "Bu alan bu ekrandan değiştirilemez."],
+  ])("%s %s kodunu açıklar", (status, code, message) => {
+    expect(describeCaseError(new ApiError(status, "error", { code }))).toBe(message)
+  })
+})
+
+describe("Vaka detay API yardımcıları", () => {
+  const mockApi = vi.mocked(apiRequest)
+  beforeEach(() => {
+    mockApi.mockReset()
+  })
+
+  it("vaka detayını yetkili istemciden alır", async () => {
+    mockApi.mockResolvedValueOnce(sampleCase)
+    expect(await getCase("CASE-001")).toEqual(sampleCase)
+    expect(mockApi).toHaveBeenCalledWith("/api/v1/cases/CASE-001")
+  })
+  it("olay listesi için varsayılan sayfalama parametrelerini yollar", async () => {
+    mockApi.mockResolvedValueOnce(sampleEvents)
+    expect(await listCaseEvents("CASE-001")).toEqual(sampleEvents)
+    expect(mockApi).toHaveBeenCalledWith("/api/v1/cases/CASE-001/events?page=1&page_size=20")
+  })
+  it("olay filtresi ve sayfalama parametrelerini yollar", async () => {
+    mockApi.mockResolvedValueOnce(sampleEvents)
+    await listCaseEvents("CASE-001", { page: 2, pageSize: 50, eventType: "note_added" })
+    expect(mockApi).toHaveBeenCalledWith(
+      "/api/v1/cases/CASE-001/events?page=2&page_size=50&event_type=note_added",
+    )
+  })
+  it("yalnızca verilen PATCH alanlarını yollar ve güncel vakayı döndürür", async () => {
+    mockApi.mockResolvedValueOnce(sampleCase)
+    expect(await updateCase("CASE-001", { note: "İncele" })).toEqual(sampleCase)
+    expect(mockApi).toHaveBeenCalledWith("/api/v1/cases/CASE-001", {
+      method: "PATCH", body: JSON.stringify({ note: "İncele" }),
+    })
   })
 })

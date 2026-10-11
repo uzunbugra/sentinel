@@ -129,4 +129,20 @@ describe("CasesPage", () => {
 
     expect(await screen.findByText("Vaka bulunamadı")).toBeInTheDocument()
   })
+
+  it("vaka satırı detay bağlantısıdır ve pending_info ortak etiketini kullanır", async () => {
+    mockApi.mockImplementation(async (endpoint: string) => {
+      if (endpoint.includes("/stats")) return statsResponse
+      return { ...casesResponse, cases: [{
+        ...sampleCase,
+        status: "pending_info",
+        created_at: "2026-10-12T21:30:00+00:00",
+      }] }
+    })
+    render(<CasesPage />)
+    const row = await screen.findByRole("link", { name: /Kara para aklama şüphesi/ })
+    expect(row).toHaveAttribute("href", "/cases/CASE-001")
+    expect(row).toHaveTextContent("Bilgi Bekleniyor")
+    expect(row).toHaveTextContent("13.10.2026")
+  })
 })
