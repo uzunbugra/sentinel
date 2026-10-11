@@ -43,12 +43,7 @@ function CaseDetail({ id }: { id: string }) {
   }
 
   return (
-    <div className={
-      "min-h-screen bg-[#09090B] text-zinc-300 " +
-      "[&>header]:h-auto [&>header]:min-h-14 [&>header]:flex-wrap " +
-      "[&>header]:gap-3 [&>header]:p-4 [&>header>div]:flex-wrap " +
-      "[&>header>div]:gap-3 [&>header_nav]:flex-wrap"
-    }>
+    <div className="min-h-screen bg-[#09090B] text-zinc-300">
       <Header isConnected={isConnected} />
       <main className="mx-auto w-full max-w-7xl p-4 sm:p-6">
         <Link href="/cases" className="mb-4 inline-block text-blue-400 underline">

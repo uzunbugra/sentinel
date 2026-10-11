@@ -25,9 +25,9 @@ export function Header({ isConnected = false }: { isConnected?: boolean }) {
   }, [])
 
   return (
-    <header className="h-14 border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm flex items-center justify-between px-6">
+    <header className="min-h-14 flex-wrap gap-3 p-4 lg:h-14 lg:flex-nowrap lg:gap-0 lg:px-6 lg:py-0 border-b border-zinc-800 bg-zinc-900/50 backdrop-blur-sm flex items-center justify-between">
       {/* Logo & Nav */}
-      <div className="flex items-center gap-6">
+      <div className="flex min-w-0 flex-wrap items-center gap-3 lg:flex-nowrap lg:gap-6">
         <Link href="/" className="flex items-center gap-3">
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
             <Shield className="w-4 h-4 text-indigo-400" />
@@ -39,7 +39,7 @@ export function Header({ isConnected = false }: { isConnected?: boolean }) {
         
         {/* Navigation */}
         {isAuthenticated && (
-          <nav className="flex items-center gap-1">
+          <nav aria-label="Ana gezinme" className="flex flex-wrap items-center gap-1 lg:flex-nowrap">
             <Link
               href="/"
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
@@ -66,7 +66,7 @@ export function Header({ isConnected = false }: { isConnected?: boolean }) {
       </div>
 
       {/* Right side */}
-      <div className="flex items-center gap-4">
+      <div className="flex min-w-0 flex-wrap items-center gap-3 lg:flex-nowrap lg:gap-4">
         {/* Status */}
         <div className="flex items-center gap-2">
           <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? "bg-emerald-400 animate-subtle-pulse" : "bg-zinc-500"}`} />
@@ -76,18 +76,18 @@ export function Header({ isConnected = false }: { isConnected?: boolean }) {
         </div>
 
         {/* Time */}
-        <span className="text-xs font-mono text-zinc-500 tabular-nums">
+        <span className="hidden sm:inline text-xs font-mono text-zinc-500 tabular-nums">
           {time}
         </span>
         
         {/* User menu */}
         {isAuthenticated && user && (
-          <div className="flex items-center gap-3 pl-3 border-l border-zinc-800">
-            <div className="flex items-center gap-2">
+          <div className="flex max-lg:min-w-0 items-center gap-3 pl-3 border-l border-zinc-800">
+            <div className="flex max-lg:min-w-0 items-center gap-2">
               <div className="w-7 h-7 rounded-full bg-blue-500/20 flex items-center justify-center">
                 <User className="w-3.5 h-3.5 text-blue-400" />
               </div>
-              <div className="text-xs">
+              <div className="text-xs max-lg:min-w-0 max-lg:break-words">
                 <p className="text-zinc-300 font-medium">{user.full_name}</p>
                 <p className="text-zinc-600">{user.role}</p>
               </div>
@@ -96,6 +96,7 @@ export function Header({ isConnected = false }: { isConnected?: boolean }) {
               onClick={logout}
               className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-lg transition-colors"
               title="Çıkış"
+              aria-label="Çıkış yap"
             >
               <LogOut className="w-4 h-4" />
             </button>
