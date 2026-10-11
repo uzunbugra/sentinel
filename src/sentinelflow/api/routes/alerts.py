@@ -18,6 +18,8 @@ from sentinelflow.api.schemas import (
 )
 from sentinelflow.auth.dependencies import require_analyst, require_viewer
 from sentinelflow.contracts import User
+from sentinelflow.contracts.case import ApiErrorResponse, Case
+from sentinelflow.services import CaseService, CaseServiceError
 
 router = APIRouter(prefix="/alerts", tags=["Alerts"])
 
@@ -143,29 +145,26 @@ async def dismiss_alert(
 
 @router.post(
     "/{alert_id}/link-case/{case_id}",
-    summary="Link alert to case",
-    description="Link an alert to an existing case.",
+    response_model=Case,
+    summary="Link alert to case (deprecated)",
+    description=(
+        "Deprecated alias of `POST /cases/{case_id}/alerts`; applies the same rules "
+        "(no second open case, no dismissed alerts, open target case only)."
+    ),
+    deprecated=True,
+    responses={
+        404: {"description": "Case or alert not found"},
+        409: {"model": ApiErrorResponse, "description": "Conflicts with the current case state"},
+    },
 )
 async def link_alert_to_case(
     alert_id: str,
     case_id: str,
     session=Depends(get_db_session),
-    _user: User = Depends(require_analyst),
+    user: User = Depends(require_analyst),
 ):
-    """Link an alert to a case."""
-    from sentinelflow.repository import AlertRepository, EventRepository
-
-    alert_repo = AlertRepository(session)
-    event_repo = EventRepository(session)
-
-    success = alert_repo.link_to_case(alert_id, case_id)
-
-    if not success:
-        raise HTTPException(status_code=404, detail=f"Alert {alert_id} not found")
-
-    # Log event
-    event_repo.log_alert_linked(case_id, alert_id)
-
-    session.commit()
-
-    return {"status": "linked", "alert_id": alert_id, "case_id": case_id}
+    """Link an alert to a case through the case workflow service."""
+    try:
+        return CaseService(session).link_alert(case_id, alert_id, actor=user.username)
+    except CaseServiceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail()) from exc

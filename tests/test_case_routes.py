@@ -399,3 +399,55 @@ class TestOpenApiContract:
             schemas["ApiErrorDetail"]["properties"]
         )
         assert "alert_linked_to_case" in schemas["EventType"]["enum"]
+
+
+class TestLegacyAlertLinkEndpoint:
+    """POST /alerts/{alert_id}/link-case/{case_id} must follow the same case rules."""
+
+    @staticmethod
+    def _link(api, alert_id, case_id, role="analyst"):
+        return api.post(
+            f"/api/v1/alerts/{alert_id}/link-case/{case_id}", headers=api.headers_for(role)
+        )
+
+    def test_links_with_aggregates_and_real_actor(self, api):
+        case_id = _create(api, "A1").json()["case_id"]
+        res = self._link(api, "A2", case_id, role="admin")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["alert_ids"] == ["A1", "A2"]
+        assert body["alert_count"] == 2
+        assert body["total_amount"] == 300.0
+        event = api.get(f"{BASE}/{case_id}/events", headers=api.headers_for("viewer")).json()[
+            "events"
+        ][0]
+        assert (event["event_type"], event["alert_id"], event["actor"]) == (
+            "alert_linked_to_case",
+            "A2",
+            "admin1",
+        )
+
+    def test_cannot_move_alert_out_of_open_case(self, api):
+        first = _create(api, "A1").json()["case_id"]
+        other = _create(api, "A2").json()["case_id"]
+        res = self._link(api, "A1", other)
+        assert res.status_code == 409
+        assert res.json()["detail"]["code"] == "alert_already_linked"
+        assert res.json()["detail"]["case_id"] == first
+
+    def test_closed_case_and_dismissed_alert(self, api):
+        case_id = _create(api, "A1").json()["case_id"]
+        assert self._link(api, "DISMISSED", case_id).json()["detail"]["code"] == "alert_dismissed"
+        api.patch(f"{BASE}/{case_id}", json={"status": "closed"}, headers=api.headers_for("admin"))
+        assert self._link(api, "A2", case_id).json()["detail"]["code"] == "case_not_open"
+
+    def test_unknown_case_is_404_not_fk_error(self, api):
+        assert self._link(api, "A1", "CASE-NOPE").status_code == 404
+
+    def test_viewer_forbidden(self, api):
+        case_id = _create(api, "A1").json()["case_id"]
+        assert self._link(api, "A2", case_id, role="viewer").status_code == 403
+
+    def test_marked_deprecated_in_openapi(self):
+        op = app.openapi()["paths"]["/api/v1/alerts/{alert_id}/link-case/{case_id}"]["post"]
+        assert op["deprecated"] is True
