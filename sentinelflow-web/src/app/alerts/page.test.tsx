@@ -239,6 +239,17 @@ describe("Alarmdan vaka akışı", () => {
 })
 
 describe("Alarmlar sayfası", () => {
+  it("alarm saatini ve detay tarihini İstanbul saatinde gösterir", async () => {
+    mockApi.mockResolvedValue({
+      ...listResponse,
+      alerts: [{ ...sampleAlert, detected_at: "2026-10-12T21:30:05+00:00" }],
+    })
+    render(<AlertsPage />)
+    expect(await screen.findByText("00:30:05")).toBeInTheDocument()
+    await userEvent.click(screen.getByText("Ali Yılmaz → Ayşe Demir"))
+    expect(screen.getByText("13.10.2026 00:30")).toBeInTheDocument()
+  })
+
   it("alarm listesini yükler ve toplam sayısını gösterir", async () => {
     mockApi.mockResolvedValue(listResponse)
     render(<AlertsPage />)

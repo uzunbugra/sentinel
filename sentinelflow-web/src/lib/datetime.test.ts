@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { formatDate, formatDateTime } from "./datetime"
+import { formatDate, formatDateTime, formatTime } from "./datetime"
 
 describe("İstanbul tarih gösterimi", () => {
   it("UTC tarihini İstanbul'da ertesi günün saatiyle gösterir", () => {
@@ -12,8 +12,13 @@ describe("İstanbul tarih gösterimi", () => {
     expect(formatDateTime("2026-10-12T21:30:00Z")).toBe("13.10.2026 00:30")
   })
 
+  it("UTC alarm saatini İstanbul'da saniyelerle gösterir", () => {
+    expect(formatTime("2026-10-12T21:30:05+00:00")).toBe("00:30:05")
+  })
+
   it.each([null, undefined, "", "invalid-date"])("geçersiz girdi için tire: %s", (value) => {
     expect(formatDate(value)).toBe("—")
     expect(formatDateTime(value)).toBe("—")
+    expect(formatTime(value)).toBe("—")
   })
 })

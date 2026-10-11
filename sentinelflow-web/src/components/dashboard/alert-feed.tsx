@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { formatDate } from "@/lib/datetime"
 import { AlertTriangle, Zap, Globe, Link2, Clock } from "lucide-react"
 
 interface Alert {
@@ -42,7 +43,7 @@ function formatTime(dateString: string) {
   if (diff < 60) return "Just now"
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  return date.toLocaleDateString()
+  return formatDate(dateString)
 }
 
 function formatAmount(amount: number) {

@@ -19,6 +19,7 @@ import {
   XCircle,
   Link as LinkIcon
 } from "lucide-react"
+import { formatDateTime, formatTime } from "@/lib/datetime"
 import { cn } from "@/lib/utils"
 import { apiRequest, canWrite } from "@/lib/auth"
 import { useAuth } from "@/contexts/auth-context"
@@ -289,7 +290,7 @@ export default function AlertsPage() {
                               </span>
                               <span className="flex items-center gap-1">
                                 <Clock className="h-3 w-3" />
-                                {new Date(alert.detected_at).toLocaleTimeString("tr-TR")}
+                                {formatTime(alert.detected_at)}
                               </span>
                             </div>
                           </div>
@@ -406,7 +407,7 @@ export default function AlertsPage() {
                     <div>
                       <label className="text-xs text-zinc-500 block">Tespit Zamanı</label>
                       <p className="text-sm text-zinc-300">
-                        {new Date(selectedAlert.detected_at).toLocaleString("tr-TR")}
+                        {formatDateTime(selectedAlert.detected_at)}
                       </p>
                     </div>
                     
