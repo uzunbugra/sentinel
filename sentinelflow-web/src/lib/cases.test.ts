@@ -68,6 +68,7 @@ describe("Vaka güncelleme hataları", () => {
   it.each([
     [409, "invalid_status_transition", "Bu durum değişikliğine izin verilmiyor."],
     [422, "resolution_required", "Bu durum için çözüm açıklaması zorunlu."],
+    [422, "resolution_not_allowed", "Çözüm açıklaması yalnızca çözülmüş vakalarda değiştirilebilir."],
     [422, "unsupported_field", "Bu alan bu ekrandan değiştirilemez."],
   ])("%s %s kodunu açıklar", (status, code, message) => {
     expect(describeCaseError(new ApiError(status, "error", { code }))).toBe(message)
