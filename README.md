@@ -244,7 +244,10 @@ Interactive API Swagger documentation is available at `http://localhost:8000/doc
 | `GET` | `/api/v1/alerts` | List detected fraud alerts with filtering options (viewer+) | 🔒 |
 | `GET` | `/api/v1/alerts/{alert_id}` | Retrieve detailed alert information with SHAP explanation (viewer+) | 🔒 |
 | `POST` | `/api/v1/alerts/{alert_id}/dismiss` | Dismiss an alert as false positive (analyst+) | 🔒 |
-| `POST` | `/api/v1/cases` | Create a new fraud investigation case (analyst+) | 🔒 |
+| `POST` | `/api/v1/cases` | Create a case from alerts in one transaction (analyst+) | 🔒 |
+| `PATCH` | `/api/v1/cases/{case_id}` | Change status / priority / assignment, add notes (analyst+) | 🔒 |
+| `POST` | `/api/v1/cases/{case_id}/alerts` | Link an alert to an open case (analyst+) | 🔒 |
+| `GET` | `/api/v1/cases/{case_id}/events` | Case audit timeline (viewer+) | 🔒 |
 | `GET` | `/api/v1/graph/rings` | Query graph database for money laundering rings (viewer+) | 🔒 |
 | `GET` | `/api/v1/graph/data` | Transaction network graph data for visualization (viewer+) | 🔒 |
 | `POST` | `/api/v1/kyc/screen` | Perform PEP & Sanctions screening on a customer (analyst+) | 🔒 |
@@ -255,7 +258,7 @@ Interactive API Swagger documentation is available at `http://localhost:8000/doc
 
 ## 🧪 Testing & Quality Assurance
 
-SentinelFlow includes a comprehensive automated test suite with **146 unit, integration, and ML validation tests** (including JWT/RBAC auth tests in `tests/test_api_auth.py`).
+SentinelFlow includes an automated test suite of **300+ backend tests** (unit, API/RBAC, case workflow, ML validation; Redis/Neo4j integration tests behind the `integration` marker) and a **Vitest + Testing Library** frontend suite in `sentinelflow-web` (`npm test`).
 
 ```bash
 # Run complete test suite with coverage
@@ -318,7 +321,7 @@ sentinel/
 │   ├── processor/             # Main Fraud Detector Engine (Neo4j, Redis, ML)
 │   └── dashboard/             # Streamlit Analyst Dashboard
 │
-└── tests/                     # Test Suite (146 tests, incl. JWT auth tests)
+└── tests/                     # Backend test suite (pytest)
 ```
 
 ---

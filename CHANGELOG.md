@@ -7,6 +7,10 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Sprint 3 — alert-to-case analyst workflow.** `CaseService` creates a case from alerts, links alerts, and changes status / priority / assignment / notes, each as one transaction with audit events; status transition rules, priority-based SLA (`sla_due_at`, `sla_breached`), structured `409`/`422` error codes. New `POST /api/v1/cases/{case_id}/alerts`; typed `GET /api/v1/cases/{case_id}/events`. Contract: `docs/contracts/sprint3-case-api.md`.
+- Frontend: case detail page with audit timeline, alert → new/existing case flow, role-aware actions, Europe/Istanbul timestamps; all protected requests go through the shared auth client (single shared refresh). Vitest + Testing Library suite runs in CI.
+- `sentinelflow.ml.dataset_schema`: single source of truth for the labelled transaction dataset, used by the ML Pipeline's validation and training jobs.
+- Optional `federated` extra (`pip install -e ".[federated]"`) for the Flower adapter.
 - JWT/RBAC enforcement on all data routes (`viewer` / `analyst` / `admin`), incl. `X-API-Key` fallback for transaction ingestion (`tests/test_api_auth.py`).
 - `POST /api/v1/kyc/screen` endpoint backed by `CombinedScreener`.
 - CORS whitelist via `CORS_ORIGINS` (wildcard mode disables credentials).
@@ -15,6 +19,10 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - Integration smoke tests for Redis geo (impossible travel) and Neo4j ring detection (`tests/test_integration_services.py`, marker `integration`); the CI integration job now runs real tests instead of selecting zero.
 
 ### Changed
+- JWT library: `python-jose` → `PyJWT` (token format unchanged). CI security scan passes with no exceptions.
+- `POST /api/v1/cases` returns `201` and requires `alert_ids`; `/cases/{id}/add-alert/{alert_id}` and `/alerts/{id}/link-case/{case_id}` are deprecated aliases that apply the same rules.
+- CI runs on pull requests into `develop`; ML Pipeline validates data on ML pull requests.
+- `CODEOWNERS`: each PR is reviewed by the other team member.
 - Required secrets are now fail-fast: `POSTGRES_PASSWORD`, `NEO4J_PASSWORD`, `JWT_SECRET_KEY` (no silent defaults in app, detector, or compose).
 - Core modules split into ≤500-line packages for navigability (import paths unchanged): `processor/detector/` (types, checks, publishing, runtime, service, cli), `processor/graph_engine/` (types, cypher, engine), `api/risk_scoring/` (schemas, engine, routes). OpenAPI schema verified byte-identical.
 - Dependencies pruned to what is actually imported (dropped spacy, geopy, haversine, pyvis, slowapi, asyncio-throttle, aiofiles, hyperopt, tensorboard and the unused `[mlops]` extra).
@@ -24,7 +32,15 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - Alembic migration 002 no longer inserts a well-known admin user (use `seed_admin.py`).
 - README synced with actual routes, roles, versions and test counts.
 
+### Fixed
+- Refresh tokens were always rejected (the revoked-token filter compiled to a constant).
+- ML Pipeline: data validation required a `user_id` column the generator no longer produces; training fed raw strings and the `fraud_type` label to the model.
+- Fresh installs on Python 3.11+ lacked `greenlet` for the async SQLAlchemy engine (`sqlalchemy[asyncio]` now declared).
+- Case responses omitted `alert_ids`, SLA and resolution fields; PATCH ignored `priority`; events were attributed to `system`.
+- Frontend auth was silently disabled in the browser (`NEXT_PUBLIC_*` read dynamically).
+
 ### Removed
+- `python-jose` / `ecdsa`; `flwr` from the core dependencies (now the `federated` extra).
 - Unwired/broken feature modules parked for rebuild (working versions will be re-added one by one): `compliance/` (MASAK/audit, imported only by its own tests), `monitoring/` (Prometheus/OTel suite, nothing consumed it — `/metrics` is hand-rolled), `detectors/` CLI shim (passed `--topic`/`--group` flags the detector parser does not accept; advertised non-existent `graph`/`geo` subcommands), `ml/benchmark.py`, `ml/replay_producer.py`, `dashboard/competition_dashboard.py`, `generator/http_gen.py` (all zero external references). Sources preserved in the `archive/unwired-features-20261005` tag.
 - Unused observability dependencies with the monitoring package: `prometheus-client`, `opentelemetry-api/sdk/exporter-otlp`.
 - Dead CLI subcommands (`detectors graph|geo`) targeting non-existent entry points.
