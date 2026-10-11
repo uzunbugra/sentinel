@@ -8,6 +8,7 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from "react"
+import { keyboardFocusWithin } from "@/components/ui/keyboard-focus"
 import { EmptyState, ErrorState, LoadingState } from "@/components/ui/request-state"
 import {
   type Case,
@@ -156,7 +157,10 @@ export function LinkCaseDialog({
 
   const fieldClass = "w-full rounded-lg border border-zinc-700 bg-zinc-800 p-2 text-white"
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+    <div className={
+      "fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 " +
+      keyboardFocusWithin
+    }>
       <div
         ref={dialog}
         role="dialog"

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import userEvent from "@testing-library/user-event"
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import type { User } from "@/lib/auth"
 
 const mocks = vi.hoisted(() => ({
@@ -79,6 +79,26 @@ beforeEach(() => {
 })
 
 describe("CasesPage", () => {
+  it("filtreler ve yenile düğmesi erişilebilir adlarıyla bulunur", async () => {
+    mockApiResolve()
+    render(<CasesPage />)
+    await screen.findByText("Kara para aklama şüphesi")
+    expect(screen.getByRole("combobox", { name: "Durum filtresi" })).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Öncelik filtresi" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Yenile" })).toBeEnabled()
+  })
+
+  it("sayfalama gezinmesi adlandırılmıştır ve önceki düğmesi kilitlidir", async () => {
+    mockApi.mockImplementation(async (endpoint) => {
+      if (endpoint.includes("/stats")) return statsResponse
+      return { ...casesResponse, total: 40 }
+    })
+    render(<CasesPage />)
+    const nav = await screen.findByRole("navigation", { name: "Sayfalama" })
+    expect(within(nav).getByRole("button", { name: "Önceki" })).toBeDisabled()
+    expect(within(nav).getByRole("button", { name: "Sonraki" })).toBeEnabled()
+  })
+
   it("shows the loading state while the list is being fetched", () => {
     mockApi.mockImplementation(() => new Promise(() => {}))
     render(<CasesPage />)

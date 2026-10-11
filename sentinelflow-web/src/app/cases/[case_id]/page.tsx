@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useEffect, useState } from "react"
+import { keyboardFocusWithin } from "@/components/ui/keyboard-focus"
 import { Header } from "@/components/layout/header"
 import { ErrorState, LoadingState } from "@/components/ui/request-state"
 import { CaseSummary } from "@/components/cases/case-summary"
@@ -43,7 +44,7 @@ function CaseDetail({ id }: { id: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#09090B] text-zinc-300">
+    <div className={`min-h-screen bg-[#09090B] text-zinc-300 ${keyboardFocusWithin}`}>
       <Header isConnected={isConnected} />
       <main className="mx-auto w-full max-w-7xl p-4 sm:p-6">
         <Link href="/cases" className="mb-4 inline-block text-blue-400 underline">

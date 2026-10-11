@@ -239,6 +239,46 @@ describe("Alarmdan vaka akışı", () => {
 })
 
 describe("Alarmlar sayfası", () => {
+  it("adlandırılmış filtrelerden Tab ve Enter ile alarm detayına ulaşılır", async () => {
+    mockApi.mockResolvedValue(listResponse)
+    render(<AlertsPage />)
+    await screen.findByText("Ali Yılmaz → Ayşe Demir")
+    const user = userEvent.setup()
+    await user.tab()
+    expect(screen.getByRole("combobox", { name: "Seviye filtresi" })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole("combobox", { name: "Tip filtresi" })).toHaveFocus()
+    await user.tab()
+    expect(screen.getByRole("button", { name: "Yenile" })).toHaveFocus()
+    await user.tab()
+    const row = screen.getByRole("button", { name: /Ali Yılmaz → Ayşe Demir/ })
+    expect(row).toHaveFocus()
+    expect(row).toHaveAttribute("aria-pressed", "false")
+    await user.keyboard("{Enter}")
+    expect(screen.getByText("Alarm Detayı")).toBeInTheDocument()
+    expect(row).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByText("Gönderen").tagName).toBe("DT")
+    expect(screen.getByText("Ali Yılmaz").closest("dd")).not.toBeNull()
+  })
+
+  it("Space tuşu da alarm seçer", async () => {
+    mockApi.mockResolvedValue(listResponse)
+    render(<AlertsPage />)
+    const row = await screen.findByRole("button", { name: /Ali Yılmaz → Ayşe Demir/ })
+    row.focus()
+    await userEvent.keyboard(" ")
+    expect(row).toHaveAttribute("aria-pressed", "true")
+    expect(screen.getByText("Alarm Detayı")).toBeInTheDocument()
+  })
+
+  it("sayfalama gezinmesi adlandırılmıştır ve ilk sayfada önceki kilitlidir", async () => {
+    mockApi.mockResolvedValue({ ...listResponse, total: 40 })
+    render(<AlertsPage />)
+    const nav = await screen.findByRole("navigation", { name: "Sayfalama" })
+    expect(within(nav).getByRole("button", { name: "Önceki" })).toBeDisabled()
+    expect(within(nav).getByRole("button", { name: "Sonraki" })).toBeEnabled()
+  })
+
   it("alarm saatini ve detay tarihini İstanbul saatinde gösterir", async () => {
     mockApi.mockResolvedValue({
       ...listResponse,

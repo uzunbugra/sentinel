@@ -70,20 +70,20 @@ export function CaseTimeline({ caseId, revision }: { caseId: string; revision: n
             </li>
           ))}
         </ol>}
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm">
+      <div className="mt-4 flex flex-col lg:flex-row flex-wrap lg:items-center justify-between gap-2 text-sm">
         <p>Sayfa {page} / {totalPages}</p>
-        <div className="flex gap-2">
+        <div className="flex flex-col lg:flex-row gap-2">
           <button
             type="button"
             disabled={loading || page <= 1}
             onClick={() => setQuery({ page: page - 1, eventType, revision })}
-            className="rounded bg-zinc-800 px-3 py-2 disabled:opacity-50"
+            className="rounded bg-zinc-800 px-3 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >Önceki</button>
           <button
             type="button"
             disabled={loading || error !== null || page >= totalPages}
             onClick={() => setQuery({ page: page + 1, eventType, revision })}
-            className="rounded bg-zinc-800 px-3 py-2 disabled:opacity-50"
+            className="rounded bg-zinc-800 px-3 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >Sonraki</button>
         </div>
       </div>

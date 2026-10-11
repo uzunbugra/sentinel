@@ -17,6 +17,7 @@ import {
   User,
   AlertTriangle,
 } from "lucide-react"
+import { keyboardFocusWithin } from "@/components/ui/keyboard-focus"
 import { cn } from "@/lib/utils"
 
 import Link from "next/link"
@@ -96,13 +97,13 @@ export default function CasesPage() {
   const totalPages = Math.ceil(total / pageSize)
   
   return (
-    <div className="h-screen flex flex-col bg-[#09090B]">
+    <div className={cn("min-h-screen lg:h-screen flex flex-col bg-[#09090B]", keyboardFocusWithin)}>
       <Header isConnected={isConnected} />
       
-      <main className="flex-1 p-6 overflow-hidden">
-        <div className="h-full flex flex-col gap-4">
+      <main className="flex-1 max-lg:min-w-0 p-6 lg:overflow-hidden">
+        <div className="lg:h-full flex flex-col gap-4">
           {/* Title and actions */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3 lg:flex-nowrap lg:gap-0">
             <div className="flex items-center gap-3">
               <FolderKanban className="h-6 w-6 text-blue-400" />
               <h1 className="text-2xl font-bold text-white">Vakalar</h1>
@@ -111,9 +112,10 @@ export default function CasesPage() {
               </span>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex max-lg:min-w-0 flex-wrap items-center gap-3 lg:flex-nowrap">
               {/* Status filter */}
               <select
+                aria-label="Durum filtresi"
                 value={statusFilter || ""}
                 onChange={(e) => setStatusFilter(e.target.value || null)}
                 className="bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
@@ -131,6 +133,7 @@ export default function CasesPage() {
               
               {/* Priority filter */}
               <select
+                aria-label="Öncelik filtresi"
                 value={priorityFilter || ""}
                 onChange={(e) => setPriorityFilter(e.target.value || null)}
                 className="bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
@@ -143,8 +146,10 @@ export default function CasesPage() {
               </select>
               
               <button
+                aria-label="Yenile"
+                disabled={loading}
                 onClick={fetchCases}
-                className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors disabled:cursor-not-allowed"
               >
                 <RefreshCw className={cn("h-5 w-5", loading && "animate-spin")} />
               </button>
@@ -153,7 +158,7 @@ export default function CasesPage() {
           
           {/* Stats row */}
           {stats && (
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
                 <p className="text-sm text-zinc-500">Toplam</p>
                 <p className="text-2xl font-bold text-white">{stats.total}</p>
@@ -182,8 +187,8 @@ export default function CasesPage() {
           )}
           
           {/* Cases list */}
-          <div className="flex-1 bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
-            <div className="flex-1 overflow-auto">
+          <div className="max-lg:min-w-0 lg:flex-1 bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
+            <div className="lg:flex-1 lg:overflow-auto">
               {loading && cases.length === 0 ? (
                 <LoadingState label="Vakalar yükleniyor..." />
               ) : cases.length === 0 && listError ? (
@@ -204,7 +209,7 @@ export default function CasesPage() {
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex max-lg:flex-wrap items-center gap-2 mb-1">
                               <span className={cn(
                                 "px-2 py-0.5 text-xs font-medium rounded",
                                 priorityColors[caseItem.priority]
@@ -229,7 +234,7 @@ export default function CasesPage() {
                               {caseItem.title}
                             </h3>
                             
-                            <div className="flex items-center gap-4 mt-2 text-xs text-zinc-500">
+                            <div className="flex max-lg:flex-wrap items-center gap-4 mt-2 text-xs text-zinc-500">
                               <span className="font-mono">{caseItem.case_id}</span>
                               <span>{caseItem.alert_count} alarm</span>
                               <span className="font-mono">
@@ -259,7 +264,7 @@ export default function CasesPage() {
             
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-800 bg-zinc-900/80">
+              <nav aria-label="Sayfalama" className="flex max-lg:flex-wrap items-center justify-between gap-y-2 px-4 py-3 border-t border-zinc-800 bg-zinc-900/80">
                 <span className="text-sm text-zinc-500">
                   Sayfa {page} / {totalPages}
                 </span>
@@ -267,19 +272,19 @@ export default function CasesPage() {
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="px-3 py-1.5 text-sm bg-zinc-800 text-zinc-300 rounded-lg disabled:opacity-50"
+                    className="px-3 py-1.5 text-sm bg-zinc-800 text-zinc-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Önceki
                   </button>
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
-                    className="px-3 py-1.5 text-sm bg-zinc-800 text-zinc-300 rounded-lg disabled:opacity-50"
+                    className="px-3 py-1.5 text-sm bg-zinc-800 text-zinc-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Sonraki
                   </button>
                 </div>
-              </div>
+              </nav>
             )}
           </div>
         </div>
