@@ -37,7 +37,7 @@ generator ile yenilenir ve fixture ile gerçek şema arasındaki fark kaldırıl
 | `CaseStatus` (açık) | `new`, `triage`, `investigating`, `escalated`, `pending_info` |
 | `CaseStatus` (kapalı) | `resolved_true_positive`, `resolved_false_positive`, `closed` |
 | `CasePriority` | `P1`, `P2`, `P3`, `P4` |
-| `EventType` (bu sprintte yazılanlar) | `case_created`, `alert_linked_to_case`, `case_status_changed`, `case_priority_changed`, `case_assigned`, `note_added` |
+| `EventType` (bu sprintte yazılanlar) | `case_created`, `alert_linked_to_case`, `alert_unlinked_from_case`, `case_status_changed`, `case_priority_changed`, `case_resolution_updated`, `case_assigned`, `note_added` |
 
 **Durum geçişleri**
 
@@ -86,7 +86,9 @@ Aynı duruma "geçiş" değişiklik sayılmaz (olay yazılmaz). Geçersiz geçi�
 **Çift tıklama / tekrar gönderim:** İkinci istek `409 alert_already_linked` alır ve `case_id`
 ilk istekte oluşan vakayı gösterir. Frontend bu durumda o vakanın detayına yönlendirebilir;
 böylece duplicate vaka oluşmaz. Kapalı (`resolved_*`/`closed`) bir vakaya bağlı alarm yeni
-bir vakaya bağlanabilir.
+bir vakaya bağlanabilir; bu durumda eski vakaya `alert_unlinked_from_case` olayı yazılır
+(`alert_id`, `new_value` = yeni vaka) ve eski vakanın `alert_count` / `total_amount` alanları
+yeniden hesaplanır.
 
 ### 3.2 `POST /api/v1/cases/{case_id}/alerts` — mevcut vakaya alarm bağla
 
@@ -119,10 +121,17 @@ Eski `POST /api/v1/cases/{case_id}/add-alert/{alert_id}` aynı kuralları uygula
 ```
 `tags` bu uçta desteklenmez; gönderilirse `422 unsupported_field`.
 
+`resolution` yalnızca vaka `resolved_*` durumuna geçerken ya da zaten `resolved_*` durumdayken
+gönderilebilir; aksi halde `422 resolution_not_allowed`. Çözülmüş vakada metin değişirse
+`case_resolution_updated` olayı yazılır (`previous_value` / `new_value`); boş metin
+`422 resolution_required`.
+
 Yanıt `200` + güncel `Case`. Değişen her alan için bir olay yazılır, sabit sırayla:
-`case_status_changed` → `case_priority_changed` → `case_assigned` → `note_added`.
+`case_status_changed` (veya `case_resolution_updated`) → `case_priority_changed` →
+`case_assigned` → `note_added`.
 Değişmeyen alan için olay yazılmaz. Hatalar: `404`, `409 invalid_status_transition`,
-`422 resolution_required`, `422 unsupported_field`, `422` gövde doğrulama.
+`422 resolution_required`, `422 resolution_not_allowed`, `422 unsupported_field`,
+`422` gövde doğrulama.
 
 `POST /api/v1/cases/{case_id}/assign?assigned_to=…` mevcut haliyle kalır (aynı olayı yazar).
 

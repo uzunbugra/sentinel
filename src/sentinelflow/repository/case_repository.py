@@ -126,7 +126,11 @@ class CaseRepository:
 
     def get_by_id(self, case_id: str) -> Case | None:
         """Get case by ID (sync)."""
-        stmt = select(CaseModel).where(CaseModel.case_id == case_id)
+        stmt = (
+            select(CaseModel)
+            .options(selectinload(CaseModel.alerts))
+            .where(CaseModel.case_id == case_id)
+        )
         result = self._session.execute(stmt)
         model = result.scalar_one_or_none()
         return Case.model_validate(model.to_dict()) if model else None
@@ -153,7 +157,7 @@ class CaseRepository:
         is_open: bool | None = None,
     ) -> tuple[list[Case], int]:
         """List cases with pagination and filtering (sync)."""
-        stmt = select(CaseModel)
+        stmt = select(CaseModel).options(selectinload(CaseModel.alerts))
         count_stmt = select(func.count(CaseModel.case_id))
 
         conditions = []
@@ -363,6 +367,21 @@ class CaseRepository:
         alerts = result.scalars().all()
 
         if not alerts:
+            self._session.execute(
+                update(CaseModel)
+                .where(CaseModel.case_id == case_id)
+                .values(
+                    alert_count=0,
+                    total_amount=0.0,
+                    avg_confidence=0.0,
+                    fraud_types=[],
+                    involved_accounts=[],
+                    involved_transactions=[],
+                    first_alert_at=None,
+                    last_alert_at=None,
+                    updated_at=datetime.now(timezone.utc),
+                )
+            )
             return
 
         # Calculate aggregates

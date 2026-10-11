@@ -207,6 +207,7 @@ class TestUpdateCase:
         [
             ({"status": "resolved_true_positive"}, "resolution_required"),
             ({"tags": ["x"]}, "unsupported_field"),
+            ({"resolution": "x"}, "resolution_not_allowed"),
         ],
     )
     def test_business_rule_422(self, api, body, code):

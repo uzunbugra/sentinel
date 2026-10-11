@@ -95,6 +95,31 @@ class TestCaseRepositoryList:
         assert repo.get_by_id("CASE-NOPE") is None
 
 
+class TestEagerLoading:
+    def test_list_and_get_do_not_lazy_load_alerts(self, seeded):
+        from sqlalchemy import event
+
+        session, created = seeded
+        session.expunge_all()
+        engine = session.get_bind()
+        statements = []
+
+        def count(*args):
+            statements.append(args[2])
+
+        event.listen(engine, "before_cursor_execute", count)
+        try:
+            cases, _ = CaseRepository(session).list(page_size=20)
+            listed = len(statements)
+            CaseRepository(session).get_by_id(created[0])
+        finally:
+            event.remove(engine, "before_cursor_execute", count)
+
+        assert all(case.alert_ids for case in cases)
+        assert listed == 3  # count + cases + one selectin query for all alerts
+        assert len(statements) - listed == 2  # case + its alerts
+
+
 class TestEventRepository:
     def test_list_by_case_orders_and_filters(self, seeded):
         session, created = seeded
