@@ -33,7 +33,7 @@ Types: `feat fix docs test chore refactor perf ci build`.
 - Fill the PR template completely; link issues with `Closes #<n>`.
 - Keep PRs small (< ~400 changed lines). Split refactors from behavior changes.
 - CI must be green: **lint + typecheck, tests, contract check, frontend build**.
-- One domain owner review is required (see `CODEOWNERS`).
+- Every PR is reviewed by the other team member; `CODEOWNERS` requests that review automatically.
 - Squash-merge into `develop`; `develop` → `main` only via a **release PR** with changelog entry.
 
 ## 4. Local quality gate (run before pushing)
