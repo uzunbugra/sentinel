@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import Link from "next/link"
+import { LinkCaseDialog } from "@/components/alerts/link-case-dialog"
 import { Header } from "@/components/layout/header"
 import { useWebSocket } from "@/hooks/use-websocket"
 import { 
@@ -93,6 +95,12 @@ export default function AlertsPage() {
   // Selected alert for detail view
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null)
   const [dismissError, setDismissError] = useState<unknown>(null)
+  const [caseAlert, setCaseAlert] = useState<Alert | null>(null)
+
+  const handleCaseLinked = (alertId: string, caseId: string) => {
+    setAlerts((prev) => prev.map((alert) => alert.alert_id === alertId ? { ...alert, case_id: caseId } : alert))
+    setSelectedAlert((prev) => prev?.alert_id === alertId ? { ...prev, case_id: caseId } : prev)
+  }
   
   const fetchAlerts = useCallback(async () => {
     setLoading(true)
@@ -429,8 +437,8 @@ export default function AlertsPage() {
                         </button>
                       )}
                       
-                      {!selectedAlert.case_id && canWrite(user) && (
-                        <button className="flex items-center justify-center gap-2 w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors">
+                      {!selectedAlert.case_id && !selectedAlert.is_dismissed && canWrite(user) && (
+                        <button onClick={() => setCaseAlert(selectedAlert)} className="flex items-center justify-center gap-2 w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-colors">
                           <LinkIcon className="h-4 w-4" />
                           Vaka Oluştur
                         </button>
@@ -438,7 +446,7 @@ export default function AlertsPage() {
                       
                       {selectedAlert.case_id && (
                         <p className="text-center text-sm text-zinc-500">
-                          Bağlı Vaka: {selectedAlert.case_id}
+                          Bağlı Vaka: <Link className="text-blue-400 underline" href={`/cases/${selectedAlert.case_id}`}>{selectedAlert.case_id}</Link>
                         </p>
                       )}
                     </div>
@@ -454,6 +462,14 @@ export default function AlertsPage() {
           </div>
         </div>
       </main>
+      {caseAlert && <LinkCaseDialog
+        key={caseAlert.alert_id}
+        alertId={caseAlert.alert_id}
+        suggestedTitle={`${fraudTypeLabels[caseAlert.fraud_type] || caseAlert.fraud_type} — ${caseAlert.sender_name || caseAlert.alert_id}`}
+        onLinked={(caseId) => handleCaseLinked(caseAlert.alert_id, caseId)}
+        onSuccess={() => setCaseAlert(null)}
+        onClose={() => setCaseAlert(null)}
+      />}
     </div>
   )
 }
