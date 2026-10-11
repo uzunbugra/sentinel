@@ -107,6 +107,7 @@ class CaseService:
         self._cases = CaseRepository(session)
         self._events = EventRepository(session)
         self._clock = _EventClock()
+        self._detached_from: set[str] = set()
 
     # ------------------------------------------------------------------ writes
 
@@ -142,7 +143,7 @@ class CaseService:
             for alert in alerts:
                 self._attach(case, alert, actor)
             self._session.flush()
-            self._cases.refresh_aggregates(case.case_id)
+            self._refresh_aggregates(case.case_id)
             case_id = case.case_id
         return self._read(case_id)
 
@@ -163,7 +164,7 @@ class CaseService:
             self._attach(case, alert, actor)
             case.updated_at = self._clock.now()
             self._session.flush()
-            self._cases.refresh_aggregates(case_id)
+            self._refresh_aggregates(case_id)
         return self._read(case_id)
 
     def update_case(self, case_id: str, update: CaseUpdate, actor: str) -> Case:
@@ -177,11 +178,10 @@ class CaseService:
         with self._unit_of_work():
             case = self._lock_case(case_id)
             changed = False
-            if update.status is not None:
+            if update.status is not None and CaseStatus(update.status).value != case.status:
                 changed |= self._apply_status(case, CaseStatus(update.status), update, actor)
             elif update.resolution is not None:
-                case.resolution = update.resolution
-                changed = True
+                changed |= self._apply_resolution(case, update.resolution, actor)
             if update.priority is not None:
                 changed |= self._apply_priority(case, CasePriority(update.priority), actor)
             if update.assigned_to is not None or update.assigned_team is not None:
@@ -240,6 +240,7 @@ class CaseService:
             self._session.commit()
         except Exception:
             self._session.rollback()
+            self._detached_from.clear()
             raise
 
     def _read(self, case_id: str) -> Case:
@@ -287,8 +288,19 @@ class CaseService:
                 )
 
     def _attach(self, case: CaseModel, alert: AlertModel, actor: str) -> None:
+        previous_case_id = alert.case_id
         alert.case = case
         alert.updated_at = self._clock.now()
+        if previous_case_id and previous_case_id != case.case_id:
+            self._detached_from.add(previous_case_id)
+            self._log(
+                previous_case_id,
+                EventType.ALERT_UNLINKED_FROM_CASE,
+                f"Alert {alert.alert_id} moved to case {case.case_id}",
+                actor,
+                alert_id=alert.alert_id,
+                new_value=case.case_id,
+            )
         self._log(
             case.case_id,
             EventType.ALERT_LINKED_TO_CASE,
@@ -302,11 +314,6 @@ class CaseService:
         self, case: CaseModel, new: CaseStatus, update: CaseUpdate, actor: str
     ) -> bool:
         current = CaseStatus(case.status)
-        if new == current:
-            if update.resolution is not None:
-                case.resolution = update.resolution
-                return True
-            return False
         if not is_valid_transition(current, new):
             raise CaseConflictError(
                 f"Cannot change case status from {current.value} to {new.value}",
@@ -341,6 +348,40 @@ class CaseService:
             created_at=now,
         )
         return True
+
+    def _apply_resolution(self, case: CaseModel, resolution: str, actor: str) -> bool:
+        if CaseStatus(case.status) not in RESOLVED_STATUSES:
+            raise CaseRuleError(
+                "A resolution can only be set while resolving a case or on a resolved case",
+                code="resolution_not_allowed",
+                field="resolution",
+                case_id=case.case_id,
+            )
+        if not resolution.strip():
+            raise CaseRuleError(
+                "A resolved case must keep a non-empty resolution",
+                code="resolution_required",
+                field="resolution",
+            )
+        previous = case.resolution
+        if resolution == previous:
+            return False
+        case.resolution = resolution
+        self._log(
+            case.case_id,
+            EventType.CASE_RESOLUTION_UPDATED,
+            "Resolution updated",
+            actor,
+            previous_value=previous,
+            new_value=resolution,
+        )
+        return True
+
+    def _refresh_aggregates(self, case_id: str) -> None:
+        """Refresh the target case and any case that just lost alerts to it."""
+        for affected in sorted(self._detached_from | {case_id}):
+            self._cases.refresh_aggregates(affected)
+        self._detached_from.clear()
 
     def _apply_priority(self, case: CaseModel, new: CasePriority, actor: str) -> bool:
         current = case.priority

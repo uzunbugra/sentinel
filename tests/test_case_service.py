@@ -151,6 +151,34 @@ class TestCreateFromAlerts:
         assert new.alert_ids == ["A1"]
         assert new.case_id != old.case_id
 
+    def test_relink_keeps_previous_case_consistent(self, svc):
+        old = _create(svc, "A1", "A2")
+        svc.update_case(old.case_id, CaseUpdate(status="closed"), actor=ACTOR)
+
+        new = _create(svc, "A1")
+        previous = svc.update_case(old.case_id, CaseUpdate(), actor=ACTOR)
+
+        assert previous.alert_ids == ["A2"]
+        assert (previous.alert_count, previous.total_amount) == (1, 500.0)
+        event = svc.list_events(old.case_id).events[0]
+        assert (event.event_type, event.alert_id, event.new_value) == (
+            "alert_unlinked_from_case",
+            "A1",
+            new.case_id,
+        )
+        assert event.actor == ACTOR
+
+    def test_previous_case_with_no_alerts_left_is_reset(self, svc):
+        old = _create(svc, "A1")
+        svc.update_case(old.case_id, CaseUpdate(status="closed"), actor=ACTOR)
+        target = _create(svc, "A2")
+        svc.link_alert(target.case_id, "A1", actor=ACTOR)
+
+        previous = svc.update_case(old.case_id, CaseUpdate(), actor=ACTOR)
+        assert previous.alert_ids == []
+        assert (previous.alert_count, previous.total_amount) == (0, 0.0)
+        assert previous.first_alert_at is None
+
     def test_failure_after_writes_rolls_everything_back(self, svc, session, monkeypatch):
         def boom(case_id):
             raise RuntimeError("aggregate failure")
@@ -296,12 +324,51 @@ class TestUpdateCase:
             "field": "tags",
         }
 
-    def test_resolution_text_without_status_change(self, svc):
+    def test_resolution_on_open_case_is_rejected(self, svc):
         case = _create(svc, "A1")
+        with pytest.raises(CaseRuleError) as exc:
+            svc.update_case(case.case_id, CaseUpdate(resolution="Ön değerlendirme"), actor=ACTOR)
+        assert exc.value.code == "resolution_not_allowed"
+
+    def test_resolution_on_closed_case_is_rejected(self, svc):
+        case = _create(svc, "A1")
+        svc.update_case(case.case_id, CaseUpdate(status="closed"), actor=ACTOR)
+        before = svc.list_events(case.case_id).total
+        with pytest.raises(CaseRuleError, match="resolved case"):
+            svc.update_case(case.case_id, CaseUpdate(resolution="sonradan"), actor=ACTOR)
+        assert svc.list_events(case.case_id).total == before
+
+    def test_resolution_edit_on_resolved_case_is_audited(self, svc):
+        case = _create(svc, "A1")
+        resolve = CaseUpdate(status="resolved_true_positive", resolution="Dolandırıcılık")
+        svc.update_case(case.case_id, resolve, actor=ACTOR)
+
         updated = svc.update_case(
-            case.case_id, CaseUpdate(resolution="Ön değerlendirme"), actor=ACTOR
+            case.case_id,
+            CaseUpdate(status="resolved_true_positive", resolution="Dolandırıcılık doğrulandı"),
+            actor="analyst2",
         )
-        assert updated.resolution == "Ön değerlendirme"
+        assert updated.resolution == "Dolandırıcılık doğrulandı"
+        event = svc.list_events(case.case_id).events[0]
+        assert (event.event_type, event.actor) == ("case_resolution_updated", "analyst2")
+        assert (event.previous_value, event.new_value) == (
+            "Dolandırıcılık",
+            "Dolandırıcılık doğrulandı",
+        )
+
+    def test_unchanged_or_blank_resolution(self, svc):
+        case = _create(svc, "A1")
+        svc.update_case(
+            case.case_id,
+            CaseUpdate(status="resolved_false_positive", resolution="Bilinen müşteri"),
+            actor=ACTOR,
+        )
+        before = svc.list_events(case.case_id).total
+        svc.update_case(case.case_id, CaseUpdate(resolution="Bilinen müşteri"), actor=ACTOR)
+        assert svc.list_events(case.case_id).total == before
+        with pytest.raises(CaseRuleError) as exc:
+            svc.update_case(case.case_id, CaseUpdate(resolution="  "), actor=ACTOR)
+        assert exc.value.code == "resolution_required"
 
     def test_team_only_assignment(self, svc):
         case = _create(svc, "A1", assigned_to="analyst1")
