@@ -167,3 +167,18 @@ class TestTransactionEndpointPersistsMlAlerts:
         saved = session.query(AlertModel).filter_by(transaction_id="TX-E2E").one()
         assert saved.severity == "critical"
         assert broadcasts and broadcasts[0]["alert_id"] == saved.alert_id
+
+
+def test_seed_admin_default_email_is_valid():
+    path = Path(__file__).resolve().parents[1] / "scripts" / "seed_admin.py"
+    spec = importlib.util.spec_from_file_location("seed_admin", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    user = UserCreate(
+        username="admin",
+        email=module.DEFAULT_ADMIN_EMAIL,
+        password="Admin12345!",
+        full_name="SentinelFlow Admin",
+    )
+    assert user.email == "admin@example.com"
