@@ -43,6 +43,20 @@ def generate_id(prefix: str) -> str:
     return f"{prefix}-{uuid4().hex[:12].upper()}"
 
 
+def _evidence_items(value: Any) -> list[Any]:
+    """Return alert evidence as a list.
+
+    Evidence is stored as a JSON list. Rows written in the earlier
+    ``{"items": [...]}`` shape, or left NULL by inserts that bypass the ORM
+    default, are normalised so readers never fail validation.
+    """
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict) and isinstance(value.get("items"), list):
+        return value["items"]
+    return []
+
+
 def utc_now() -> datetime:
     """Return current UTC datetime."""
     return datetime.now(timezone.utc)
@@ -108,7 +122,8 @@ class AlertModel(Base):
     description: Mapped[str] = mapped_column(Text, default="")
 
     # Evidence (JSONB for flexible structure)
-    evidence: Mapped[dict[str, Any]] = mapped_column(JSONDocument, default=dict)
+    # A JSON list of Evidence objects (contracts.alert.Evidence).
+    evidence: Mapped[list[dict[str, Any]]] = mapped_column(JSONDocument, default=list)
 
     # Relations
     related_transactions: Mapped[list[str]] = mapped_column(StringArray, default=list)
@@ -170,7 +185,7 @@ class AlertModel(Base):
             "currency": self.currency,
             "title": self.title,
             "description": self.description,
-            "evidence": self.evidence,
+            "evidence": _evidence_items(self.evidence),
             "related_transactions": self.related_transactions,
             "related_accounts": self.related_accounts,
             "case_id": self.case_id,
