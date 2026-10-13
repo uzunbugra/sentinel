@@ -368,7 +368,7 @@ This project is licensed under the **MIT License**. See the `LICENSE` file for d
 
 <div align="center">
 
-**Graduation Project** — Buğra Uzun · Yusuf Eren Bozkurt
+**Graduation Project** — Buğra Uzun · Yusuf Eren Bozkurt · Alper Tekin
 
 *SentinelFlow — Safeguarding Financial Systems with Real-Time Intelligence.*
 
