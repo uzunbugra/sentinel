@@ -1,200 +1,369 @@
-# Sprint 4 Planı — Tek, Eğitilmiş ve Ölçülmüş Fraud Modeli
+# Sprint 4 Planı — Data/eğitim ve servis/backend ayrımı
 
-**Tarih:** 15–28 Ekim 2026 (10 iş günü; 28 Ekim yarım gün, 29 Ekim tatil)
-**Ekip:** 2 geliştirici — Kişi A: @uzunbugra · Kişi B: @alper-tekin
-**Plan tabanı:** `origin/develop` @ `d68b4e0`
-**Sprint teması:** Sprint 3 kapanışı + ML pipeline'ının baştan kurulması: tek veri sözleşmesi,
-tek özellik tanımı, küçük ve eğitilmiş tek model, servislerin bu modeli gerçekten kullanması.
+Revizyon: 19 Ekim 2026. Data/eğitim Alper'e (@alper-tekin), servis/backend Kişi A'ya
+(@uzunbugra) ayrıldı. SF-404 A'ya taşındı; SF-406 ortak iş olarak korundu.
+Takvim yerine iş sırası ve kabul kapıları esas alınır. Önceki plan Git geçmişinde korunur.
+Bu belge çalışma kapsamını tanımlar; geliştirme işlerinin tamamlandığını göstermez.
 
-## 1. Sprint 3 kapanış durumu
+İncelenen kaynaklar:
+- [Mevcut Sprint 4 planı](https://github.com/uzunbugra/sentinel/blob/codex/s4-plan/docs/SPRINT4_PLAN.md), `4d654ba` (GitHub dal ucu doğrulandı).
+- [ML-01–09 issue'ları](https://github.com/uzunbugra/sentinel/issues?q=is%3Aissue+milestone%3A%22Sprint+4%22), #16–#24; 19 Ekim'de tamamı açık.
+- `origin/develop` @ `d68b4e0`: veri/özellik/eğitim kodu ve CODEOWNERS.
+- Alper'in paylaştığı dağılım görseli ve önceki SAML-D kararı (ortak hafıza).
 
-Sprint 3'ün P0/P1/P2 işleri planlanan bitişten (23 Ekim) önce tamamlandı; kalan günler Sprint 4'e
-aktarıldı.
+## 1. Amaç ve sorumluluk
 
-| Ölçüt (Sprint 3 §11) | Durum |
-|---|---|
-| CI/CD ve ML Pipeline tamamen yeşil | ✅ `develop` push'ları ve haftalık ML çalıştırması yeşil (train → validate → benchmark → model card) |
-| Açıklanmamış `pip-audit` bulgusu yok | ✅ istisnasız temiz |
-| Alarmdan vaka oluşturma + timeline demo edilebilir | ⚠️ Kod ve testler hazır; **çalışan Docker yığınında uçtan uca demo yapılmadı** |
-| Korumalı REST çağrılarının %100'ü ortak auth istemcisinden | ✅ korumalı uçlara çıplak `fetch` yok |
-| Yeni vaka/audit kodunda ≥ %80 branch coverage | ✅ servis %98, kurallar ve repository'ler %100 |
-| ≥ 4 kritik frontend senaryosu testli | ✅ 156 Vitest testi |
-| Sprintte eklenen dosyaların hiçbiri 500 satırı aşmıyor | ✅ (`test_api_structure.py` `api/` için bunu CI'da zorluyor) |
+Tek veri sözleşmesi ve tek özellik tanımıyla eğitilen, ölçülen, versiyonlanan küçük
+bir modeli API, detector ve risk motorunda kullanmak; sonucu alarm/vaka akışında göstermek.
 
-**Sprint 3'ten kalanlar (Sprint 4 P0 kapısı, §4.1):**
+- **Alper / B:** veri hazırlama, ortak özellik hesaplama, eğitim, değerlendirme,
+  artifact üretimi ve model kartı; Docker/demo ve model ekranı.
+- **Kişi A:** servis/backend, artifact'ın serviste yüklenmesi, API sözleşmesi,
+  CI, release, Playwright ve entegrasyon dokümantasyonu.
+- **Ortak:** mimari, model/özellik sözleşmesi, kalite hedefleri ve karşılıklı inceleme.
 
-1. `develop` → `main` release yapılmadı. `main`'de `develop`'ta olmayan bir commit var
-   (`d8125d7`, README katkıda bulunanlar); release öncesi `develop`'a alınmalı.
-2. Docker smoke testi ve uçtan uca demo yapılmadı (#13'te Neo4j `exec format error` raporlandı).
-3. Giriş sayfasındaki sabit "Demo: admin / Admin123!" ipucu gerçek şifreyle eşleşmiyor (#13).
-4. `develop` ve `main` için branch koruması yok; README "CI-gated" diyor ama zorlanmıyor.
-5. Vaka akışındaki satır kilidi (eşzamanlı istek) gerçek PostgreSQL'de test edilmedi; CI'da
-   PostgreSQL servisi yok.
-6. Sprint 3 demo dokümanı (`docs/SPRINT3_DEMO.md`) yazılmadı.
+## 2. Revize backlog
 
-## 2. Neden bu tema? — ML pipeline'ının bugünkü durumu
+Süreler kişi-gün tahminidir; tamamlanmış iş iddiası değildir.
 
-Kod incelemesinde (develop @ `d68b4e0`):
+| İş | Sahip | Gün | Teslim / kabul özeti |
+|---|---|---:|---|
+| SF-401 Release ve branch koruması | A | 0.5 | Mevcut release işi ve gerekli kontroller doğrulanır; yalnız eksikler tamamlanır. |
+| SF-402 PostgreSQL CI | A | 0.5 | Gerçek PostgreSQL'de migration ve aynı alarmı eşzamanlı iki vakaya bağlama testi. |
+| ML-01 ADR ve sözleşme koordinasyonu (#16) | A; karar ortak | 0.5 | SAML-D kaynağı, model ailesi, eşik politikası, sayısal hedefler, erken sözleşme notu. |
+| ML-02 Veri seti ve zaman bölmesi (#17) | Alper | 1 | Tekrarlanabilir hazırlama, manifest, veri kartı, ayrık train/validation/test. |
+| ML-03 Ortak özellik tanımı (#18) | Alper | 1.5 | Aynı batch/tekil hesaplama, feature_set_version, parity ve gelecek sızıntısı testi. |
+| ML-04 Eğitim ve değerlendirme (#19) | Alper | 1.5 | Baseline + küçük ağaç modeli; validation'da eşik; kilitli testte nihai rapor. |
+| ML-05 Artifact ve model kartı (#20) | Alper | 0.5 | Model + metadata + checksum; kaydet/yükle tahmin eşitliği, boyut bütçesi. |
+| ML-06 Servis entegrasyonu (#21) | A | 1.5 | Üç giriş noktası aynı artifact/sözleşme; gerçek skor, açıklamalar, health ve hata davranışı. |
+| ML-07 Eğitim workflow'u (#22) | A | 0.5 | Alper'in CLI'larını çağıran CI, rapor/artifact çıktısı ve doğrulanmış başarısız kalite kapısı. |
+| ML-08 Kullanılmayan kod/bağımlılıklar (#23) | A | 0.5 | ML-06 sonrası güvenli temizlik; PyTorch çekirdekten ayrılır, önce/sonra imaj boyutu. |
+| ML-09 Entegrasyon dokümanı (#24) | A | 0.5 | Eğitimden servise kullanım kılavuzu; Alper'in veri/model kartları ve raporuna bağlantılar. |
+| SF-403 Docker ve demo | Alper | 1 | Ortam smoke, demo giriş ipucunun düzeltilmesi, demo adımları; finalde gerçek ML akışı. |
+| SF-404 Playwright | A | 2 | Login→alarm→vaka→timeline akışı, yetki/hata senaryoları ve CI. |
+| SF-405 Model bilgisi ve alarm açıklaması UI | Alper | 2 | İlk aşama fixture; finalde gerçek API'den model, skor, eşik, katkılar; boş/hata durumları. |
+| SF-406 Node sürüm hizalaması | Alper + A | 0.5 | Alper web/Docker/package tarafı (0.25); A CI tarafı (0.25). Mevcut Node 22 ihtiyacı doğrulanır. |
 
-- **Eğitim ile servis birbirinden kopuk.** CI'daki ML Pipeline bir XGBoost modeli eğitip artifact
-  olarak saklıyor, ama hiçbir servis bu modeli yüklemiyor.
-- **Üç ayrı, eğitilmemiş ensemble.** `api/state.py`, `processor/detector/service.py` ve
-  `api/risk_scoring/engine.py` her biri kendi IsolationForest + XGBoost + AutoEncoder (+ LightGBM /
-  CatBoost) örneğini sıfırdan oluşturuyor. Gözetimli modeller hiç eğitilmediği için devre dışı
-  kalıyor; skor fiilen canlı trafikte kendini eğiten bir IsolationForest'tan geliyor.
-- **İki farklı özellik tanımı.** Servis `ml/feature_engine.py` (21 özellik, hesap geçmişi tutan
-  durum bilgili motor), eğitim `ml/dataset_schema.py` (11 özellik) kullanıyor → train/serve skew.
-- **Kullanılmayan ağır kod ve bağımlılıklar.** `gnn_model`, `temporal_model` hiçbir yerden
-  çağrılmıyor; `advanced_*`, `graph_features`, `competition_dataset` 800–1060 satır.
-  `torch` + `torch-geometric` çekirdek bağımlılıkta (kurulum ~2 GB).
-- **Değerlendirme yok.** Tek metrik CI'daki rastgele bölünmüş test seti; zaman bazlı bölme,
-  PR-AUC, eşik seçimi ve fraud türü bazında recall yok.
+Ana işler: Alper **7.75**, A **6.75** kişi-gün. Her kişiye ek **0.5 gün** ortak
+sözleşme/inceleme/teslim payı: toplam **15.5 kişi-gün** (Alper 8.25, A 7.25).
+Bu değerler efor tahminidir, takvim taahhüdü değildir. Veri/özellik/artifact zinciri
+kritik bağımlılıktır; A bu teslimi beklerken servis hazırlığı, platform ve test işlerini yürütür.
 
-Hedef: tek bir veri sözleşmesi, tek bir özellik tanımı, küçük ve eğitilmiş tek bir model; API,
-detector ve risk motorunun **aynı** versiyonlu artifact'ı yüklemesi.
+SF-407 repository temizliği ve SF-408 ek metrik dashboard'u P2 kalır. SF-405 içindeki
+aktif model özeti zorunludur; SF-408 için ayrı dashboard genişlemesi zorunlu değildir.
 
-## 3. Kapasite ve çalışma modeli
+## 3. Başlangıçta dondurulacak sözleşme
 
-- Teorik kapasite `2 × 9.5 = 19` kişi-gün; planlanan 15, tampon 4.
-- Sprint 3'teki kurallar geçerli: ayrı worktree/branch, tek yazar, `CONTRACT-REQUEST`, küçük PR,
-  Conventional Commits, PR'ı diğer kişi inceler (`CODEOWNERS`).
-- **Kişi A** (bu sprintte ML sahibi): `src/sentinelflow/ml/**`, `src/sentinelflow/mlops/**`,
-  `src/sentinelflow/api/**` (ML servis ve uçları dahil), `processor/detector/**`, `tests/**`,
-  `scripts/**`, `.github/workflows/**`, `pyproject.toml`, `docs/**`.
-- **Kişi B**: `sentinelflow-web/**`, Docker/demo ortamı doğrulaması, tarayıcı testleri.
-- ML işlerinin ayrıntılı görev listesi GitHub'da **Sprint 4** milestone'u altında, `ml` etiketiyle
-  Kişi A'ya atanmış issue'lardır (§5).
+A, `docs/contracts/sprint4-ml-api.md` belgesini yazar; Alper veri, özellik ve artifact
+bölümlerini onaylar. Bu iş ML-06'nın sonuna bırakılmaz; ilk çalışma aşamasında yapılır.
 
-## 4. Sprint backlog'u
+1. **Veri:** alan adları/tipleri, zaman dilimi, hesap kimliği, eksik alanlar, izinli
+   kategoriler. SAML-D kaynak/dönüşüm kimliği ve örnek işlem JSON'u.
+2. **Özellik:** sıralı özellik listesi, dtype, varsayılanlar, `feature_set_version`,
+   batch/tekil arayüz. Geçmiş kullanan özelliklerde pencere ve durum güncelleme sırası.
+3. **Artifact:** model formatı, `model_version`, `feature_set_version`, `feature_names`,
+   `threshold`, `dataset_id`, metrikler, eğitim zamanı, git SHA, kütüphane sürümleri,
+   checksum; dağıtım yeri ve bozuk/uyumsuz artifact davranışı.
+4. **API:** mevcut plandaki `GET /api/v1/ml/models`, `POST /api/v1/risk/score`, alarm
+   evidence ve health yanıtları; kesin route'lar OpenAPI ile doğrulanır. Skor aralığı,
+   eşik karşılaştırması, katkı değerinin anlamı ve `top_features` biçimi sabitlenir.
+5. **Model yokken:** servis ayakta, health degraded; ML skoru uydurulmaz. ML skor
+   endpoint'i için öneri 503; diğer kural motorlarının ve ingestion'ın nasıl devam
+   edeceği ADR'de açıkça yazılır. UI model yok durumunu gösterir.
+6. **Tek teslim örneği:** Alper örnek işlem dizisi + beklenen feature vektörleri ve
+   metadata örneği verir. A loader/API fixture'ını, Alper UI fixture'ını bundan üretir.
 
-### 4.1 P0 — Sprint 3 kapanışı (gün 1–2)
+Önemli: Aynı model sürümü, geçmişe bağlı özelliklerde tek başına aynı skoru garanti etmez.
+İşlem geçmişinin sahibi, cold-start, duplicate ve sırası bozuk olay davranışı birlikte
+kararlaştırılır. API ve detector aynı işlemi geçmişe iki kere yazmamalıdır. Bu state
+altyapısı kapasiteyi aşıyorsa ilk modelin özellik kapsamı ADR'de daraltılır; servis
+tarafında karşılığı olmayan geçmiş özellikleri eğitimde kullanılmaz.
 
-#### SF-401 — Release ve branch koruması (Kişi A, 0.5 gün)
-- `main`'deki `d8125d7`'yi `develop`'a al; `develop` → `main` release PR'ı; `CHANGELOG.md`
-  `[Unreleased]` → `[2.2.0] - 2026-10-xx`; sürüm `2.2.0` (`pyproject.toml`, `__version__`, API).
-- `develop` ve `main` için branch koruması: PR zorunlu, CI'daki Lint/Tests/Security/Frontend işleri
-  zorunlu kontrol, 1 onay.
+## 4. Alper'in veri/eğitim teslim zinciri
 
-**Kabul:** `main` = `develop` + release commit'i; `v2.2.0` tag'i; koruma kuralları aktif.
+### ML-02 — SAML-D'yi güvenilir eğitim girdisi yap
 
-#### SF-402 — PostgreSQL entegrasyon testleri CI'da (Kişi A, 0.5 gün)
-- CI `integration` işine PostgreSQL servisi; Alembic migration'ları gerçek veritabanında çalışır.
-- Vaka akışı için eşzamanlı iki isteğin aynı alarmı iki vakaya bağlayamadığını gösteren
-  `integration` işaretli test (row lock).
+- Mevcut issue'daki CompetitionDatasetGenerator birincil kaynak önerisini önceki
+  SAML-D kararıyla güncelle. Sentetik küçük fixture yalnız yazılım smoke testi içindir.
+- Önceki dönüşüm dosyası ve betiğinin kalıcı konumunu, kaynak hash'ini ve tekrar
+  üretilebilirliğini doğrula; geçici klasördeki dosyayı kalıcı teslim kabul etme.
+- Hesap kimliklerini koru; yükleme sırasında rastgele IBAN/isim üretme.
+- UK→Türkiye, GBP→TRY ve sabit x50 dönüşümünü veri kartında açıkla; bunları gerçek kur
+  veya gerçek coğrafi veri olarak yorumlama. Ülke alanını şehir gibi kullanma.
+- `is_laundering` hedef; `fraud_type` ve `laundering_type` yalnız raporlama etiketi,
+  özellik girdisi değil. Kimlikler geçmiş hesaplama anahtarı olabilir, doğrudan model girdisi olmaz.
+- Zaman sırasına göre böl; `max(train) < min(val)` ve `max(val) < min(test)` doğrulansın.
+  Aynı zaman damgasındaki satırları bölme sınırında ayırma.
+- Örnekleme gerekiyorsa strateji manifestte yazılsın. Validation/test doğal sınıf
+  dağılımını korusun; train örneklemesi geçmiş özellikleri için gerekli olayları kaybettirmesin.
 
-**Kabul:** Integration işi migration + eşzamanlılık testini PostgreSQL'e karşı koşar ve geçer.
+### ML-03 — Tek özellik motoru
 
-#### SF-403 — Docker smoke ve demo (Kişi B, 1 gün)
-- Repodaki `docker-compose.yml` ile tam yığın (Postgres, Redis, Neo4j, Kafka, API, web); #13'teki
-  Neo4j sorunu repodaki imaj sürümüyle yeniden denenir, gerekiyorsa `CONTRACT-REQUEST` ile
-  Kişi A'ya `platform:` sabitleme talebi.
-- `seed_admin.py` ile admin; işlem gönderip ML alarmı üretme → alarmdan vaka → timeline akışı.
-- Giriş sayfasındaki sabit demo ipucu kaldırılır ya da yalnızca geliştirme modunda gösterilir.
-- `docs/SPRINT3_DEMO.md` için adımlar ve ekran görüntüleri (doküman Kişi A'ya PR açıklamasıyla iletilir).
+- Özellik tanımının ve ortak hesaplama kodunun sahibi Alper; A ayrı hesaplama yazmaz.
+- Geçmiş özellikleri yalnız mevcut işlemden önceki izinli olayları görür. Aynı zamanlı
+  olaylar için deterministik sıra/pencere kuralı sözleşmede bulunur.
+- Batch ve tekil akış aynı işlem dizisi/başlangıç durumu ile eşleşir.
+- Sonradan eklenen gelecek olaylar önceki özellikleri değiştiremez.
+- Train'de öğrenilen dönüşümler val/test'e yalnız uygulanır; etiketler geçmiş state'e girmez.
 
-**Kabul:** Temiz makinede README adımlarıyla demo akışı tekrarlanabilir.
+### ML-04/05 — Ölçülmüş ve yüklenebilir model
 
-### 4.2 P1 — ML pipeline'ı yeniden kurulumu (Kişi A, ~8 gün)
+- Lojistik regresyon baseline ve LightGBM/XGBoost adayından biri. Başlangıç hedefi
+  ≤200 ağaç, derinlik ≤6, artifact ≤5 MB; nihai model ailesi ML-01'de seçilir.
+- Hiperparametre, kalibrasyon ve eşik yalnız train/validation ile seçilir. Kilitli test
+  final değerlendirmede kullanılır; test sonucuna bakıp eşik tekrar ayarlanmaz.
+- PR-AUC, ROC-AUC, precision/recall/F1, confusion matrix, tipoloji başına recall ve
+  destek sayıları; baseline karşılaştırması ve p50/p95 gecikme raporlanır.
+- p95 ≤5 ms hedefinin kapsamı ve donanımı yazılır; yalnız model predict ile tüm
+  özellik hesaplama/açıklama/API süresi karıştırılmaz.
+- Sayısal kalite hedefleri test açılmadan ADR'de sabitlenir. Hedef tutmazsa rapor
+  saklanır ve model yayınlanmaz; sırf CI geçsin diye hedef düşürülmez.
+- Alper paketleme/round-trip doğrulamasını teslim eder; A aynı formatın servis
+  yükleyicisini ve uyumsuz artifact/health testlerini ML-06'da tamamlar.
 
-Ayrıntılı kabul kriterleri issue'lardadır; sıra bağımlılık sırasıdır.
-
-| ID | İş | Gün |
-|---|---|---|
-| [ML-01](https://github.com/uzunbugra/sentinel/issues/16) (#16) | Hedef mimari ve veri seti kararı (ADR) | 0.5 |
-| [ML-02](https://github.com/uzunbugra/sentinel/issues/17) (#17) | Tekrarlanabilir veri seti + zaman bazlı train/val/test bölmesi + veri kartı | 1 |
-| [ML-03](https://github.com/uzunbugra/sentinel/issues/18) (#18) | Tek özellik tanımı: eğitim ve servis aynı kodu kullanır, parity testi | 1.5 |
-| [ML-04](https://github.com/uzunbugra/sentinel/issues/19) (#19) | Küçük modeli eğit, eşik seç, değerlendirme raporu | 1.5 |
-| [ML-05](https://github.com/uzunbugra/sentinel/issues/20) (#20) | Versiyonlu model artifact'ı + model kartı | 0.5 |
-| [ML-06](https://github.com/uzunbugra/sentinel/issues/21) (#21) | Servis entegrasyonu: API, detector ve risk motoru aynı modeli yükler | 1.5 |
-| [ML-07](https://github.com/uzunbugra/sentinel/issues/22) (#22) | ML Pipeline workflow'unun yeniden yazılması (kalite kapısı) | 0.5 |
-| [ML-08](https://github.com/uzunbugra/sentinel/issues/23) (#23) | Kullanılmayan ML kodu ve ağır bağımlılıkların ayrılması | 0.5 |
-| [ML-09](https://github.com/uzunbugra/sentinel/issues/24) (#24) | ML dokümantasyonu | 0.5 |
-
-**Hedef model profili (ML-01'de kesinleşir):** gradient boosted trees (LightGBM veya XGBoost,
-≤ 200 ağaç, derinlik ≤ 6) + karşılaştırma için lojistik regresyon taban modeli; artifact ≤ 5 MB;
-tek işlem çıkarımı p95 ≤ 5 ms; PyTorch gerektirmez.
-
-### 4.3 P1 — Kişi B
-
-#### SF-404 — Uçtan uca tarayıcı testleri (Kişi B, 2 gün)
-Playwright ile login → alarm listesi → alarmdan vaka → vaka detayı/timeline → durum değişikliği;
-backend gerçek (Docker) veya sözleşme fixture'larıyla. CI'da çalıştırma Kişi A'dan `CONTRACT-REQUEST`.
-
-#### SF-405 — Model bilgisi ve alarm açıklaması ekranı (Kişi B, 2 gün)
-ML-06'nın sözleşmesine göre (§6): alarm detayında model versiyonu, skor, eşik ve en etkili
-özellikler; ayarlar/sistem sayfasında aktif model kartı özeti. ML-06 birleşene kadar fixture ile.
-
-#### SF-406 — Node 22 kararı (Kişi B, 0.5 gün)
-`camera-controls` ve jest-dom'un yeni sürümleri Node ≥ 22 istiyor; `sentinelflow-web/Dockerfile`
-güncellemesi (B) ve CI'daki `node-version` için `CONTRACT-REQUEST` (A).
-
-### 4.4 P2 — Kapasite kalırsa
-
-- **SF-407 (A):** `AlertRepository` ve diğer repository'lerdeki kullanılmayan async yolların temizliği.
-- **SF-408 (B):** Dashboard'da model metrikleri (PR-AUC, eşik, son eğitim tarihi) kartı.
-
-## 5. ML görev listesi (Kişi A) — GitHub issue'ları
-
-Tümü **Sprint 4** milestone'u (#16–#24), `ml` etiketi, atanan @uzunbugra. Her issue'da kapsam, kabul
-kriterleri ve bağımlılıklar yazılıdır. Önerilen branch'ler: `codex/s4-a-ml-<konu>`.
+## 5. Paralel çalışma ve bağımlılıklar
 
 ```text
-ML-01 ─> ML-02 ─> ML-03 ─> ML-04 ─> ML-05 ─> ML-06 ─┐
-                                    └─> ML-07       ├─> ML-09
-                          ML-08 (ML-06'dan sonra) ──┘
+Ortak ADR + veri/özellik/artifact/API sözleşmesi
+  ├─ Alper: ML-02 → ML-03 → ML-04 → ML-05 ─────────────┐
+  ├─ A: ML-06 servis iskeleti + fixture loader ────────┤
+  ├─ A: SF-401/402, Playwright ve CI iskeleti           │
+  └─ Alper: SF-405 fixture arayüzü                     │
+                                                     ↓
+                                    ML-06 gerçek artifact entegrasyonu
+                                          ├─ ML-07 gerçek kalite kapısı
+                                          ├─ ML-08 temizlik → ML-09
+                                          └─ SF-405 gerçek API → SF-404 + SF-403 final demo
 ```
 
-## 6. API sözleşmesi el sıkışması (ML-06 ↔ SF-405)
+A, ML-04 bitmeden üç ensemble'ın çağrı noktalarını ayırmaya ve ortak servis
+iskeletine başlayabilir. Ancak çalışan yolları model hazır olmadan bozan bir değişiklik
+merge edilmez. ML-06'nın gerçek artifact ile kabul testi ML-05'e bağımlı kalır.
+ML-07 iskeleti erken yazılır; final kabul ML-05 sonrasıdır (issue #22'deki bağımlılık).
 
-Kişi A, ML-06'ya başlamadan `docs/contracts/sprint4-ml-api.md` notunu sabitler:
+SF-403 iki kontrol noktasıdır: önce ortam/analist akışı smoke, sonra gerçek artifact'la
+işlem→ML alarmı→vaka→timeline. İlk smoke, yeni model demosunun tamamlandığı anlamına gelmez.
+Fixture'lı Playwright testleri UI sözleşmesini doğrular; finalde en az bir gerçek
+Docker/backend akışı da çalıştırılır.
 
-- `GET /api/v1/ml/models` — aktif model: `model_version`, `trained_at`, `feature_names`,
-  `threshold`, değerlendirme metrikleri (PR-AUC, ROC-AUC, eşikteki precision/recall), veri seti
-  kimliği.
-- `POST /api/v1/risk/score` ve ML alarmları — `score`, `threshold`, `model_version`,
-  `top_features` (ad, değer, katkı); alarm `evidence` içinde `detector_type = ml_ensemble`
-  yerine model kimliği.
-- Model yüklü değilse davranış (`503` mü, kural tabanlı geri dönüş mü) ve `GET /system/health`'te
-  `ml_model` bileşeni.
+## 6. Uygulama aşamaları ve geçiş kapıları
 
-Kişi B fixture'ları bu nottan hazırlar; `api-schema.ts` yalnızca generator ile güncellenir.
+İşler aşağıdaki sırayla yürütülür. Bağımsız işler paralel başlayabilir; bağımlı işin
+nihai kabulü önceki teslim doğrulandıktan sonra yapılır. Tarih netleştirme işi beklenmez.
 
-## 7. Günlere göre plan
+| Aşama | Alper | Kişi A | Geçiş kapısı |
+|---|---|---|---|
+| 1 — Sözleşme ve temel | Ortak karar, ML-02, Docker ilk kontrolü | ML-01, SF-401/402, servis iskeleti | ADR, sözleşme, veri manifesti ve ortak fixture |
+| 2 — Özellik ve hazırlık | ML-03; SF-405 fixture hazırlığı | ML-06 hazırlık, SF-404 iskelet, CI hazırlık | Parity/sızıntı testleri; eğitime hazır veri |
+| 3 — Model teslimi | ML-04/05 | Servis loader/health testleri; artifact gelince ML-06 ve ML-07 kabulü | Değerlendirme raporu, yüklenebilir model, aynı sürümü kullanan servisler |
+| 4 — Ürün entegrasyonu | SF-405 gerçek entegrasyon, SF-406 web tarafı | SF-404 gerçek akış, ML-08, SF-406 CI tarafı | UI ve uçtan uca testler; temiz çekirdek kurulum |
+| 5 — Kapanış | SF-403 final demo ve belge; inceleme | ML-09, inceleme, CI/release doğrulama | §8 kapıları ve ortak demo tamam |
 
-| Gün | Kişi A | Kişi B |
+P2 işleri yalnız zorunlu işler tamamlandıktan sonra alınır. Veri sızıntısı, parity,
+gerçek artifact entegrasyonu ve gerçek demo kapıları kapsam daraltılarak atlanmaz.
+
+## 7. Dosya sahipliği ve PR sınırları
+
+- Alper: dataset hazırlama/yükleme, ortak özellik modülleri, train/eval ve artifact
+  paketleme, bunların testleri; data/model kartları ve raporlar; web ürün ekranları,
+  demo dokümanı ve Docker/demo ayarları.
+- A: model-serving/loader ve API, processor/detector, risk motoru, entegrasyon testleri,
+  workflow'lar, release, Python bağımlılıkları, Playwright test/config, genel ML kılavuzu.
+- `ml/**`, `tests/**`, `scripts/**`, `docs/**` topluca tek kişiye kapatılmaz; göreve ait
+  somut dosya listesi PR açılmadan belirlenir. Önerilen yeni serving modülü A'nındır;
+  ortak feature ve paketleme kodu Alper'indir.
+- Playwright dosyaları web altında olsa da A yazar. `package*.json` ortak kesişiminde
+  tek yazar Alper; A gereken test bağımlılıklarını bildirir. CI'yı A yazar.
+- `api-schema.ts` A tarafından yalnız generator ile üretilir; Alper tüketir.
+- ML-08 Alper'in aktif eğitim/özellik dosyalarını eşzamanlı düzenlemez; kaldırılacak
+  dosyalar önce listelenir. `ml/__init__.py` gibi ortak girişler için tek yazar belirlenir.
+- `origin/develop` CODEOWNERS iki kişiyi de içeriyor; bu inceleme kuralı dosya yazarlığı
+  ile karıştırılmaz. Her PR diğer kişi tarafından incelenir.
+
+Önerilen PR sırası: ortak ADR/sözleşme → Alper veri/özellik + A platform/servis hazırlığı
+→ Alper model/artifact → A gerçek serving/CI → Alper model UI + A E2E → temizlik/docs/demo.
+Her PR kendi ilgili testini taşır; tek büyük sprint PR'ı oluşturulmaz.
+
+## 8. Sprint bitiş kapıları
+
+- Veri ve model raporları yeniden üretilebilir; zaman bölmesi, leakage ve parity testleri yeşil.
+- Sayısal model hedefleri sağlanmış; hedefler ve rapor aynı veri/sürümü tanımlıyor.
+- API, detector ve risk motoru aynı model/feature sürümünü raporluyor; aynı feature
+  girdisi aynı skoru veriyor. Yüklü model yoksa eğitilmemiş tahmin yapılmıyor.
+- Gerçek alarm evidence'ında sürüm, skor, eşik ve anlamı tanımlanmış katkılar mevcut;
+  UI bunları gerçek API'den gösteriyor.
+- PostgreSQL concurrency testi, OpenAPI kontrolü ve ilgili kalite kapıları yeşil.
+- En az 3 Playwright senaryosu; en az bir gerçek backend/Docker akışı ve belgeli demo.
+- Çekirdek kurulum PyTorch gerektirmiyor; ML-08'in <500 satır şartı ve imaj boyutu raporu doğrulanmış.
+- ML-07 hızlı mod gerçek model kalitesinin yerine geçmiyor: hızlı fixture smoke ile
+  temsil edici veri üstündeki kalite değerlendirmesi ayrı raporlanıyor. Haftalık çalışma
+  kilitli testle sürekli model seçimi yapmıyor; final test politikası korunuyor.
+
+## 9. Issue eşlemesi ve revizyon kapsamı
+
+Mevcut Sprint 4 milestone'u ve issue numaraları korunur; ikinci bir sprint açılmaz.
+
+| Issue | Görev | Sorumlu |
 |---|---|---|
-| 1 — Per 15 Eki | SF-401 release + koruma; ML-01 ADR | SF-403 Docker yığını, Neo4j |
-| 2 — Cum 16 Eki | SF-402 PostgreSQL CI; ML-02 başlangıç | SF-403 demo akışı + giriş ipucu |
-| 3 — Pzt 19 Eki | ML-02 veri seti + bölme | SF-404 Playwright kurulumu |
-| 4 — Sal 20 Eki | ML-03 özellik tanımı | SF-404 akış testleri |
-| 5 — Çar 21 Eki | ML-03 parity testi; ML sözleşme notu (§6) | SF-405 fixture'larla ekran |
-| 6 — Per 22 Eki | ML-04 eğitim + eşik | SF-405 |
-| 7 — Cum 23 Eki | ML-04 rapor; ML-05 artifact + model kartı | SF-406 Node 22 |
-| 8 — Pzt 26 Eki | ML-06 servis entegrasyonu | SF-405'i gerçek API'ye bağla |
-| 9 — Sal 27 Eki | ML-06 + ML-07 workflow | Uçtan uca demo provası |
-| 10 — Çar 28 Eki (½) | ML-08 temizlik, ML-09 doküman, release adayı | Sprint demo |
+| #16 | ML-01 ADR ve ortak sözleşme | A; karar ortak |
+| #17 | ML-02 Veri hazırlama ve zaman bölmesi | Alper |
+| #18 | ML-03 Ortak özellik motoru | Alper |
+| #19 | ML-04 Eğitim ve değerlendirme | Alper |
+| #20 | ML-05 Artifact ve model kartı | Alper |
+| #21 | ML-06 Servis entegrasyonu | A |
+| #22 | ML-07 Workflow | A |
+| #23 | ML-08 Temizlik | A |
+| #24 | ML-09 Dokümantasyon | A |
 
-## 8. Definition of Done (Sprint 3'e ek olarak)
+Revizyonla birincil veri kaynağı SAML-D olarak hizalanır. ML-05 paketlemeyi,
+ML-06 servis yükleyicisini sahiplenir. ML-06 hazırlığı sözleşmeyle başlayabilir;
+nihai kabul ML-05'e bağlıdır. ML-07 nihai kabul bağımlılığı ML-05 olarak korunur.
+SF-404 A'ya, SF-403 demo dokümanı Alper'e aittir; SF-406 web/CI arasında paylaşılır.
+Tamamlanmış işler yalnız test/teslim kanıtıyla işaretlenir.
 
-- Model değişikliği içeren PR'da değerlendirme raporu (veri seti kimliği, metrikler, eşik) PR
-  açıklamasında yer alır.
-- Eğitim tekrarlanabilir: aynı seed ve veri seti kimliği aynı metrikleri verir.
-- Eğitim ve servis aynı özellik kodunu kullanır; parity testi CI'da koşar.
-- Servisler modeli versiyonlu artifact'tan yükler; eğitilmemiş model ile skor üretilmez.
+## 10. A'nın servis/backend görevlerinin ayrıntılı kabulü
 
-## 9. Sprint başarı ölçütleri
+### ML-01 — Başlangıç kararı ve sözleşme
 
-- `main`'de `v2.2.0`; `develop` ve `main` korumalı.
-- Docker yığınında login → işlem → ML alarmı → vaka → timeline demosu.
-- Tek model artifact'ı; API, detector ve risk motoru aynı `model_version`'ı raporlar.
-- Zaman bazlı test setinde PR-AUC ve eşikteki precision/recall raporlanmış; ML-01'de belirlenen
-  hedefler karşılanmış.
-- Çekirdek kurulumda PyTorch yok; Docker imajı küçülmüş (önce/sonra boyutu raporlanır).
-- En az 3 Playwright uçtan uca senaryosu.
+- A, ADR'yi ve §3 sözleşmesini yazar; Alper veri/model tarafını inceler.
+- Model ailesi, ilk özellik kapsamı, veri erişimi/lisansı, artifact saklama yöntemi,
+  hedef precision/recall ve eşik politikası bu görevin çıktısıdır. Bunlar planın
+  tamamlanmasını bekleten sorular değil, ilk geliştirme görevinin kabul koşullarıdır.
+- Kalite hedefleri veri dağılımı ve kullanım amacıyla gerekçelendirilir; test seti
+  açılmadan kayda geçirilir. Eğitim smoke bütçesi ile tam eğitim bütçesi ayrı yazılır.
+- Kabul: iki kişinin incelediği ADR ve örnek payload/metadata içeren sözleşme merge edilmiş.
 
-## 10. Bilinçli olarak sprint dışında
+### ML-06 — Ortak model servisi
 
-- GNN, zamansal (sequence) modeller, federated learning'in yeniden etkinleştirilmesi.
-- Gerçek zamanlı yeniden eğitim (online learning) ve otomatik drift tetiklemeli eğitim.
-- STR/MASAK raporlama (park edilmiş compliance modülü).
-- Kubernetes / production dağıtımı.
+- `FraudModelService` başlangıçta belirlenen artifact'ı yükler. API state, detector
+  service ve risk motoru aynı uygulamayı ve aynı sürümlü paketi kullanır; farklı
+  süreçlerin tek bir Python nesnesini paylaşması gerekmez.
+- Loader checksum, model/özellik sürümü, özellik sırası ve gerekli metadata'yı
+  doğrular. Geçersiz paket sessizce başka modele veya eğitilmemiş ensemble'a dönüşmez.
+- Üç eski ensemble çağrısı ortak servise yönlendirilir; canlı trafikte kendiliğinden
+  eğitim kaldırılır. Eski train endpoint'i kaldırılır/devre dışı bırakılır veya
+  açıkça yetkilendirilmiş yeni akışa bağlanır; karar ve OpenAPI birlikte güncellenir.
+- Açıklamalar gerçek model katkılarından üretilir. Katkı ölçeği (ör. log-odds),
+  sıralama ve gösterilecek ilk N özellik sözleşmede yazılır; genel feature importance
+  işlem özelindeki açıklama gibi sunulmaz.
+- Kabul testleri: üç tüketicide sürüm eşitliği; aynı girdi/state ile skor eşitliği;
+  bozuk/eksik/uyumsuz artifact; model yokken degraded; gerçek işlemden alarm evidence'ı.
+- API yetkileri korunur; response değişiklikleri generator ile OpenAPI snapshot'ına işlenir.
+
+### ML-07 — CI ve model kalite kapısı
+
+- Workflow veri hazırlama, eğitim, değerlendirme ve paketleme için Alper'in tek
+  giriş noktalarını çağırır; CI içine ikinci bir eğitim/özellik uygulaması yazılmaz.
+- PR hızlı modunda deterministic veri fixture'ı, parity, paket round-trip ve smoke;
+  model yayınlama kapısında temsil edici veriyle ADR hedefleri ve gerçek vektör gecikmesi.
+- Haftalık tam çalışma için veri erişimi, cache, kaynak kimliği ve süre sınırı tanımlanır;
+  kaynak yoksa başka veriyle başarılıymış gibi tamamlanmaz.
+- Metrikler job özetine, rapor/model kartı/artifact sürümlü çıktıya yazılır. Hedef altı
+  değerlendirme ile kapının kırmızı olduğu kontrollü bir testle gösterilir.
+- Eski drift job'u yeni özelliklere uyarlanır veya gerekçesiyle devre dışı bırakılır;
+  drift tetiklemeli otomatik eğitim bu sprintte eklenmez.
+
+### ML-08/09 — Temizlik ve doğru dokümantasyon
+
+- A, ML-06 sonrasında import/çağrı envanteri çıkarır; Alper yeni eğitim yolunun
+  kullandığı dosyaları kontrol eder. Eski yarışma script'leri ve kullanılmayan ağır
+  modüller kaldırılır veya çekirdekten bağımsız araştırma alanına taşınır.
+- Python manifest/lockfile birlikte güncellenir; çekirdek kurulumda PyTorch bulunmaz.
+  Kalan ML modülleri <500 satır kuralını sağlar; dosya bölme davranışı değiştirmez.
+- Aynı build koşullarında Docker imaj boyutu önce/sonra ölçülür; temiz import,
+  eğitim smoke, serving ve ilgili regression testleri geçer.
+- `docs/ml/README.md` veri→özellik→model→artifact→servis akışını ve gerçek komutları
+  anlatır. Eski ML/MLOps dokümanları ve README'deki ölçülmemiş iddialar düzeltilir.
+- Kabul: diğer kişi dokümanı takip ederek eğitim, model yükleme ve skor üretimini
+  tekrarlar; veri/model kartı ve raporlar doğru sürüme bağlıdır; changelog günceldir.
+
+## 11. Platform, ürün ve demo görevlerinin ayrıntılı kabulü
+
+### SF-401/402 — A: release ve PostgreSQL
+
+- SF-401: mevcut planın `d8125d7` katkı commit'i ve `v2.2.0` release durumu önce
+  kontrol edilir; zaten uygulanmış adımlar tekrarlanmaz. Eksikse develop/main
+  eşitlemesi release PR'ıyla yapılır; paket/API sürümleri ve changelog tutarlı tutulur.
+- `main`/`develop` için PR, bir karşı taraf onayı ve gerçek CI job adlarıyla gerekli
+  kontroller etkin olmalıdır. Repository yetkisi yoksa ayarı yapacak yetkili ve
+  uygulanacak kural listesi kaydedilir; aktif olmayan koruma tamamlandı sayılmaz.
+- SF-402: geçici PostgreSQL üzerinde Alembic migration'ları ve birbirinden bağımsız
+  transaction/session kullanan iki eşzamanlı istek test edilir. Sonuçta aynı alarm
+  yalnız bir aktif vakaya bağlıdır; kaybeden isteğin hata/rollback davranışı tutarlıdır.
+
+### SF-403 — Alper: Docker ve gerçek demo
+
+- Postgres, Redis, Neo4j, Kafka, API ve web temiz kurulumla ayağa kaldırılır. Neo4j
+  mimari sorunu önce yeniden üretilir; platform ayarı yalnız gerekli olduğunda yapılır.
+- Admin seed adımı belgelenir; gerçek şifre repoya veya ekran görüntüsüne yazılmaz.
+  Sabit demo giriş ipucu kaldırılır ya da gerçek geliştirme akışıyla uyumlu yapılır.
+- İlk smoke mevcut analist akışını doğrular. Final smoke, ML-05/06 sonrası aynı
+  artifact ile işlem→ML alarmı→vaka→timeline ve model açıklaması akışını doğrular.
+- Demo işlemi, model sürümü ve beklenen sonuç tekrarlanabilir fixture olarak seçilir;
+  gerçek modelin üretmediği alarm elle eklenerek ML demosu yapılmış sayılmaz.
+- Kabul: `docs/SPRINT3_DEMO.md` kapanış adımları ve Sprint 4 ML demo adımları belgeli;
+  diğer kişi temiz ortamda tekrar edebilir.
+
+### SF-404 — A: tarayıcı testleri
+
+- En az üç senaryo: başarılı login→alarm→vaka→timeline; viewer yazma yetkisi sınırı;
+  model yok/hata durumunda doğru UI davranışı. Backend RBAC ayrıca API testleriyle korunur.
+- Gerçek backend senaryosunda vaka durumu değiştirilir ve timeline olayı doğrulanır.
+  Test verisi deterministik hazırlanır/temizlenir; başka testlerin verisine güvenilmez.
+- Fixture testleri hızlı koşabilir; en az bir gerçek Docker/backend akışı CI'da
+  çalışır. Hatalı koşuda trace/screenshot/log çıktıları teşhis için saklanır.
+- Kabul: ilgili UI testleri ve gerçek akış yeşil; CI job'u başarısızlığı gizlemez.
+
+### SF-405 — Alper: model ve açıklama ekranı
+
+- Alarm detayında alarm üretildiği andaki `model_version`, skor, eşik ve top katkılar
+  evidence'tan gösterilir. Bugünkü aktif model bilgisi eski alarmın yerine yazılmaz.
+- Sistem/model alanında gerçek aktif model kartı özeti, eğitim zamanı, veri kimliği
+  ve değerlendirme metrikleri gösterilir. Sıfır değer ile eksik değer ayrılır.
+- Loading, empty, API error, model yok ve eski alarmda metadata yok durumları test edilir.
+  Tarihler kullanıcı yerelinde, API timestamp'leri UTC sözleşmesiyle tutarlıdır.
+- UI önce ortak fixture ile geliştirilir; gerçek OpenAPI ve backend yanıtıyla son
+  entegrasyon yapılmadan iş kapanmaz. SF-408'deki ayrı dashboard kapsamı eklenmez.
+
+### SF-406 — Ortak: Node sürüm tutarlılığı
+
+- Alper web Dockerfile/package/lock ve yerel geliştirme dokümanını, A CI runtime'ını
+  aynı desteklenen Node 22 çizgisine hizalar; mevcut durum uygunsa doğrulama yeterlidir.
+- Kabul: temiz bağımlılık kurulumu, lint, TypeScript, unit test, production build
+  ve Playwright aynı runtime çizgisinde çalışır.
+
+## 12. Teslim paketi ve çalışma kuralları
+
+| Teslim | Üreten | Devralan / doğrulayan |
+|---|---|---|
+| ADR ve API/artifact sözleşmesi | A | Alper |
+| Kaynak/dönüşüm manifesti, split tanımı, veri kartı | Alper | A |
+| Ortak feature kodu, sürümü ve parity fixture'ı | Alper | A |
+| Eğitim/eval CLI, rapor, artifact, checksum ve model kartı | Alper | A: gerçek loader ile yükler |
+| Servis entegrasyonu ve üretilmiş OpenAPI | A | Alper: gerçek UI entegrasyonu |
+| Workflow, test sonuçları ve imaj boyutu raporu | A | Alper |
+| Model ekranı ve demo belgesi | Alper | A: Playwright ve tekrar demo |
+| Genel kullanım kılavuzu ve changelog | A | Alper |
+
+- Her kişi güncel `origin/develop` tabanlı ayrı worktree/konu branch'inde çalışır.
+  Branch örnekleri: `codex/s4-b-ml-data`, `codex/s4-b-ml-features`,
+  `codex/s4-b-ml-model`, `codex/s4-a-ml-serving`, `codex/s4-a-e2e`.
+- Başlangıçta çalışma ağacı/HEAD kontrol edilir, mevcut kullanıcı değişiklikleri korunur.
+  Bağımlı PR merge edilince branch sahibi güncel develop'u alır ve ilgili kontrolleri tekrarlar.
+- Sözleşme değişikliği gerekiyorsa sahibi örnek payload ve etkiyle CONTRACT-REQUEST
+  açar; diğer alanın dosyalarını habersiz değiştirmez. Onaylı sözleşme birlikte güncellenir.
+- Python için ilgili lint/type/test kapıları; web için lint/type/unit/build;
+  entegrasyon için PostgreSQL, OpenAPI, parity ve E2E kontrolleri uygulanır.
+- Her PR: bağlı iş ID'si, teslim, test kanıtı, model/API sürüm etkisi ve kalan
+  bağımlılığı içerir. Model PR'ı değerlendirme raporunu da içerir.
+- Sprint ancak §8 kapıları tamamlandığında kapanır; fixture'ın çalışması gerçek
+  model entegrasyonunun veya gerçek backend demosunun yerine geçmez.
+
+## 13. Sprint dışında
+
+- GNN, sequence/temporal modeller ve federated learning'i yeniden etkinleştirme.
+- Canlı trafikte eğitim, otomatik drift tetiklemeli retraining ve production Kubernetes.
+- STR/MASAK raporlama, yeni tasarım sistemi veya kapsamlı dashboard yenilemesi.
+- Eğitim veri setini sırf model eğitimi için üretim işlem tablosuna aktarma veya yeni
+  veri tabanı şeması kurma; gerekli veri yükleme/dönüşüm bu sprintte offline kalır.
+- P2 SF-407/408, zorunlu teslimlerin kabulünü etkilemez.
