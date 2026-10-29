@@ -230,4 +230,5 @@ addopts = "-v --tb=short --strict-markers"
 markers = [
     "integration: marks tests as integration tests (require external services)",
     "slow: marks tests as slow running",
+    "postgres: needs a disposable PostgreSQL database (SENTINELFLOW_TEST_POSTGRES_URL)",
 ]

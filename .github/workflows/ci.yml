@@ -94,6 +94,50 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
 
   # ===========================================================================
+  # PostgreSQL: Alembic migrations + case concurrency on a real database
+  # ===========================================================================
+  postgres:
+    name: PostgreSQL Migrations & Concurrency
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: sentinelflow
+          POSTGRES_PASSWORD: sentinelflow_ci
+          POSTGRES_DB: sentinelflow_test
+        options: >-
+          --health-cmd "pg_isready -U sentinelflow -d sentinelflow_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run PostgreSQL tests
+        run: |
+          pytest tests/ -v -m postgres --tb=short
+        env:
+          PYTHONPATH: src
+          SENTINELFLOW_TEST_POSTGRES_URL: postgresql://sentinelflow:sentinelflow_ci@localhost:5432/sentinelflow_test
+          SENTINELFLOW_REQUIRE_POSTGRES: "1"
+
+  # ===========================================================================
   # Integration Tests
   # ===========================================================================
   integration:
