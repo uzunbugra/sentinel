@@ -34,6 +34,7 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - README synced with actual routes, roles, versions and test counts.
 
 ### Fixed
+- Test suite no longer hangs or segfaults on macOS when the XGBoost and PyTorch tests share a process (two OpenMP runtimes); `tests/conftest.py` pins `OMP_NUM_THREADS=1` on macOS.
 - Refresh tokens were always rejected (the revoked-token filter compiled to a constant).
 - ML Pipeline: data validation required a `user_id` column the generator no longer produces; training fed raw strings and the `fraud_type` label to the model.
 - Fresh installs on Python 3.11+ lacked `greenlet` for the async SQLAlchemy engine (`sqlalchemy[asyncio]` now declared).
