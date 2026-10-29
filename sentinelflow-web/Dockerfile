@@ -29,7 +29,8 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL \
     NEXT_TELEMETRY_DISABLED=1
 
-RUN npm run build
+# public/ is optional in Next.js but the runner stage copies it
+RUN mkdir -p public && npm run build
 
 # -----------------------------------------------------------------------------
 # Stage 3: Production runtime (standalone output)
