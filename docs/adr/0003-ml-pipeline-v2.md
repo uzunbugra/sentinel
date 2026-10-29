@@ -41,10 +41,12 @@ Bu ADR, ML-02…ML-09'un dayandığı kararları test seti açılmadan sabitler.
   üzerinden dağıtılır). Hesap kimlikleri, zaman, tutar, ödeme tipi, para birimleri,
   banka konumları, `Is_laundering` ve `Laundering_type` alanlarını içerir.
 - Önceki ekip kararıyla yapılan dönüşüm korunur ve **etiketli bir dönüşüm** olarak
-  belgelenir: UK→Türkiye konum eşlemesi, GBP→TRY ve sabit ×50 tutar ölçeği. Bunlar
-  gerçek kur/coğrafya değildir; konum alanı **ülke** olarak kalır, şehir gibi kullanılmaz.
-- Hesap kimlikleri korunur; yüklemede rastgele IBAN/isim üretilmez. Kimlikler yalnız
-  geçmiş (state) anahtarıdır, doğrudan model girdisi değildir.
+  belgelenir: UK ↔ Türkiye konum ve GBP ↔ TRY para birimi yer değiştirmesi (bire bir)
+  ve sabit ×50 tutar ölçeği. Bunlar gerçek kur/coğrafya değildir; konum alanı **ülke**
+  olarak kalır, şehir gibi kullanılmaz.
+- Hesap kimlikleri korunur; yüklemede rastgele IBAN/isim üretilmez. Görüntüleme için
+  IBAN/isim hesap kimliğinden deterministik türetilebilir; bunlar özellik değildir.
+  Kimlikler yalnız geçmiş (state) anahtarıdır, doğrudan model girdisi değildir.
 - `is_laundering` hedeftir. `laundering_type`/`fraud_type` yalnız raporlama etiketidir
   (tipoloji başına recall); özellik girdisi olamaz.
 - **Kimlik ve tekrar üretilebilirlik (ML-02 çıktısı, Alper):** ham dosyanın SHA-256'sı,

@@ -21,18 +21,24 @@ modülü (ML-03) yalnız bu alanları okur.
 | `sender_account` | string (opak anahtar) | ✅ | `Sender_account` (değiştirilmeden, string) | `sender_iban` |
 | `receiver_account` | string (opak anahtar) | ✅ | `Receiver_account` | `receiver_iban` |
 | `amount` | float64, > 0, TRY | ✅ | `Amount` × 50 (GBP→TRY etiketli dönüşüm) | `amount` |
-| `payment_currency` | string (kategori) | ✅ | `Payment_currency` | `currency` |
-| `received_currency` | string (kategori) | — | `Received_currency` | `received_currency` (yeni, opsiyonel; yoksa `payment_currency`) |
-| `sender_country` | string, ISO-3166 alpha-2 | — | `Sender_bank_location` (UK→`TR`) | `sender_country` (yeni, opsiyonel; yoksa `TR`) |
-| `receiver_country` | string, ISO-3166 alpha-2 | — | `Receiver_bank_location` (UK→`TR`) | `receiver_country` (yeni, opsiyonel; yoksa `TR`) |
+| `payment_currency` | string, ISO-4217 (kategori) | ✅ | `Payment_currency` (UK pounds→`TRY`, Turkish lira→`GBP`) | `currency` |
+| `received_currency` | string, ISO-4217 (kategori) | — | `Received_currency` (aynı eşleme) | `received_currency` (yeni, opsiyonel; yoksa `payment_currency`) |
+| `sender_country` | string, ISO-3166 alpha-2 | — | `Sender_bank_location` (UK→`TR`, Turkey→`GB`) | `sender_country` (yeni, opsiyonel; yoksa `TR`) |
+| `receiver_country` | string, ISO-3166 alpha-2 | — | `Receiver_bank_location` (UK→`TR`, Turkey→`GB`) | `receiver_country` (yeni, opsiyonel; yoksa `TR`) |
 | `payment_type` | string (kategori) | — | `Payment_type` | `payment_type` (yeni, opsiyonel; yoksa `unknown`) |
 | `is_laundering` | int {0,1} | yalnız eğitim | `Is_laundering` | — |
 | `laundering_type` | string | yalnız rapor | `Laundering_type` | — |
+| `sender_iban`, `receiver_iban`, `sender_name`, `receiver_name` | string | yalnız görüntüleme | Hesap kimliğinden deterministik (ML-02) | — |
+| `split` | `train` / `val` / `test` | yalnız eğitim | Kronolojik bölme (ML-02) | — |
 
 Kurallar:
 
-- Ülke alanları **ülke** kodudur; şehir alanlarıyla (`sender_city`) karıştırılmaz. UK→TR,
-  GBP→TRY ve ×50 gerçek kur/coğrafya değildir; veri kartında belirtilir (ML-02).
+- Ülke alanları **ülke** kodudur; şehir alanlarıyla (`sender_city`) karıştırılmaz.
+  UK ↔ Turkey ve UK pounds ↔ Turkish lira **yer değiştirir** (UK→`TR`, Turkey→`GB`;
+  UK pounds→`TRY`, Turkish lira→`GBP`); eşleme bire birdir. Bu ve ×50 tutar ölçeği gerçek
+  kur/coğrafya değildir; veri kartında belirtilir (ML-02).
+- Görüntüleme alanları (`*_iban`, `*_name`) ve `split` hiçbir özelliğe girmez; geçmiş
+  anahtarı yalnız `*_account`'tır.
 - `is_laundering` ve `laundering_type` hiçbir özelliğe girmez; geçmiş state'e de yazılmaz.
 - Kimlik alanları yalnız geçmiş anahtarıdır; doğrudan özellik değildir.
 - Eksik opsiyonel alan → yukarıdaki varsayılan; bilinmeyen kategori → `unknown` kodu.
@@ -60,9 +66,10 @@ Kurallar:
 Kategori kelime dağarcıkları (ödeme tipi, para birimi, ülke) ve kodları ML-03'te
 özellik modülünde sabit sıralı listeler olarak tanımlanır; servis kendi listesini tutmaz.
 Kod `0` her zaman `unknown`; listeler yalnız yeni bir `feature_set_version` ile sona
-eklenerek büyür, sıralama değişmez. SAML-D'deki UK ve Turkey konumlarının ikisi de `TR`,
-GBP ve TRY'nin ikisi de `TRY` olur; bu bilinçli bir birleştirmedir ve veri kartında
-(ML-02) belirtilir. Kimlikler string, `timestamp` tz-aware olarak teslim edilir;
+eklenerek büyür, sıralama değişmez. Listeler ML-02'nin ürettiği değerleri
+kapsar: ödeme tipi `ach, cash_deposit, cash_withdrawal, cheque, credit_card, cross_border,
+debit_card`; para `AED, ALL, CHF, EUR, GBP, INR, JPY, MAD, MXN, NGN, PKR, TRY, USD`; ülke
+`AE, AL, AT, CH, DE, ES, FR, GB, IN, IT, JP, MA, MX, NG, NL, PK, TR, US`. Kimlikler string, `timestamp` tz-aware olarak teslim edilir;
 tz'siz zaman damgası `FeatureInputError` ile reddedilir.
 
 ## 2. Özellik seti
@@ -358,7 +365,8 @@ bu dosyalardan üretir. Fixture değişirse iki tarafın testleri aynı PR'da g�
 
 ## 6. Açık noktalar (onayda kapatılacak)
 
-- [x] Alper: §1 kategori listeleri ve UK/Turkey → `TR` birleştirmesi (ML-03, #31).
+- [x] Alper: §1 kategori listeleri ve UK ↔ Turkey / GBP ↔ TRY yer değiştirmesi (ML-02, #32);
+      ML-03 listelerine `GB` ve `GBP` eklenir (#31).
 - [ ] Alper: §1 SAML-D sütun eşlemesinin veri kartında doğrulanması (ML-02).
 - [x] Alper: §2 geçmiş özellikleri ML-03'te tam kapsamla uygulandı (#31); pencere,
       duplicate ve cold-start yorumları §2'ye işlendi.
