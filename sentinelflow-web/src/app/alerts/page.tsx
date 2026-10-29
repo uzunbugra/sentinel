@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 import { LinkCaseDialog } from "@/components/alerts/link-case-dialog"
+import { ModelEvaluation } from "@/components/alerts/model-evaluation"
 import { keyboardFocusWithin } from "@/components/ui/keyboard-focus"
 import { Header } from "@/components/layout/header"
 import { useWebSocket } from "@/hooks/use-websocket"
@@ -20,6 +21,7 @@ import {
 import { formatDateTime, formatTime } from "@/lib/datetime"
 import { cn } from "@/lib/utils"
 import { apiRequest, canWrite } from "@/lib/auth"
+import type { AlertEvidence } from "@/lib/ml"
 import { useAuth } from "@/contexts/auth-context"
 import {
   LoadingState,
@@ -47,6 +49,7 @@ interface Alert {
   detected_at: string
   is_dismissed: boolean
   case_id: string | null
+  evidence?: AlertEvidence[]
 }
 
 interface AlertsResponse {
@@ -72,6 +75,7 @@ const fraudTypeLabels: Record<string, string> = {
   mule_account: "Mule Hesap",
   structuring: "Yapılandırma",
   velocity_anomaly: "Hız Anomalisi",
+  ml_model: "ML Model",
   ml_ensemble: "ML Tespit",
   compliance_violation: "Uyum İhlali",
 }
@@ -432,6 +436,11 @@ export default function AlertsPage() {
                         <dd className="text-sm text-zinc-400">{selectedAlert.description}</dd>
                       </dl>
                     )}
+                    
+                    <ModelEvaluation
+                      fraudType={selectedAlert.fraud_type}
+                      evidence={selectedAlert.evidence}
+                    />
                     
                     <hr className="border-zinc-800" />
                     
