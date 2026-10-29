@@ -16,6 +16,7 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - CORS whitelist via `CORS_ORIGINS` (wildcard mode disables credentials).
 - Frontend Docker image (multi-stage, standalone) + compose `frontend` profile fix.
 - Team workflow: `CONTRIBUTING.md`, PR template, `CODEOWNERS`, `.editorconfig`, pre-commit hooks, API contract gate (`scripts/export_openapi.py`), coverage gate (`--cov-fail-under=45`), `tsc --noEmit` in CI.
+- **SF-402 — PostgreSQL CI job.** Alembic migrations run on a real PostgreSQL 16 (upgrade, downgrade, re-upgrade, schema compared with the ORM models) and two independent sessions race to put the same alert into two cases: exactly one wins, the loser gets `409 alert_already_linked` and leaves no case or audit event (`tests/test_postgres_cases.py`, marker `postgres`).
 - Integration smoke tests for Redis geo (impossible travel) and Neo4j ring detection (`tests/test_integration_services.py`, marker `integration`); the CI integration job now runs real tests instead of selecting zero.
 
 ### Changed
