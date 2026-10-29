@@ -2,10 +2,19 @@
 
 import os
 import sys
-from datetime import datetime
-from unittest.mock import MagicMock
 
-import numpy as np
+# On macOS, xgboost/lightgbm load Homebrew's libomp while torch loads its own
+# bundled copy. Once both thread pools exist in one process, torch hangs or
+# segfaults (e.g. the AutoEncoder test after the XGBoost test). Single-threaded
+# OpenMP avoids the clash; it must be set before any OpenMP runtime starts.
+# Linux CI uses one libgomp and is unaffected. Removing torch from the core
+# install (ML-08, #23) removes the second runtime.
+os.environ.setdefault("OMP_NUM_THREADS", "1")
+
+from datetime import datetime  # noqa: E402
+from unittest.mock import MagicMock  # noqa: E402
+
+import numpy as np  # noqa: E402
 import pytest
 
 # Real JWT flows (test_api_auth.py) sign and verify tokens, and the auth stack
