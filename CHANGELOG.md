@@ -6,10 +6,12 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Sprint 4 — ML pipeline v2 decision (ML-01).** ADR `docs/adr/0003-ml-pipeline-v2.md` (SAML-D source, time split with a locked test set, LightGBM + logistic baseline, threshold policy, numeric targets, budgets, artifact format, no-model behaviour) and the data/feature/artifact/API contract `docs/contracts/sprint4-ml-api.md`.
+
 ## [2.2.0] - 2026-10-29
 
 ### Added
-- **Sprint 4 — ML pipeline v2 decision (ML-01).** ADR `docs/adr/0003-ml-pipeline-v2.md` (SAML-D source, time split with a locked test set, LightGBM + logistic baseline, threshold policy, numeric targets, budgets, artifact format, no-model behaviour) and the data/feature/artifact/API contract `docs/contracts/sprint4-ml-api.md`.
 - **Sprint 3 — alert-to-case analyst workflow.** `CaseService` creates a case from alerts, links alerts, and changes status / priority / assignment / notes, each as one transaction with audit events; status transition rules, priority-based SLA (`sla_due_at`, `sla_breached`), structured `409`/`422` error codes. New `POST /api/v1/cases/{case_id}/alerts`; typed `GET /api/v1/cases/{case_id}/events`. Contract: `docs/contracts/sprint3-case-api.md`.
 - Frontend: case detail page with audit timeline, alert → new/existing case flow, role-aware actions, Europe/Istanbul timestamps; all protected requests go through the shared auth client (single shared refresh). Vitest + Testing Library suite runs in CI.
 - `sentinelflow.ml.dataset_schema`: single source of truth for the labelled transaction dataset, used by the ML Pipeline's validation and training jobs.
