@@ -134,7 +134,7 @@ jobs:
           pytest tests/ -v -m postgres --tb=short
         env:
           PYTHONPATH: src
-          SENTINELFLOW_TEST_POSTGRES_URL: postgresql://sentinelflow:sentinelflow_ci@localhost:5432/sentinelflow_test
+          SENTINELFLOW_TEST_POSTGRES_URL: postgresql+psycopg2://sentinelflow:sentinelflow_ci@localhost:5432/sentinelflow_test
           SENTINELFLOW_REQUIRE_POSTGRES: "1"
 
   # ===========================================================================

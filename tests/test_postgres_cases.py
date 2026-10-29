@@ -11,7 +11,9 @@ Run against a real, disposable PostgreSQL database:
   loser rolls back without leaving a case or audit event behind.
 
 The database named by ``SENTINELFLOW_TEST_POSTGRES_URL`` is wiped; never point
-it at real data. Without the variable the module is skipped.
+it at real data. Without the variable the module is skipped. Name the driver
+explicitly (``postgresql+psycopg2://...``): SQLAlchemy 2.1 maps a bare
+``postgresql://`` to psycopg 3, which the project does not install.
 """
 
 from __future__ import annotations
