@@ -1,6 +1,6 @@
 [project]
 name = "sentinelflow"
-version = "2.1.0"
+version = "2.2.0"
 description = "Real-Time Financial Fraud Detection System (Graduation Project)"
 readme = "README.md"
 license = {text = "MIT"}
@@ -230,4 +230,5 @@ addopts = "-v --tb=short --strict-markers"
 markers = [
     "integration: marks tests as integration tests (require external services)",
     "slow: marks tests as slow running",
+    "postgres: needs a disposable PostgreSQL database (SENTINELFLOW_TEST_POSTGRES_URL)",
 ]
