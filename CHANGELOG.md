@@ -6,6 +6,8 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-29
+
 ### Added
 - **Sprint 4 — ML pipeline v2 decision (ML-01).** ADR `docs/adr/0003-ml-pipeline-v2.md` (SAML-D source, time split with a locked test set, LightGBM + logistic baseline, threshold policy, numeric targets, budgets, artifact format, no-model behaviour) and the data/feature/artifact/API contract `docs/contracts/sprint4-ml-api.md`.
 - **Sprint 3 — alert-to-case analyst workflow.** `CaseService` creates a case from alerts, links alerts, and changes status / priority / assignment / notes, each as one transaction with audit events; status transition rules, priority-based SLA (`sla_due_at`, `sla_breached`), structured `409`/`422` error codes. New `POST /api/v1/cases/{case_id}/alerts`; typed `GET /api/v1/cases/{case_id}/events`. Contract: `docs/contracts/sprint3-case-api.md`.
@@ -17,6 +19,7 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - CORS whitelist via `CORS_ORIGINS` (wildcard mode disables credentials).
 - Frontend Docker image (multi-stage, standalone) + compose `frontend` profile fix.
 - Team workflow: `CONTRIBUTING.md`, PR template, `CODEOWNERS`, `.editorconfig`, pre-commit hooks, API contract gate (`scripts/export_openapi.py`), coverage gate (`--cov-fail-under=45`), `tsc --noEmit` in CI.
+- **SF-402 — PostgreSQL CI job.** Alembic migrations run on a real PostgreSQL 16 (upgrade, downgrade, re-upgrade, schema compared with the ORM models) and two independent sessions race to put the same alert into two cases: exactly one wins, the loser gets `409 alert_already_linked` and leaves no case or audit event (`tests/test_postgres_cases.py`, marker `postgres`).
 - Integration smoke tests for Redis geo (impossible travel) and Neo4j ring detection (`tests/test_integration_services.py`, marker `integration`); the CI integration job now runs real tests instead of selecting zero.
 
 ### Changed
@@ -34,11 +37,17 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - README synced with actual routes, roles, versions and test counts.
 
 ### Fixed
+- Test suite no longer hangs or segfaults on macOS when the XGBoost and PyTorch tests share a process (two OpenMP runtimes); `tests/conftest.py` pins `OMP_NUM_THREADS=1` on macOS.
 - Refresh tokens were always rejected (the revoked-token filter compiled to a constant).
 - ML Pipeline: data validation required a `user_id` column the generator no longer produces; training fed raw strings and the `fraud_type` label to the model.
 - Fresh installs on Python 3.11+ lacked `greenlet` for the async SQLAlchemy engine (`sqlalchemy[asyncio]` now declared).
 - Case responses omitted `alert_ids`, SLA and resolution fields; PATCH ignored `priority`; events were attributed to `system`.
 - Frontend auth was silently disabled in the browser (`NEXT_PUBLIC_*` read dynamically).
+- Ingestion path works end-to-end again: `requests` is now a declared dependency (kafka ingestor / http generator / replay scripts crashed on clean installs), the Docker builder copies `README.md` (hatchling metadata), and ingestion clients send `X-API-Key` (the endpoint 401'd everything since RBAC).
+- Compose passes `SENTINELFLOW_API_KEY` + `CORS_ORIGINS` to the api container and auto-creates the Neo4j schema on first boot (`init_neo4j_schema.cypher` mounted into `/docker-entrypoint-initdb.d`).
+- CI: pin `bcrypt>=4.0.1,<4.1` (passlib 1.7.4 incompatible with bcrypt>=4.1 — broke JWT tests), coverage floor set to 45%.
+- CI: pin black (`>=26.5,<27`) and ruff (`>=0.15.22,<0.16`) to same ranges in pyproject, CI and pre-commit — formatter minor versions changed formatting and caused lint drift; `tool.black.target-version` pinned to `py310` to silence the 3.11-runner AST safety warning.
+- Frontend called non-existent endpoints (`/graph/nodes`, `/graph/edges`, `/ml/predict`, `/ml/info`); aligned with backend + generated contract snapshot.
 
 ### Removed
 - `python-jose` / `ecdsa`; `flwr` from the core dependencies (now the `federated` extra).
@@ -48,13 +57,6 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - Echo-only CI jobs (`model-version`, `deploy-staging`, `deploy-production`).
 - Stray root launcher scripts (`*.bat`, `test_api.py`, `verify_kafka.py`, `scripts/live_test.py` — stale ports/paths), unused Next.js placeholder SVGs and the dead `src/sentinelflow/security/` duplicate-auth package with its tests.
 - Dead CI/config options: ML pipeline `data/**`/`models/**` push triggers (gitignored), the `deploy` dispatch option, `MLFLOW_TRACKING_URI`, and the phantom `sentinelflow-detector` Prometheus target.
-
-### Fixed
-- Ingestion path works end-to-end again: `requests` is now a declared dependency (kafka ingestor / http generator / replay scripts crashed on clean installs), the Docker builder copies `README.md` (hatchling metadata), and ingestion clients send `X-API-Key` (the endpoint 401'd everything since RBAC).
-- Compose passes `SENTINELFLOW_API_KEY` + `CORS_ORIGINS` to the api container and auto-creates the Neo4j schema on first boot (`init_neo4j_schema.cypher` mounted into `/docker-entrypoint-initdb.d`).
-- CI: pin `bcrypt>=4.0.1,<4.1` (passlib 1.7.4 incompatible with bcrypt>=4.1 — broke JWT tests), coverage floor set to 45%.
-- CI: pin black (`>=26.5,<27`) and ruff (`>=0.15.22,<0.16`) to same ranges in pyproject, CI and pre-commit — formatter minor versions changed formatting and caused lint drift; `tool.black.target-version` pinned to `py310` to silence the 3.11-runner AST safety warning.
-- Frontend called non-existent endpoints (`/graph/nodes`, `/graph/edges`, `/ml/predict`, `/ml/info`); aligned with backend + generated contract snapshot.
 
 ### Security
 - Removed all hardcoded credentials from repo (incl. bcrypt hash of `Admin123!` in migration history and a Neo4j password in `init_neo4j_schema.cypher` comments).

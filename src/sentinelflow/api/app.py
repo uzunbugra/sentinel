@@ -78,7 +78,7 @@ def create_app() -> FastAPI:
     application = FastAPI(
         title="SentinelFlow - Fraud Detection API",
         description=API_DESCRIPTION,
-        version="2.1.0",
+        version="2.2.0",
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
