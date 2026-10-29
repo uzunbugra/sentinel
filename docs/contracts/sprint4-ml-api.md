@@ -59,6 +59,11 @@ Kurallar:
 
 Kategori kelime dağarcıkları (ödeme tipi, para birimi, ülke) ve kodları ML-03'te
 özellik modülünde sabit sıralı listeler olarak tanımlanır; servis kendi listesini tutmaz.
+Kod `0` her zaman `unknown`; listeler yalnız yeni bir `feature_set_version` ile sona
+eklenerek büyür, sıralama değişmez. SAML-D'deki UK ve Turkey konumlarının ikisi de `TR`,
+GBP ve TRY'nin ikisi de `TRY` olur; bu bilinçli bir birleştirmedir ve veri kartında
+(ML-02) belirtilir. Kimlikler string, `timestamp` tz-aware olarak teslim edilir;
+tz'siz zaman damgası `FeatureInputError` ile reddedilir.
 
 ## 2. Özellik seti
 
@@ -85,9 +90,16 @@ sıradadır ve artifact'taki `feature_names` ile birebir eşleşmek zorundadır.
 
 Geçmiş (state) kuralları — ADR 0003 §4:
 
-- "Önceki" = `(timestamp, transaction_id)` sıralamasında mevcut işlemden **önce** gelen
-  olaylar. Pencere `[t - W, t)` yarı açıktır; mevcut işlem kendi özelliğine girmez.
-- Aynı zaman damgalı olaylar `transaction_id` sırasıyla birbirini görür.
+- "Önceki" = `(timestamp, transaction_id)` sıralamasında mevcut işlemden **kesin önce**
+  gelen olaylar; mevcut işlem kendi özelliğine girmez.
+- Pencere: alt sınır **dahil** (`timestamp ≥ t − W`), üst sınır `(timestamp,
+  transaction_id)` sırasında kesin önce. Böylece aynı zaman damgalı olaylar
+  `transaction_id` sırasıyla birbirini görür. (`[t − W, t)` gösterimi bu anlamdadır.)
+- Duplicate: aynı `(timestamp, transaction_id)` ile tekrar gelen işlem orijinalini görmez,
+  bu yüzden orijinalle aynı vektörü alır; geçmişe ikinci kez yazılmaz. Kimlikler
+  karşılaştırmada string olarak ele alınır.
+- `sender_seconds_since_prev` yalnız gönderenin **giden** işlemlerine bakar ve 7 günlük
+  pencereyle sınırlı değildir.
 - Arayüz (ML-03, Alper):
 
   ```python
@@ -243,7 +255,8 @@ Anlamlar:
   Pozitif → riski artırır. `base_value + Σ(tüm özellik katkıları) = logit(ham skor)`.
 - `top_features`: `|contribution|` büyükten küçüğe ilk **5** özellik; eşitlikte özellik adı
   alfabetik. Genel feature importance değildir.
-- `history_cold_start`: gönderenin ve alıcının servis state'inde hiç geçmişi yoksa `true`.
+- `history_cold_start`: gönderen ve alıcı hesap state'te **hiçbir yönde** (giden ya da
+  gelen) kaydedilmemişse `true`.
 
 `503` (model yok/geçersiz):
 
@@ -335,7 +348,8 @@ Alarm `fraud_type = "ml_model"` (yeni enum değeri). Evidence listesinde bir ö�
 `tests/fixtures/ml/` altında, ML-03 ile birlikte Alper teslim eder:
 
 - `transactions.jsonl` — §1 biçiminde, aynı zamanlı ve aynı hesaplı olayları, cold-start'ı,
-  duplicate `transaction_id`'yi içeren ~30 işlemlik sıralı dizi.
+  duplicate `transaction_id`'yi, 24 sa / 7 gün sınırlarını ve bilinmeyen kategoriyi içeren
+  sıralı dizi (ML-03 teslimi: 23 işlem).
 - `expected_features.jsonl` — her işlem için `{transaction_id, features: [15 değer]}`.
 - `metadata.example.json` — §3 biçiminde, gerçek modele bağlı olmayan örnek.
 
@@ -344,9 +358,9 @@ bu dosyalardan üretir. Fixture değişirse iki tarafın testleri aynı PR'da g�
 
 ## 6. Açık noktalar (onayda kapatılacak)
 
-- [ ] Alper: §1 SAML-D sütun eşlemesi ve kategori listeleri, UK↔Türkiye çakışmasının
-      (veri setinde zaten `Turkey` konumu varsa) nasıl kodlandığı.
-- [ ] Alper: §2 geçmiş özelliklerinin ML-03 kapasitesine sığdığı; daraltılırsa liste ve
-      `fs-1` burada güncellenir.
+- [x] Alper: §1 kategori listeleri ve UK/Turkey → `TR` birleştirmesi (ML-03, #31).
+- [ ] Alper: §1 SAML-D sütun eşlemesinin veri kartında doğrulanması (ML-02).
+- [x] Alper: §2 geçmiş özellikleri ML-03'te tam kapsamla uygulandı (#31); pencere,
+      duplicate ve cold-start yorumları §2'ye işlendi.
 - [ ] Ortak: ADR 0003 §7 sayısal hedefler — test seti açılmadan onay.
 - [ ] A (ML-06): `risk/batch`, `ml/features`, `ml/predict` uçlarının akıbeti.
