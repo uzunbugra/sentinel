@@ -6,6 +6,9 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Sprint 4 — ML pipeline v2 decision (ML-01).** ADR `docs/adr/0003-ml-pipeline-v2.md` (SAML-D source, time split with a locked test set, LightGBM + logistic baseline, threshold policy, numeric targets, budgets, artifact format, no-model behaviour) and the data/feature/artifact/API contract `docs/contracts/sprint4-ml-api.md`.
+
 ## [2.2.0] - 2026-10-29
 
 ### Added
