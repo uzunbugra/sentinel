@@ -7,10 +7,10 @@ Case management schema definitions.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from sentinelflow.contracts.base import (
     ContractBase,
@@ -26,6 +26,15 @@ from sentinelflow.contracts.enums import (
 )
 
 
+def _as_utc(value: datetime | None) -> datetime | None:
+    """Return ``value`` as an aware UTC datetime (naive values are treated as UTC)."""
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 class CaseCreate(ContractBase):
     """
     Schema for creating a new case.
@@ -36,7 +45,7 @@ class CaseCreate(ContractBase):
     description: str = Field(default="", max_length=5000)
 
     # Initial alerts
-    alert_ids: list[str] = Field(default_factory=list, min_length=1)
+    alert_ids: list[str] = Field(..., min_length=1)
 
     # Priority (can be auto-calculated from alerts)
     priority: CasePriority = Field(default=CasePriority.P3_MEDIUM)
@@ -126,10 +135,27 @@ class Case(ContractBase):
         data.update(kwargs)
         return cls(**data)
 
+    @model_validator(mode="after")
+    def _normalise_times_and_sla(self) -> Case:
+        """Serve all timestamps as UTC and derive ``sla_breached`` at read time."""
+        for name in (
+            "created_at",
+            "updated_at",
+            "first_alert_at",
+            "last_alert_at",
+            "sla_due_at",
+            "resolved_at",
+            "str_filed_at",
+        ):
+            setattr(self, name, _as_utc(getattr(self, name)))
+        if self.is_open and self.sla_due_at and self.sla_due_at < datetime.now(timezone.utc):
+            self.sla_breached = True
+        return self
+
     @property
     def is_open(self) -> bool:
         """Whether case is still open."""
-        return self.status.is_open
+        return CaseStatus(self.status).is_open
 
 
 class CaseEvent(ContractBase):
@@ -155,8 +181,8 @@ class CaseEvent(ContractBase):
         description="user, system, api",
     )
 
-    # What changed
-    description: str = Field(default="", max_length=2000)
+    # What changed (notes are stored in full, up to CaseUpdate.note's limit)
+    description: str = Field(default="", max_length=5000)
 
     # State change (for status/priority changes)
     previous_value: str | None = None
@@ -220,3 +246,61 @@ class CaseSummary(ContractBase):
     created_at: datetime
     updated_at: datetime
     sla_breached: bool = False
+
+
+# =============================================================================
+# API models for the case workflow (docs/contracts/sprint3-case-api.md)
+# =============================================================================
+
+
+class CaseAlertLink(ContractBase):
+    """Request body for linking an existing alert to a case."""
+
+    alert_id: str = Field(..., min_length=1, max_length=50)
+
+
+class CaseEventOut(ContractBase):
+    """Audit timeline entry as served by the API (no IP / user-agent)."""
+
+    event_id: str
+    case_id: str
+    event_type: EventType
+    actor: str
+    actor_type: str
+    description: str = ""
+    previous_value: str | None = None
+    new_value: str | None = None
+    alert_id: str | None = None
+    created_at: datetime
+
+    @model_validator(mode="after")
+    def _utc_created_at(self) -> CaseEventOut:
+        self.created_at = _as_utc(self.created_at)
+        return self
+
+
+class CaseEventListResponse(ContractBase):
+    """Paginated audit timeline, newest first."""
+
+    total: int
+    page: int
+    page_size: int
+    events: list[CaseEventOut] = Field(default_factory=list)
+
+
+class ApiErrorDetail(ContractBase):
+    """Machine-readable error for 409 and business-rule 422 responses."""
+
+    code: str = Field(..., description="Stable error code, e.g. alert_already_linked")
+    message: str
+    alert_id: str | None = None
+    case_id: str | None = None
+    field: str | None = None
+    from_status: str | None = None
+    to_status: str | None = None
+
+
+class ApiErrorResponse(ContractBase):
+    """Error envelope used by the case workflow endpoints."""
+
+    detail: ApiErrorDetail

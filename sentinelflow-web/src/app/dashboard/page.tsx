@@ -22,6 +22,7 @@ import Link from "next/link"
 import { AnimatePresence, motion } from "motion/react"
 
 import { useWebSocket } from "@/hooks/use-websocket"
+import { formatTime } from "@/lib/datetime"
 import { config } from "@/lib/config"
 import { apiRequest } from "@/lib/auth"
 import { describeError } from "@/components/ui/request-state"
@@ -255,9 +256,7 @@ export default function DashboardPage() {
           : "medium"
         return {
           id: a.alert_id,
-          ts: new Date(a.detected_at).toLocaleTimeString("en-GB", {
-            hour12: false,
-          }),
+          ts: formatTime(a.detected_at),
           engine: a.fraud_type,
           severity: valid,
           detail: a.description || fraudLabel(a.fraud_type),

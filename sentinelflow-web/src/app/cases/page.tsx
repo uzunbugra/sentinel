@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react"
 import { Header } from "@/components/layout/header"
 import { useWebSocket } from "@/hooks/use-websocket"
-import { useAuth } from "@/contexts/auth-context"
 import { apiRequest } from "@/lib/auth"
 import {
   EmptyState,
@@ -17,27 +16,14 @@ import {
   Clock,
   User,
   AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Plus,
 } from "lucide-react"
+import { keyboardFocusWithin } from "@/components/ui/keyboard-focus"
 import { cn } from "@/lib/utils"
 
-interface Case {
-  case_id: string
-  title: string
-  description: string
-  status: string
-  priority: string
-  primary_fraud_type: string | null
-  alert_count: number
-  total_amount: number
-  max_severity: string
-  assigned_to: string | null
-  created_at: string
-  updated_at: string
-  sla_breached: boolean
-}
+import Link from "next/link"
+import type { Case } from "@/lib/cases"
+import { formatDate } from "@/lib/datetime"
+import { statusConfig, priorityColors } from "@/components/cases/case-labels"
 
 interface CasesResponse {
   total: number
@@ -54,26 +40,8 @@ interface CaseStats {
 
 import { config } from "@/lib/config"
 
-const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
-  new: { label: "Yeni", color: "bg-blue-500/10 text-blue-400 border-blue-500/20", icon: AlertTriangle },
-  triage: { label: "Triage", color: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20", icon: AlertTriangle },
-  investigating: { label: "İnceleniyor", color: "bg-orange-500/10 text-orange-400 border-orange-500/20", icon: Clock },
-  escalated: { label: "Üst Seviye", color: "bg-red-500/10 text-red-400 border-red-500/20", icon: AlertTriangle },
-  resolved_true_positive: { label: "Doğru Tespit", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", icon: CheckCircle },
-  resolved_false_positive: { label: "Yanlış Alarm", color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20", icon: XCircle },
-  closed: { label: "Kapatıldı", color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20", icon: CheckCircle },
-}
-
-const priorityColors: Record<string, string> = {
-  P1: "bg-red-500/20 text-red-400",
-  P2: "bg-orange-500/20 text-orange-400",
-  P3: "bg-yellow-500/20 text-yellow-400",
-  P4: "bg-zinc-500/20 text-zinc-400",
-}
-
 export default function CasesPage() {
   const { isConnected } = useWebSocket()
-  const { user } = useAuth()
   
   const [cases, setCases] = useState<Case[]>([])
   const [loading, setLoading] = useState(true)
@@ -129,13 +97,13 @@ export default function CasesPage() {
   const totalPages = Math.ceil(total / pageSize)
   
   return (
-    <div className="h-screen flex flex-col bg-[#09090B]">
+    <div className={cn("min-h-screen lg:h-screen flex flex-col bg-[#09090B]", keyboardFocusWithin)}>
       <Header isConnected={isConnected} />
       
-      <main className="flex-1 p-6 overflow-hidden">
-        <div className="h-full flex flex-col gap-4">
+      <main className="flex-1 max-lg:min-w-0 p-6 lg:overflow-hidden">
+        <div className="lg:h-full flex flex-col gap-4">
           {/* Title and actions */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3 lg:flex-nowrap lg:gap-0">
             <div className="flex items-center gap-3">
               <FolderKanban className="h-6 w-6 text-blue-400" />
               <h1 className="text-2xl font-bold text-white">Vakalar</h1>
@@ -144,9 +112,10 @@ export default function CasesPage() {
               </span>
             </div>
             
-            <div className="flex items-center gap-3">
+            <div className="flex max-lg:min-w-0 flex-wrap items-center gap-3 lg:flex-nowrap">
               {/* Status filter */}
               <select
+                aria-label="Durum filtresi"
                 value={statusFilter || ""}
                 onChange={(e) => setStatusFilter(e.target.value || null)}
                 className="bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
@@ -156,6 +125,7 @@ export default function CasesPage() {
                 <option value="triage">Triage</option>
                 <option value="investigating">İnceleniyor</option>
                 <option value="escalated">Üst Seviye</option>
+                <option value="pending_info">Bilgi Bekleniyor</option>
                 <option value="resolved_true_positive">Doğru Tespit</option>
                 <option value="resolved_false_positive">Yanlış Alarm</option>
                 <option value="closed">Kapatıldı</option>
@@ -163,6 +133,7 @@ export default function CasesPage() {
               
               {/* Priority filter */}
               <select
+                aria-label="Öncelik filtresi"
                 value={priorityFilter || ""}
                 onChange={(e) => setPriorityFilter(e.target.value || null)}
                 className="bg-zinc-900 border border-zinc-800 text-zinc-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
@@ -175,8 +146,10 @@ export default function CasesPage() {
               </select>
               
               <button
+                aria-label="Yenile"
+                disabled={loading}
                 onClick={fetchCases}
-                className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                className="p-2 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-400 hover:text-white transition-colors disabled:cursor-not-allowed"
               >
                 <RefreshCw className={cn("h-5 w-5", loading && "animate-spin")} />
               </button>
@@ -185,7 +158,7 @@ export default function CasesPage() {
           
           {/* Stats row */}
           {stats && (
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
                 <p className="text-sm text-zinc-500">Toplam</p>
                 <p className="text-2xl font-bold text-white">{stats.total}</p>
@@ -214,8 +187,8 @@ export default function CasesPage() {
           )}
           
           {/* Cases list */}
-          <div className="flex-1 bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
-            <div className="flex-1 overflow-auto">
+          <div className="max-lg:min-w-0 lg:flex-1 bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
+            <div className="lg:flex-1 lg:overflow-auto">
               {loading && cases.length === 0 ? (
                 <LoadingState label="Vakalar yükleniyor..." />
               ) : cases.length === 0 && listError ? (
@@ -229,13 +202,14 @@ export default function CasesPage() {
                     const StatusIcon = statusInfo.icon
                     
                     return (
-                      <div
+                      <Link
                         key={caseItem.case_id}
-                        className="p-4 hover:bg-zinc-800/50 transition-colors cursor-pointer"
+                        href={`/cases/${caseItem.case_id}`}
+                        className="block p-4 hover:bg-zinc-800/50 transition-colors cursor-pointer"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex max-lg:flex-wrap items-center gap-2 mb-1">
                               <span className={cn(
                                 "px-2 py-0.5 text-xs font-medium rounded",
                                 priorityColors[caseItem.priority]
@@ -260,7 +234,7 @@ export default function CasesPage() {
                               {caseItem.title}
                             </h3>
                             
-                            <div className="flex items-center gap-4 mt-2 text-xs text-zinc-500">
+                            <div className="flex max-lg:flex-wrap items-center gap-4 mt-2 text-xs text-zinc-500">
                               <span className="font-mono">{caseItem.case_id}</span>
                               <span>{caseItem.alert_count} alarm</span>
                               <span className="font-mono">
@@ -274,14 +248,14 @@ export default function CasesPage() {
                               )}
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
-                                {new Date(caseItem.created_at).toLocaleDateString("tr-TR")}
+                                {formatDate(caseItem.created_at)}
                               </span>
                             </div>
                           </div>
                           
                           <ChevronRight className="w-5 h-5 text-zinc-600 flex-shrink-0" />
                         </div>
-                      </div>
+                      </Link>
                     )
                   })}
                 </div>
@@ -290,7 +264,7 @@ export default function CasesPage() {
             
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-800 bg-zinc-900/80">
+              <nav aria-label="Sayfalama" className="flex max-lg:flex-wrap items-center justify-between gap-y-2 px-4 py-3 border-t border-zinc-800 bg-zinc-900/80">
                 <span className="text-sm text-zinc-500">
                   Sayfa {page} / {totalPages}
                 </span>
@@ -298,19 +272,19 @@ export default function CasesPage() {
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page === 1}
-                    className="px-3 py-1.5 text-sm bg-zinc-800 text-zinc-300 rounded-lg disabled:opacity-50"
+                    className="px-3 py-1.5 text-sm bg-zinc-800 text-zinc-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Önceki
                   </button>
                   <button
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page === totalPages}
-                    className="px-3 py-1.5 text-sm bg-zinc-800 text-zinc-300 rounded-lg disabled:opacity-50"
+                    className="px-3 py-1.5 text-sm bg-zinc-800 text-zinc-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Sonraki
                   </button>
                 </div>
-              </div>
+              </nav>
             )}
           </div>
         </div>

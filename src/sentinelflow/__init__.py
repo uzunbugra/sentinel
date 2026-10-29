@@ -16,7 +16,7 @@ Modules:
     - dashboard: Streamlit visualization
 """
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 __author__ = "Buğra Uzun, Yusuf Eren Bozkurt"
 
 from typing import Final

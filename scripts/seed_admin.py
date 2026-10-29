@@ -9,7 +9,7 @@ Usage:
 
 Credentials are read from environment variables (or .env):
     SEED_ADMIN_USERNAME  (default: admin)
-    SEED_ADMIN_EMAIL     (default: admin@sentinelflow.local)
+    SEED_ADMIN_EMAIL     (default: admin@example.com)
     SEED_ADMIN_PASSWORD  (REQUIRED, or auto-generated unless --no-generate)
     SEED_ADMIN_FULL_NAME (default: SentinelFlow Admin)
 """
@@ -33,10 +33,14 @@ from sentinelflow.auth.service import AuthService
 from sentinelflow.contracts import UserCreate, UserRole
 from sentinelflow.database.postgres import DatabaseSession, init_db
 
+# Reserved documentation domain (RFC 2606): passes email validation, which
+# rejects special-use domains such as ".local".
+DEFAULT_ADMIN_EMAIL = "admin@example.com"
+
 
 def main() -> int:
     username = os.getenv("SEED_ADMIN_USERNAME", "admin")
-    email = os.getenv("SEED_ADMIN_EMAIL", "admin@sentinelflow.local")
+    email = os.getenv("SEED_ADMIN_EMAIL", DEFAULT_ADMIN_EMAIL)
     password = os.getenv("SEED_ADMIN_PASSWORD", "")
     full_name = os.getenv("SEED_ADMIN_FULL_NAME", "SentinelFlow Admin")
 

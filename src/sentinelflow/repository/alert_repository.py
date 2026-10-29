@@ -113,7 +113,7 @@ class AlertRepository:
             currency=alert_data.currency,
             title=alert_data.title or "",
             description=alert_data.description or "",
-            evidence={"items": evidence_data},
+            evidence=evidence_data,
             related_transactions=alert_data.related_transactions or [],
             related_accounts=alert_data.related_accounts or [],
             detected_at=now,
@@ -180,7 +180,7 @@ class AlertRepository:
             currency=alert_data.currency,
             title=alert_data.title or "",
             description=alert_data.description or "",
-            evidence={"items": evidence_data},
+            evidence=evidence_data,
             related_transactions=alert_data.related_transactions or [],
             related_accounts=alert_data.related_accounts or [],
             detected_at=now,
@@ -343,16 +343,6 @@ class AlertRepository:
         result = self._session.execute(stmt)
         model = result.scalar_one_or_none()
         return Alert.model_validate(model.to_dict()) if model else None
-
-    def link_to_case(self, alert_id: str, case_id: str) -> bool:
-        """Link alert to a case (sync)."""
-        stmt = (
-            update(AlertModel)
-            .where(AlertModel.alert_id == alert_id)
-            .values(case_id=case_id, updated_at=datetime.now(timezone.utc))
-        )
-        result = self._session.execute(stmt)
-        return result.rowcount > 0
 
     # =========================================================================
     # Stats Operations

@@ -1,6 +1,6 @@
 # SentinelFlow API Referansı
 
-> Bu belge `v2.1.0` rota tablosundan üretilmiştir. Değişmez kaynak(lar):
+> Bu belge `v2.2.0` rota tablosundan üretilmiştir. Değişmez kaynak(lar):
 > interaktif Swagger (`http://localhost:8000/docs`) ve üretilen sözleşmedir
 > (`sentinelflow-web/src/lib/api-schema.ts`). Rota değiştirdikten sonra
 > `python scripts/export_openapi.py` çalıştırıp sözleşmeyi commit edin;
@@ -62,7 +62,7 @@ Aşağıdaki tabloda **Auth** sütunu gereken asgari rolü gösterir.
 | GET | `/api/v1/alerts/stats` | Alert istatistikleri | viewer |
 | GET | `/api/v1/alerts/{alert_id}` | Alert detayı (SHAP/açıklama dahil) | viewer |
 | POST | `/api/v1/alerts/{alert_id}/dismiss` | Yanlış pozitif olarak kapat | analyst |
-| POST | `/api/v1/alerts/{alert_id}/link-case/{case_id}` | Alert'i case'e bağla | analyst |
+| POST | `/api/v1/alerts/{alert_id}/link-case/{case_id}` | **Deprecated** — `POST /api/v1/cases/{case_id}/alerts` ile aynı kurallar | analyst |
 
 ### Cases
 
@@ -71,11 +71,17 @@ Aşağıdaki tabloda **Auth** sütunu gereken asgari rolü gösterir.
 | GET | `/api/v1/cases` | Case listesi | viewer |
 | GET | `/api/v1/cases/stats` | Case istatistikleri | viewer |
 | GET | `/api/v1/cases/{case_id}` | Case detayı | viewer |
-| GET | `/api/v1/cases/{case_id}/events` | Case olay kaydı (audit log) | viewer |
-| POST | `/api/v1/cases` | Yeni vaka oluştur | analyst |
-| PATCH | `/api/v1/cases/{case_id}` | Vakayı güncelle | analyst |
+| GET | `/api/v1/cases/{case_id}/events` | Audit timeline, en yeni önce (`page`, `page_size`, `event_type`) | viewer |
+| POST | `/api/v1/cases` | Alarmlardan vaka oluştur — atomik, `201` | analyst |
+| PATCH | `/api/v1/cases/{case_id}` | Durum / öncelik / atama / not / çözüm | analyst |
+| POST | `/api/v1/cases/{case_id}/alerts` | Mevcut vakaya alarm bağla (`{"alert_id"}`, idempotent) | analyst |
 | POST | `/api/v1/cases/{case_id}/assign` | Vakayı ata | analyst |
-| POST | `/api/v1/cases/{case_id}/add-alert/{alert_id}` | Vakaya alert ekle | analyst |
+| POST | `/api/v1/cases/{case_id}/add-alert/{alert_id}` | **Deprecated** — `POST /cases/{case_id}/alerts` ile aynı | analyst |
+
+Vaka iş akışının kuralları (durum geçişleri, SLA, `409`/`422` hata kodları, olay
+türleri ve sıralaması) [`docs/contracts/sprint3-case-api.md`](contracts/sprint3-case-api.md)
+içinde tanımlıdır. Tüm yazma işlemleri tek transaction'dır; hata olursa hiçbir
+kayıt yazılmaz.
 
 ### Graph (Neo4j sorguları)
 

@@ -19,6 +19,7 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     Float,
@@ -31,10 +32,29 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
+# PostgreSQL ARRAY/JSONB in production; plain JSON on SQLite so repositories and
+# routes can be unit-tested against an in-memory database (no schema change on PG).
+StringArray = ARRAY(String).with_variant(JSON(), "sqlite")
+JSONDocument = JSONB().with_variant(JSON(), "sqlite")
+
 
 def generate_id(prefix: str) -> str:
     """Generate prefixed UUID."""
     return f"{prefix}-{uuid4().hex[:12].upper()}"
+
+
+def _evidence_items(value: Any) -> list[Any]:
+    """Return alert evidence as a list.
+
+    Evidence is stored as a JSON list. Rows written in the earlier
+    ``{"items": [...]}`` shape, or left NULL by inserts that bypass the ORM
+    default, are normalised so readers never fail validation.
+    """
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict) and isinstance(value.get("items"), list):
+        return value["items"]
+    return []
 
 
 def utc_now() -> datetime:
@@ -51,8 +71,8 @@ class Base(DeclarativeBase):
     """Base class for all models."""
 
     type_annotation_map = {
-        dict[str, Any]: JSONB,
-        list[str]: ARRAY(String),
+        dict[str, Any]: JSONDocument,
+        list[str]: StringArray,
     }
 
 
@@ -102,11 +122,12 @@ class AlertModel(Base):
     description: Mapped[str] = mapped_column(Text, default="")
 
     # Evidence (JSONB for flexible structure)
-    evidence: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    # A JSON list of Evidence objects (contracts.alert.Evidence).
+    evidence: Mapped[list[dict[str, Any]]] = mapped_column(JSONDocument, default=list)
 
     # Relations
-    related_transactions: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
-    related_accounts: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    related_transactions: Mapped[list[str]] = mapped_column(StringArray, default=list)
+    related_accounts: Mapped[list[str]] = mapped_column(StringArray, default=list)
     case_id: Mapped[str | None] = mapped_column(
         String(50),
         ForeignKey("cases.case_id", ondelete="SET NULL"),
@@ -133,7 +154,7 @@ class AlertModel(Base):
     dismissed_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Metadata
-    detector_versions: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    detector_versions: Mapped[dict[str, Any]] = mapped_column(JSONDocument, default=dict)
     processing_time_ms: Mapped[float] = mapped_column(Float, default=0.0)
 
     # Relationships
@@ -164,7 +185,7 @@ class AlertModel(Base):
             "currency": self.currency,
             "title": self.title,
             "description": self.description,
-            "evidence": self.evidence,
+            "evidence": _evidence_items(self.evidence),
             "related_transactions": self.related_transactions,
             "related_accounts": self.related_accounts,
             "case_id": self.case_id,
@@ -201,7 +222,7 @@ class CaseModel(Base):
 
     # Fraud classification
     primary_fraud_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    fraud_types: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    fraud_types: Mapped[list[str]] = mapped_column(StringArray, default=list)
 
     # Aggregated metrics
     alert_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -210,15 +231,15 @@ class CaseModel(Base):
     avg_confidence: Mapped[float] = mapped_column(Float, default=0.0)
 
     # Related entities
-    involved_accounts: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
-    involved_transactions: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    involved_accounts: Mapped[list[str]] = mapped_column(StringArray, default=list)
+    involved_transactions: Mapped[list[str]] = mapped_column(StringArray, default=list)
 
     # Assignment
     assigned_to: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
     assigned_team: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
     # Tags
-    tags: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    tags: Mapped[list[str]] = mapped_column(StringArray, default=list)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
@@ -272,20 +293,32 @@ class CaseModel(Base):
             "status": self.status,
             "priority": self.priority,
             "primary_fraud_type": self.primary_fraud_type,
-            "fraud_types": self.fraud_types,
+            "fraud_types": self.fraud_types or [],
+            "alert_ids": sorted(alert.alert_id for alert in self.alerts),
             "alert_count": self.alert_count,
             "total_amount": self.total_amount,
             "max_severity": self.max_severity,
             "avg_confidence": self.avg_confidence,
-            "involved_accounts": self.involved_accounts,
+            "involved_accounts": self.involved_accounts or [],
+            "involved_transactions": self.involved_transactions or [],
             "assigned_to": self.assigned_to,
             "assigned_team": self.assigned_team,
-            "tags": self.tags,
-            "created_at": self.created_at.isoformat() if self.created_at else None,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "tags": self.tags or [],
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "first_alert_at": self.first_alert_at,
+            "last_alert_at": self.last_alert_at,
+            "sla_due_at": self.sla_due_at,
             "sla_breached": self.sla_breached,
+            "resolution": self.resolution,
+            "resolved_at": self.resolved_at,
+            "resolved_by": self.resolved_by,
             "str_required": self.str_required,
             "str_filed": self.str_filed,
+            "str_filed_at": self.str_filed_at,
+            "str_reference": self.str_reference,
+            "notes_count": self.notes_count,
+            "last_note": self.last_note,
         }
 
 
@@ -327,7 +360,7 @@ class CaseEventModel(Base):
     new_value: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Extra data
-    extra_data: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    extra_data: Mapped[dict[str, Any]] = mapped_column(JSONDocument, default=dict)
 
     # Related entities
     alert_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
@@ -380,13 +413,13 @@ class TransactionSummaryModel(Base):
     # Processing results
     is_fraud: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     fraud_score: Mapped[float] = mapped_column(Float, default=0.0)
-    alert_ids: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
+    alert_ids: Mapped[list[str]] = mapped_column(StringArray, default=list)
     case_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     # Metadata
     processed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     processing_time_ms: Mapped[float] = mapped_column(Float, default=0.0)
-    detector_versions: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    detector_versions: Mapped[dict[str, Any]] = mapped_column(JSONDocument, default=dict)
 
     # Indexes
     __table_args__ = (
@@ -425,13 +458,13 @@ class ModelVersionModel(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
 
     # Metrics
-    metrics: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSONDocument, default=dict)
 
     # Training info
     training_dataset: Mapped[str | None] = mapped_column(String(200), nullable=True)
     training_samples: Mapped[int] = mapped_column(Integer, default=0)
     training_time_seconds: Mapped[float] = mapped_column(Float, default=0.0)
-    hyperparameters: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    hyperparameters: Mapped[dict[str, Any]] = mapped_column(JSONDocument, default=dict)
 
     # Artifact
     artifact_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
@@ -482,7 +515,7 @@ class UserModel(Base):
     last_login: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Settings
-    preferences: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict)
+    preferences: Mapped[dict[str, Any]] = mapped_column(JSONDocument, default=dict)
 
     # Security
     failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0)

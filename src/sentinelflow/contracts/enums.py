@@ -76,12 +76,14 @@ class EventType(str, Enum):
     CASE_ASSIGNED = "case_assigned"
     CASE_STATUS_CHANGED = "case_status_changed"
     CASE_PRIORITY_CHANGED = "case_priority_changed"
+    CASE_RESOLUTION_UPDATED = "case_resolution_updated"
     CASE_ESCALATED = "case_escalated"
     CASE_CLOSED = "case_closed"
 
     # Alert events
     ALERT_CREATED = "alert_created"
     ALERT_LINKED_TO_CASE = "alert_linked_to_case"
+    ALERT_UNLINKED_FROM_CASE = "alert_unlinked_from_case"
     ALERT_DISMISSED = "alert_dismissed"
 
     # User actions

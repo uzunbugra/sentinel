@@ -150,9 +150,9 @@ class TestTransactionsAuth:
         assert resp.status_code != 401
 
     def test_submit_with_api_key(self, auth_client, monkeypatch):
-        import sentinelflow.api.app as app_module
+        import sentinelflow.api.routes.transactions as ingest_module
 
-        monkeypatch.setattr(app_module, "_INGEST_API_KEY", "test-secret-key")
+        monkeypatch.setattr(ingest_module, "_INGEST_API_KEY", "test-secret-key")
         client, _, _ = auth_client
         resp = client.post(
             "/api/v1/transactions", json=_TX, headers={"X-API-Key": "test-secret-key"}
@@ -160,9 +160,9 @@ class TestTransactionsAuth:
         assert resp.status_code != 401
 
     def test_submit_with_wrong_api_key(self, auth_client, monkeypatch):
-        import sentinelflow.api.app as app_module
+        import sentinelflow.api.routes.transactions as ingest_module
 
-        monkeypatch.setattr(app_module, "_INGEST_API_KEY", "test-secret-key")
+        monkeypatch.setattr(ingest_module, "_INGEST_API_KEY", "test-secret-key")
         client, _, _ = auth_client
         resp = client.post("/api/v1/transactions", json=_TX, headers={"X-API-Key": "wrong-key"})
         assert resp.status_code == 401
