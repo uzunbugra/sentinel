@@ -10,9 +10,13 @@ Modern Real-Time Fraud Detection Dashboard built with Next.js, Tailwind CSS, and
 
 ## Getting Started
 
-1.  **Install dependencies**:
+Requires **Node.js 22** (`>=22.12`, see `engines` in `package.json` and `.nvmrc`);
+some dependencies (e.g. `camera-controls`) do not support Node 20. The Docker
+image (`node:22-alpine`) and CI use the same line. With nvm: `nvm use`.
+
+1.  **Install dependencies** (from the lockfile):
     ```bash
-    npm install
+    npm ci
     ```
 
 2.  **Run the development server**:
