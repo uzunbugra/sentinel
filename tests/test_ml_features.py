@@ -24,6 +24,7 @@ import pytest
 from sentinelflow.ml.features import (
     CATEGORICAL_FEATURES,
     COUNTRIES,
+    CURRENCIES,
     FEATURE_DTYPES,
     FEATURE_NAMES,
     FEATURE_SET_VERSION,
@@ -35,6 +36,7 @@ from sentinelflow.ml.features import (
     build_features_batch,
 )
 from sentinelflow.ml.features import __main__ as fixture_cli
+from sentinelflow.ml.features.spec import CURRENCY_CODES
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "ml"
 T0 = datetime(2022, 10, 1, 9, 0, 0, tzinfo=timezone.utc)
@@ -201,10 +203,52 @@ def test_feature_names_dtypes_and_order_match_contract():
 
 
 def test_vocabularies_start_with_unknown_and_are_unique():
-    for vocab in (PAYMENT_TYPES, COUNTRIES):
+    for vocab in (PAYMENT_TYPES, COUNTRIES, CURRENCIES):
         assert vocab[UNKNOWN_CODE] == UNKNOWN
         assert len(set(vocab)) == len(vocab)
         assert len(vocab) <= np.iinfo(np.int8).max
+
+
+def test_vocabularies_match_contract_and_keep_codes():
+    # Contract §1 value sets (what ML-02 produces).
+    assert set(PAYMENT_TYPES[1:]) == {
+        "ach",
+        "cash_deposit",
+        "cash_withdrawal",
+        "cheque",
+        "credit_card",
+        "cross_border",
+        "debit_card",
+    }
+    contract_currencies = "AED ALL CHF EUR GBP INR JPY MAD MXN NGN PKR TRY USD"
+    contract_countries = "AE AL AT CH DE ES FR GB IN IT JP MA MX NG NL PK TR US"
+    assert sorted(CURRENCIES[1:]) == contract_currencies.split(" ")
+    assert sorted(COUNTRIES[1:]) == contract_countries.split(" ")
+    # Codes are append-only: GB/GBP were added at the end, earlier codes unchanged.
+    assert COUNTRIES.index("TR") == 1 and COUNTRIES.index("US") == 17
+    assert COUNTRIES[-1] == "GB" and COUNTRIES.index("GB") == 18
+    assert CURRENCIES.index("TRY") == 1 and CURRENCIES[-1] == "GBP"
+
+
+def test_swapped_turkey_and_lira_values_are_not_unknown():
+    # SAML-D Turkey -> GB, Turkish lira -> GBP (contract §1); UK -> TR, UK pounds -> TRY.
+    tx = make_tx(
+        "GB-1",
+        T0,
+        "S",
+        "R",
+        1.0,
+        payment_currency="GBP",
+        received_currency="TRY",
+        sender_country="GB",
+        receiver_country="TR",
+    )
+    vec = dict(zip(FEATURE_NAMES, AccountHistory().features_for(tx)))
+    assert vec["sender_country_code"] == COUNTRIES.index("GB") != UNKNOWN_CODE
+    assert vec["receiver_country_code"] == COUNTRIES.index("TR")
+    assert vec["cross_border"] == 1
+    assert vec["currency_mismatch"] == 1
+    assert CURRENCY_CODES["GBP"] != UNKNOWN_CODE
 
 
 def test_batch_output_has_contract_columns_dtypes_and_index(fixture_transactions):

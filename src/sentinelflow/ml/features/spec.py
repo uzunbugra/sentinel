@@ -108,7 +108,8 @@ PAYMENT_TYPES: tuple[str, ...] = (
     "cross_border",
     "debit_card",
 )
-# ISO-3166 alpha-2 codes of the SAML-D bank locations after the UK -> TR mapping.
+# ISO-3166 alpha-2 codes of the SAML-D bank locations. UK and Turkey swap places
+# (UK -> TR, Turkey -> GB), so the mapping stays one to one (contract §1).
 COUNTRIES: tuple[str, ...] = (
     UNKNOWN,
     "TR",
@@ -128,10 +129,12 @@ COUNTRIES: tuple[str, ...] = (
     "NL",
     "PK",
     "US",
+    "GB",
 )
-# ISO-4217 codes of the SAML-D currencies after the GBP -> TRY mapping. Not a
-# model input in fs-1 (only ``currency_mismatch`` is); kept here so data prep
-# and the service validate against one list.
+# ISO-4217 codes of the SAML-D currencies. UK pounds and Turkish lira swap places
+# (UK pounds -> TRY, Turkish lira -> GBP). Not a model input in fs-1 (only
+# ``currency_mismatch`` is); kept here so data prep and the service validate
+# against one list.
 CURRENCIES: tuple[str, ...] = (
     UNKNOWN,
     "TRY",
@@ -146,6 +149,7 @@ CURRENCIES: tuple[str, ...] = (
     "NGN",
     "PKR",
     "USD",
+    "GBP",
 )
 
 PAYMENT_TYPE_CODES: dict[str, int] = {name: code for code, name in enumerate(PAYMENT_TYPES)}
