@@ -45,9 +45,19 @@ docker compose --profile frontend up -d --build
 docker compose --profile frontend ps
 ```
 
-Beklenen: `postgres`, `redis`, `zookeeper`, `kafka`, `neo4j`, `api`, `frontend`
-konteynerleri `healthy` (kafka-ui ve redis-commander healthcheck tanımlamaz, `running`).
+Beklenen: `postgres`, `redis`, `zookeeper`, `kafka`, `neo4j`, `api`, `frontend`,
+`redis-commander` konteynerleri `healthy`; `kafka-ui` healthcheck tanımlamaz (`Up`).
 Temiz başlangıç için önce `docker compose --profile frontend down -v` (verileri siler).
+İlk build birkaç dakika sürer (smoke'ta ~16 dk, imaj indirmeleri dahil).
+
+> **Neo4j `exec /usr/bin/tini: exec format error` ile yeniden başlıyorsa:** bu bir
+> mimari sorunu değildir; Docker Desktop'un yerel imaj deposunda `neo4j` katmanı bozuk
+> açılmıştır (konteyner içinde `/usr/bin/tini` 0 bayt). `docker pull` "up to date" der
+> ve bozuk katmanı yeniden kullanır. Kontrol:
+> `docker run --rm --entrypoint ls neo4j:5.15.0-community -la /usr/bin/tini`.
+> Çözüm Docker Desktop → Troubleshoot → *Clean / Purge data* (tüm imaj ve volume'leri
+> siler). Verileri korumak için geçici olarak aynı sürümün `neo4j:5.15.0-community-ubi8`
+> imajı yerel bir compose override ile kullanılabilir; repodaki imaj değişmez.
 
 ### 3. Sağlık kontrolleri
 
@@ -78,15 +88,31 @@ docker compose exec -e SEED_ADMIN_PASSWORD=$env:SEED_ADMIN_PASSWORD api python s
 
 ### 5. Demo alarmı (yalnız Sprint 3 smoke fixture'ı)
 
-Docker imajında eğitilmiş model bulunmadığından `POST /api/v1/transactions` alarm
-üretmez. Analist akışını göstermek için kural tabanlı tipte bir fixture alarm eklenir.
-**Bu alarm ML demosu sayılmaz** (bkz. Sprint 4 planı §11, SF-403).
+Sprint 3 akışında gerçek ML artifact'ı bağlı değildir. Analist akışını göstermek için
+kural tabanlı tipte (`structuring`) fixture alarmlar doğrudan eklenir.
+**Bu alarmlar ML demosu sayılmaz** (bkz. Sprint 4 planı §11, SF-403).
 
 ```powershell
-docker compose exec api python -c "from sentinelflow.database.postgres import DatabaseSession; from sentinelflow.processor.alert_writer import create_alert_from_detection; from sentinelflow.repository import AlertRepository; s=DatabaseSession().__enter__(); a=AlertRepository(s).create(create_alert_from_detection('structuring','high',0.9,{'transaction_id':'TX-DEMO-S3-001','sender_iban':'TR000000000000000000000001','sender_name':'Demo Gonderen','receiver_iban':'TR000000000000000000000002','receiver_name':'Demo Alici','amount':49500,'currency':'TRY'},'Sprint 3 smoke fixture alarmi')); s.commit(); print(a.alert_id)"
+$fixture = @'
+import sys
+from sentinelflow.database.postgres import DatabaseSession
+from sentinelflow.processor.alert_writer import create_alert_from_detection
+from sentinelflow.repository import AlertRepository
+n = sys.argv[1]
+tx = {"transaction_id": f"TX-DEMO-S3-{n}", "sender_iban": "TR000000000000000000000001",
+      "sender_name": "Demo Gonderen", "receiver_iban": "TR000000000000000000000002",
+      "receiver_name": "Demo Alici", "amount": 49500, "currency": "TRY"}
+with DatabaseSession() as s:
+    a = AlertRepository(s).create(create_alert_from_detection(
+        "structuring", "high", 0.9, tx, "Sprint 3 smoke fixture alarmi"))
+    s.commit()
+    print(a.alert_id)
+'@
+$fixture | docker compose exec -T api python - 001   # <ALERT_ID>
+$fixture | docker compose exec -T api python - 002   # <ALERT_ID_2>, Senaryo 4 için
 ```
 
-Çıktıdaki `ALERT-...` kimliğini not alın.
+Her çıktıdaki `ALERT-...` kimliğini not alın.
 
 ---
 
@@ -139,7 +165,7 @@ Aynı alarmı ikinci bir açık vakaya bağlamak `409 Conflict` döner.
 
 ### Senaryo 4: Mevcut vakaya alarm bağla
 
-Yeni bir fixture alarm ekleyip (Başlangıç §5, farklı `transaction_id`) mevcut vakaya bağlayın:
+Başlangıç §5'teki ikinci fixture alarmı mevcut vakaya bağlayın:
 
 ```powershell
 $body = @{ alert_id = "<ALERT_ID_2>" } | ConvertTo-Json
@@ -174,6 +200,31 @@ Invoke-RestMethod -Uri "http://localhost:8000/api/v1/cases/$($case.case_id)/even
 
 ---
 
+## Smoke sonucu (SF-403 ilk kontrol noktası, 2026-10-29)
+
+Ortam: Windows 11, Docker Desktop 29.2.1 (Compose v5.1.0, linux/x86_64), temiz volume'ler,
+`docker compose --profile frontend up -d --build` (exit 0).
+
+| Kontrol | Sonuç |
+|---------|-------|
+| postgres / redis / zookeeper / kafka / redis-commander | `healthy`; `pg_isready` OK, `PONG`, broker API yanıt veriyor |
+| neo4j | `healthy`; HTTP 7474 → 200, Bolt girişi OK, APOC 5.15.0 + GDS 2.6.9 yüklü (yerel bozuk imaj nedeniyle `-ubi8` varyantıyla, yukarıdaki nota bakın) |
+| api | `healthy`; `/api/v1/system/health` → 200 |
+| frontend | `healthy`; `/login` → 200; korumalı sayfa `/login`'e yönlendiriyor; production build'de demo ipucu yok |
+| Admin seed | Kullanıcı oluşturuldu; ikinci çalıştırma "already exists, skipping" |
+| Token olmadan `GET /alerts` | 401 |
+| Login → `/auth/me` | 200 / 200 (`role=admin`) |
+| Alarm listesi / detayı | 200 / 200 |
+| Vaka oluştur | 201 (`status=new`); aynı alarmla ikinci vaka 409 |
+| Mevcut vakaya alarm bağla | 200; tekrar bağlama 200 (idempotent) |
+| Durum + not / atama / vaka detayı | 200 / 200 / 200 (`investigating`, 2 alarm) |
+| Timeline | 200, 6 olay: `case_created`, 2× `alert_linked_to_case`, `case_status_changed`, `note_added`, `case_assigned` |
+
+Akış API üzerinden doğrulandı. Tarayıcıda yalnız login sayfası ve yönlendirme
+kontrol edildi; giriş sonrası UI senaryosu SF-404 Playwright testlerine bırakıldı.
+
+---
+
 ## Sprint 3 vs Sprint 2 Karşılaştırması
 
 | Özellik | Sprint 2 | Sprint 3 |
@@ -204,3 +255,8 @@ Doldurulacaklar:
 
 - `prometheus` yalnız `--profile monitoring` ile, `frontend` yalnız `--profile frontend` ile başlar.
 - Web `NEXT_PUBLIC_*` değerleri build sırasında gömülür; değiştirince `--build` gerekir.
+- Neo4j imajı `/docker-entrypoint-initdb.d` klasörünü çalıştırmaz: compose'taki
+  `init_neo4j_schema.cypher` bağlanır ama uygulanmaz (smoke'ta `SHOW CONSTRAINTS` → 0).
+  Analist akışını etkilemez; ayrı bir düzeltme olarak takip edilmeli.
+- Neo4j, compose'taki 4.x adlı `dbms.memory.*` ayarları için kullanımdan kaldırma
+  uyarısı verir (`server.memory.*`); başlatmayı engellemez.
