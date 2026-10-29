@@ -1,6 +1,6 @@
 # SentinelFlow API Referansı
 
-> Bu belge `v2.1.0` rota tablosundan üretilmiştir. Değişmez kaynak(lar):
+> Bu belge `v2.2.0` rota tablosundan üretilmiştir. Değişmez kaynak(lar):
 > interaktif Swagger (`http://localhost:8000/docs`) ve üretilen sözleşmedir
 > (`sentinelflow-web/src/lib/api-schema.ts`). Rota değiştirdikten sonra
 > `python scripts/export_openapi.py` çalıştırıp sözleşmeyi commit edin;

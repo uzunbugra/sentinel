@@ -35,7 +35,7 @@ FROM python:3.11-slim AS production
 
 LABEL maintainer="Buğra Uzun, Yusuf Eren Bozkurt"
 LABEL description="SentinelFlow - Real-Time Financial Fraud Detection System"
-LABEL version="2.1.0"
+LABEL version="2.2.0"
 
 # Create non-root user
 RUN groupadd --gid 1000 sentinelflow && \
