@@ -44,9 +44,20 @@ vi.mock("motion/react", () => ({
 
 import { apiRequest, ApiError } from "@/lib/auth"
 import { config } from "@/lib/config"
+import { loadedModelResponse } from "@/test/ml-fixtures"
 import DashboardPage from "./page"
 
 const mockApi = vi.mocked(apiRequest)
+
+// Aktif model karti /ml/models'i ayri ister; istatistik cevaplari sirayla verilir.
+function routeApi(...statsResults: (typeof STATS | Error)[]) {
+  mockApi.mockImplementation(async (endpoint: string) => {
+    if (endpoint === config.endpoints.modelInfo) return loadedModelResponse
+    const next = statsResults.shift()
+    if (next instanceof Error) throw next
+    return next ?? new Promise(() => {})
+  })
+}
 
 // Kucuk degerler: yerel bicimleme onemsenmez (42 -> "42", 125 sn -> "2m").
 const STATS = {
@@ -76,7 +87,7 @@ afterEach(() => {
 
 describe("DashboardPage stats", () => {
   it("backend istatistiklerini stat kartlarinda gosterir", async () => {
-    mockApi.mockResolvedValueOnce(STATS)
+    routeApi(STATS)
 
     render(<DashboardPage />)
 
@@ -88,8 +99,7 @@ describe("DashboardPage stats", () => {
 
   it("polling hatasi onceki degerleri korur ve hata gostergesi cikar", async () => {
     vi.useFakeTimers()
-    mockApi.mockResolvedValueOnce(STATS)
-    mockApi.mockRejectedValueOnce(new ApiError(0, "Network error"))
+    routeApi(STATS, new ApiError(0, "Network error"))
 
     render(<DashboardPage />)
 
@@ -115,5 +125,16 @@ describe("DashboardPage stats", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Sunucuya ulaşılamıyor. Bağlantınızı kontrol edin.",
     )
+  })
+})
+
+describe("DashboardPage aktif model", () => {
+  it("sistem panelinde aktif model ozetini gosterir", async () => {
+    routeApi(STATS)
+
+    render(<DashboardPage />)
+
+    expect(await screen.findByText("fraud-lgbm-20261105-a1b2c3d")).toBeInTheDocument()
+    expect(mockApi).toHaveBeenCalledWith(config.endpoints.modelInfo)
   })
 })
