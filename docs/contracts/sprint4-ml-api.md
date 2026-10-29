@@ -2,7 +2,7 @@
 
 **Sahip:** Kişi A (@uzunbugra) · **Onaylayan:** Alper (@alper-tekin) — §1–§3 veri/özellik/artifact
 **Tüketiciler:** ML-02…ML-05 (Alper), ML-06/07 (A), SF-405 (Alper), SF-404 (A)
-**Durum:** Taslak — Alper onayı ile sabitlenir · **Taban:** `develop` @ `d68b4e0`
+**Durum:** Sabitlendi (#26, Alper onayıyla) — değişiklikler CONTRACT-REQUEST ile · **Taban:** `develop` @ `d68b4e0`
 **Karar kaydı:** [ADR 0003](../adr/0003-ml-pipeline-v2.md)
 
 Bu not `docs/SPRINT4_PLAN.md` §3 gereğidir ve ML-06'nın sonuna bırakılmaz. Değişiklik
