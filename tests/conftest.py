@@ -7,9 +7,11 @@ import sys
 # bundled copy. Once both thread pools exist in one process, torch hangs or
 # segfaults (e.g. the AutoEncoder test after the XGBoost test). Single-threaded
 # OpenMP avoids the clash; it must be set before any OpenMP runtime starts.
-# Linux CI uses one libgomp and is unaffected. Removing torch from the core
-# install (ML-08, #23) removes the second runtime.
-os.environ.setdefault("OMP_NUM_THREADS", "1")
+# Linux shares one libgomp and keeps full threads (pinning there made the CI
+# ML job ~4x slower). Removing torch from the core install (ML-08, #23)
+# removes the second runtime.
+if sys.platform == "darwin":
+    os.environ.setdefault("OMP_NUM_THREADS", "1")
 
 from datetime import datetime  # noqa: E402
 from unittest.mock import MagicMock  # noqa: E402
