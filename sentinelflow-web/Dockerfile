@@ -6,7 +6,7 @@
 # -----------------------------------------------------------------------------
 # Stage 1: Dependency installer
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 
 # Install dependencies from lockfile for reproducibility
@@ -16,7 +16,7 @@ RUN npm ci --no-audit --no-fund
 # -----------------------------------------------------------------------------
 # Stage 2: Builder
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
@@ -29,12 +29,13 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
     NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL \
     NEXT_TELEMETRY_DISABLED=1
 
-RUN npm run build
+# public/ is optional in Next.js but the runner stage copies it
+RUN mkdir -p public && npm run build
 
 # -----------------------------------------------------------------------------
 # Stage 3: Production runtime (standalone output)
 # -----------------------------------------------------------------------------
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production \
