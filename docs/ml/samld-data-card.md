@@ -142,3 +142,17 @@ Testte destek < 30 olan tipolojiler: `Over-Invoicing` (7) ve `Bipartite` (26). A
   değiştirmez). Yer değiştirme sayesinde aynı-ülke `cross_border` satırı yok (v5'te 53.391 vardı).
 - Hesap kimlikleri sayısal; IBAN/isim yalnız görüntüleme içindir, gerçek doğrulama
   (KYC, IBAN banka kodu) anlamı taşımaz.
+
+## 6. KVKK / kişisel veri
+
+- SAML-D **tamamen sentetiktir**: kayıtlar bir simülatörle üretilmiştir, gerçek bir
+  kişiye, müşteriye ya da hesaba ait değildir. Hesap kimlikleri simülatörün ürettiği
+  opak sayılardır; gerçek bir hesap numarasına karşılık gelmez.
+- Bu nedenle veri seti 6698 sayılı KVKK kapsamında **kişisel veri içermez**; açık rıza,
+  aydınlatma, VERBİS kaydı veya yurt dışına aktarım koşulu doğmaz. Dönüşümde eklenen
+  IBAN ve isimler (§2) hesap kimliğinden deterministik türetilmiş **kurgusal** görüntüleme
+  değerleridir; kurgusal banka kodu (`900xx`) gerçek bir bankaya ait değildir, isimler sabit
+  listelerden seçilir ve gerçek kişilerle eşleştirilmez.
+- Model ve raporlar (ML-04/05) yalnız bu sentetik veriden türetilir. Ürün gerçek müşteri
+  verisiyle çalıştırılırsa (üretim/pilot) KVKK değerlendirmesi ayrıca yapılmalıdır; bu kart
+  o kullanım için hukuki dayanak değildir.
