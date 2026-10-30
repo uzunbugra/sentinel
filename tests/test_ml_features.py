@@ -443,6 +443,18 @@ def test_duplicate_is_scored_but_recorded_once():
     assert nxt[FEATURE_NAMES.index("sender_tx_count_24h")] == 1
 
 
+def test_batch_duplicate_ids_compare_as_strings_like_stream():
+    # Mixed-type id column: ``5`` and ``"5"`` are the same id on both paths.
+    txs = [
+        make_tx(5, T0, "S", "R", 10.0),
+        make_tx("5", T0, "S", "R", 10.0),
+        make_tx("6", T0 + timedelta(minutes=1), "S", "R", 1.0),
+    ]
+    vectors = batch(txs)
+    assert_vectors_equal(vectors, stream(txs))
+    assert vectors[2, FEATURE_NAMES.index("sender_tx_count_24h")] == 1
+
+
 def test_out_of_order_record_is_counted_and_used():
     history = AccountHistory()
     history.record(make_tx("O-2", T0 + timedelta(hours=2), "S", "R", 1.0))
