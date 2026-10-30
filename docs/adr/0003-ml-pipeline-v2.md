@@ -1,6 +1,6 @@
 # ADR 0003: ML pipeline v2 — tek veri sözleşmesi, tek model, tek servis
 
-- Durum: önerildi (Alper'in veri/model onayı bekleniyor; onaydan sonra `accepted`)
+- Durum: kabul edildi (accepted) — #26, Alper onayıyla, 2026-10-29
 - Tarih: 2026-10-29
 - Sahip: Kişi A (@uzunbugra) · Ortak karar: Alper (@alper-tekin)
 - İlgili: issue #16 (ML-01), `docs/SPRINT4_PLAN.md` §3, §10,
