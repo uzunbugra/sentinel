@@ -1,4 +1,4 @@
-"""Fraud model serving (ML-06): artifact loader and the shared model service."""
+"""Fraud model serving (ML-06): artifact loader, model service and API scorer."""
 
 from sentinelflow.ml.serving.artifact import (
     ArtifactError,
@@ -6,6 +6,11 @@ from sentinelflow.ml.serving.artifact import (
     ModelArtifact,
     ModelMetadata,
     load_artifact,
+)
+from sentinelflow.ml.serving.scorer import (
+    ScoredTransaction,
+    TransactionScorer,
+    canonical_transaction,
 )
 from sentinelflow.ml.serving.service import (
     CONTRIBUTION_UNIT,
@@ -27,5 +32,8 @@ __all__ = [
     "ModelNotLoadedError",
     "ModelStatus",
     "ScoreResult",
+    "ScoredTransaction",
+    "TransactionScorer",
+    "canonical_transaction",
     "load_artifact",
 ]

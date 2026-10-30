@@ -10,10 +10,24 @@ import time
 from fastapi import APIRouter
 from loguru import logger
 
-from sentinelflow.api.schemas import SCHEMA_VERSION, HealthResponse, StatsResponse
+from sentinelflow.api.schemas import (
+    SCHEMA_VERSION,
+    ComponentStatus,
+    HealthResponse,
+    StatsResponse,
+)
 from sentinelflow.api.state import state
 
 router = APIRouter()
+
+
+def _ml_model_status() -> ComponentStatus:
+    """``ml_model`` component (contract §4.3): message is the model version or the error."""
+    service = state.scorer.service
+    meta = service.metadata
+    if meta is not None:
+        return ComponentStatus(name="ml_model", status="healthy", message=meta.model_version)
+    return ComponentStatus(name="ml_model", status="degraded", message=service.error)
 
 
 @router.get(
@@ -24,8 +38,6 @@ router = APIRouter()
 )
 async def health_check() -> HealthResponse:
     """Check system health."""
-    from sentinelflow.api.schemas import ComponentStatus
-
     uptime = time.time() - state.start_time
 
     components = {
@@ -34,13 +46,11 @@ async def health_check() -> HealthResponse:
             name="database",
             status="healthy" if state.db_initialized else "degraded",
         ),
-        "ml_ensemble": ComponentStatus(
-            name="ml_ensemble",
-            status="healthy" if state._ml_loaded else "not_loaded",
-        ),
+        "ml_model": _ml_model_status(),
     }
 
-    overall = "healthy" if state.db_initialized else "degraded"
+    healthy = all(c.status == "healthy" for c in components.values())
+    overall = "healthy" if healthy else "degraded"
 
     return HealthResponse(
         status=overall,

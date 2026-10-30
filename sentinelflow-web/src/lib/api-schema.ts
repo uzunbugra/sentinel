@@ -1344,8 +1344,8 @@ export const apiSchema = {
         "tags": [
           "Machine Learning"
         ],
-        "summary": "Get ML model status",
-        "description": "Returns the status of all ML models in the ensemble.",
+        "summary": "Active fraud model",
+        "description": "Always 200. `model` is null when no valid model is loaded; `error` says why.",
         "operationId": "get_model_status_api_v1_ml_models_get",
         "responses": {
           "200": {
@@ -1366,92 +1366,22 @@ export const apiSchema = {
         ]
       }
     },
-    "/api/v1/ml/train": {
-      "post": {
-        "tags": [
-          "Machine Learning"
-        ],
-        "summary": "Train ML models",
-        "description": "Trigger training of all ML models with synthetic data.",
-        "operationId": "train_models_api_v1_ml_train_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TrainRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TrainResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/ml/train/status": {
-      "get": {
-        "tags": [
-          "Machine Learning"
-        ],
-        "summary": "Get training status",
-        "description": "Get current training status.",
-        "operationId": "get_training_status_api_v1_ml_train_status_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
     "/api/v1/ml/features": {
       "get": {
         "tags": [
           "Machine Learning"
         ],
-        "summary": "Get feature definitions",
-        "description": "Returns the list of features used by the ML ensemble.",
+        "summary": "Served feature set",
+        "description": "Feature names in model input order, with dtype and categorical flag.",
         "operationId": "get_features_api_v1_ml_features_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureSetResponse"
+                }
               }
             }
           }
@@ -1902,14 +1832,14 @@ export const apiSchema = {
         "tags": [
           "Risk Scoring"
         ],
-        "summary": "Real-time risk scoring",
-        "description": "Score a single transaction for fraud risk. Target latency: <30ms",
+        "summary": "Score one transaction",
+        "description": "Scores the transaction against the current account history without recording it. 503 `model_not_loaded` when no valid model is loaded.",
         "operationId": "score_transaction_api_v1_risk_score_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RiskScoringRequest"
+                "$ref": "#/components/schemas/TransactionCreate"
               }
             }
           },
@@ -1921,57 +1851,13 @@ export const apiSchema = {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RiskScoringResponse"
+                  "$ref": "#/components/schemas/RiskScoreResponse"
                 }
               }
             }
           },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/risk/batch": {
-      "post": {
-        "tags": [
-          "Risk Scoring"
-        ],
-        "summary": "Batch risk scoring",
-        "description": "Score multiple transactions in parallel",
-        "operationId": "score_batch_api_v1_risk_batch_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BatchRiskRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BatchRiskResponse"
-                }
-              }
-            }
+          "503": {
+            "description": "No valid fraud model is loaded"
           },
           "422": {
             "description": "Validation Error",
@@ -1997,7 +1883,6 @@ export const apiSchema = {
           "Risk Scoring"
         ],
         "summary": "Risk scoring statistics",
-        "description": "Get risk scoring engine statistics.",
         "operationId": "get_stats_api_v1_risk_stats_get",
         "responses": {
           "200": {
@@ -2005,38 +1890,7 @@ export const apiSchema = {
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Get Stats Api V1 Risk Stats Get"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/risk/features": {
-      "get": {
-        "tags": [
-          "Risk Scoring"
-        ],
-        "summary": "List available features",
-        "description": "List all available features and their descriptions.",
-        "operationId": "list_features_api_v1_risk_features_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response List Features Api V1 Risk Features Get"
+                  "$ref": "#/components/schemas/RiskStatsResponse"
                 }
               }
             }
@@ -2183,6 +2037,68 @@ export const apiSchema = {
   },
   "components": {
     "schemas": {
+      "ActiveModel": {
+        "properties": {
+          "model_version": {
+            "type": "string",
+            "title": "Model Version"
+          },
+          "model_family": {
+            "type": "string",
+            "title": "Model Family"
+          },
+          "feature_set_version": {
+            "type": "string",
+            "title": "Feature Set Version"
+          },
+          "feature_names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Feature Names"
+          },
+          "threshold": {
+            "type": "number",
+            "title": "Threshold"
+          },
+          "dataset_id": {
+            "type": "string",
+            "title": "Dataset Id"
+          },
+          "trained_at": {
+            "type": "string",
+            "title": "Trained At"
+          },
+          "loaded_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Loaded At"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/ModelMetrics"
+          },
+          "model_sha256": {
+            "type": "string",
+            "title": "Model Sha256"
+          }
+        },
+        "type": "object",
+        "required": [
+          "model_version",
+          "model_family",
+          "feature_set_version",
+          "feature_names",
+          "threshold",
+          "dataset_id",
+          "trained_at",
+          "loaded_at",
+          "metrics",
+          "model_sha256"
+        ],
+        "title": "ActiveModel",
+        "description": "The fraud model the API is serving (contract §4.1)."
+      },
       "Alert": {
         "properties": {
           "alert_id": {
@@ -2489,66 +2405,6 @@ export const apiSchema = {
         ],
         "title": "ApiErrorResponse",
         "description": "Error envelope used by the case workflow endpoints."
-      },
-      "BatchRiskRequest": {
-        "properties": {
-          "transactions": {
-            "items": {
-              "$ref": "#/components/schemas/RiskScoringRequest"
-            },
-            "type": "array",
-            "title": "Transactions"
-          },
-          "parallel": {
-            "type": "boolean",
-            "title": "Parallel",
-            "description": "Paralel işleme",
-            "default": true
-          }
-        },
-        "type": "object",
-        "required": [
-          "transactions"
-        ],
-        "title": "BatchRiskRequest",
-        "description": "Toplu risk skorlama isteği."
-      },
-      "BatchRiskResponse": {
-        "properties": {
-          "total": {
-            "type": "integer",
-            "title": "Total"
-          },
-          "processed": {
-            "type": "integer",
-            "title": "Processed"
-          },
-          "avg_latency_ms": {
-            "type": "number",
-            "title": "Avg Latency Ms"
-          },
-          "high_risk_count": {
-            "type": "integer",
-            "title": "High Risk Count"
-          },
-          "results": {
-            "items": {
-              "$ref": "#/components/schemas/RiskScoringResponse"
-            },
-            "type": "array",
-            "title": "Results"
-          }
-        },
-        "type": "object",
-        "required": [
-          "total",
-          "processed",
-          "avg_latency_ms",
-          "high_risk_count",
-          "results"
-        ],
-        "title": "BatchRiskResponse",
-        "description": "Toplu risk skorlama yanıtı."
       },
       "Case": {
         "properties": {
@@ -3280,6 +3136,7 @@ export const apiSchema = {
           "geo_analysis",
           "nlp_analysis",
           "ml_ensemble",
+          "ml_model",
           "compliance_engine"
         ],
         "title": "DetectorType",
@@ -3396,6 +3253,57 @@ export const apiSchema = {
         "title": "Evidence",
         "description": "Evidence supporting a fraud detection.\nStructured for explainability and audit."
       },
+      "FeatureDefinition": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "dtype": {
+            "type": "string",
+            "title": "Dtype"
+          },
+          "categorical": {
+            "type": "boolean",
+            "title": "Categorical"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "dtype",
+          "categorical"
+        ],
+        "title": "FeatureDefinition",
+        "description": "One feature of the served feature set."
+      },
+      "FeatureSetResponse": {
+        "properties": {
+          "feature_set_version": {
+            "type": "string",
+            "title": "Feature Set Version"
+          },
+          "total_features": {
+            "type": "integer",
+            "title": "Total Features"
+          },
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/FeatureDefinition"
+            },
+            "type": "array",
+            "title": "Features"
+          }
+        },
+        "type": "object",
+        "required": [
+          "feature_set_version",
+          "total_features",
+          "features"
+        ],
+        "title": "FeatureSetResponse",
+        "description": "`GET /ml/features`: the feature set the service computes."
+      },
       "FraudRing": {
         "properties": {
           "ring_id": {
@@ -3448,6 +3356,7 @@ export const apiSchema = {
           "structuring",
           "velocity_anomaly",
           "ml_ensemble",
+          "ml_model",
           "compliance_violation"
         ],
         "title": "FraudType",
@@ -3752,74 +3661,151 @@ export const apiSchema = {
         "title": "LoginRequest",
         "description": "Login request."
       },
-      "ModelInfo": {
+      "ModelMetrics": {
         "properties": {
-          "name": {
-            "type": "string",
-            "title": "Name"
-          },
-          "version": {
-            "type": "string",
-            "title": "Version",
-            "default": "1.0.0"
-          },
-          "ready": {
-            "type": "boolean",
-            "title": "Ready",
-            "default": false
-          },
-          "last_trained": {
+          "split": {
             "anyOf": [
               {
-                "type": "string",
-                "format": "date-time"
+                "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Last Trained"
+            "title": "Split"
           },
-          "metrics": {
-            "additionalProperties": {
-              "type": "number"
-            },
-            "type": "object",
-            "title": "Metrics"
+          "pr_auc": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pr Auc"
+          },
+          "roc_auc": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roc Auc"
+          },
+          "precision": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Precision"
+          },
+          "recall": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recall"
+          },
+          "f1": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "F1"
+          },
+          "support_positive": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support Positive"
+          },
+          "support_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support Total"
+          },
+          "baseline_pr_auc": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Pr Auc"
+          }
+        },
+        "type": "object",
+        "title": "ModelMetrics",
+        "description": "Evaluation metrics recorded in the artifact; a missing value is null, not 0."
+      },
+      "ModelStatusResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "loaded",
+              "not_loaded",
+              "invalid"
+            ],
+            "title": "Status"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActiveModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
           }
         },
         "type": "object",
         "required": [
-          "name"
+          "status"
         ],
-        "title": "ModelInfo",
-        "description": "Information about a single ML model."
-      },
-      "ModelStatusResponse": {
-        "properties": {
-          "isolation_forest": {
-            "$ref": "#/components/schemas/ModelInfo"
-          },
-          "xgboost": {
-            "$ref": "#/components/schemas/ModelInfo"
-          },
-          "autoencoder": {
-            "$ref": "#/components/schemas/ModelInfo"
-          },
-          "ensemble_ready": {
-            "type": "boolean",
-            "title": "Ensemble Ready",
-            "default": false
-          },
-          "ensemble_threshold": {
-            "type": "number",
-            "title": "Ensemble Threshold",
-            "default": 0.5
-          }
-        },
-        "type": "object",
         "title": "ModelStatusResponse",
-        "description": "Status of all ML models."
+        "description": "`GET /ml/models`: always 200; `model` is null unless `status` is `loaded`."
       },
       "PasswordChangeRequest": {
         "properties": {
@@ -3855,297 +3841,110 @@ export const apiSchema = {
         "title": "RefreshRequest",
         "description": "Token refresh request."
       },
-      "RiskDecision": {
-        "type": "string",
-        "enum": [
-          "allow",
-          "review",
-          "block",
-          "critical"
-        ],
-        "title": "RiskDecision",
-        "description": "Risk karar seviyeleri."
-      },
-      "RiskFactor": {
-        "properties": {
-          "feature": {
-            "type": "string",
-            "title": "Feature",
-            "description": "Özellik adı"
-          },
-          "impact": {
-            "type": "number",
-            "title": "Impact",
-            "description": "Risk etkisi (-1 to 1)"
-          },
-          "direction": {
-            "type": "string",
-            "title": "Direction",
-            "description": "increases_risk / decreases_risk"
-          },
-          "explanation": {
-            "type": "string",
-            "title": "Explanation",
-            "description": "Türkçe açıklama"
-          },
-          "value": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Value",
-            "description": "Özellik değeri"
-          }
-        },
-        "type": "object",
-        "required": [
-          "feature",
-          "impact",
-          "direction",
-          "explanation"
-        ],
-        "title": "RiskFactor",
-        "description": "Tek bir risk faktörü açıklaması."
-      },
-      "RiskLevel": {
-        "type": "string",
-        "enum": [
-          "low",
-          "medium",
-          "high",
-          "critical"
-        ],
-        "title": "RiskLevel",
-        "description": "Risk seviyeleri."
-      },
-      "RiskScoringRequest": {
-        "properties": {
-          "transaction_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Transaction Id",
-            "description": "İşlem ID"
-          },
-          "sender_iban": {
-            "type": "string",
-            "title": "Sender Iban",
-            "description": "Gönderen IBAN"
-          },
-          "sender_name": {
-            "type": "string",
-            "title": "Sender Name",
-            "description": "Gönderen adı"
-          },
-          "sender_city": {
-            "type": "string",
-            "title": "Sender City",
-            "description": "Gönderen şehir",
-            "default": "İstanbul"
-          },
-          "receiver_iban": {
-            "type": "string",
-            "title": "Receiver Iban",
-            "description": "Alıcı IBAN"
-          },
-          "receiver_name": {
-            "type": "string",
-            "title": "Receiver Name",
-            "description": "Alıcı adı"
-          },
-          "receiver_city": {
-            "type": "string",
-            "title": "Receiver City",
-            "description": "Alıcı şehir",
-            "default": "Ankara"
-          },
-          "amount": {
-            "type": "number",
-            "exclusiveMinimum": 0.0,
-            "title": "Amount",
-            "description": "Tutar (TL)"
-          },
-          "currency": {
-            "type": "string",
-            "title": "Currency",
-            "description": "Para birimi",
-            "default": "TRY"
-          },
-          "description": {
-            "type": "string",
-            "title": "Description",
-            "description": "Açıklama",
-            "default": ""
-          },
-          "timestamp": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Timestamp",
-            "description": "ISO 8601 timestamp"
-          },
-          "channel": {
-            "type": "string",
-            "title": "Channel",
-            "description": "Kanal (mobile, web, atm)",
-            "default": "mobile"
-          },
-          "device_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Device Id",
-            "description": "Cihaz ID"
-          }
-        },
-        "type": "object",
-        "required": [
-          "sender_iban",
-          "sender_name",
-          "receiver_iban",
-          "receiver_name",
-          "amount"
-        ],
-        "title": "RiskScoringRequest",
-        "description": "Risk skorlama isteği.",
-        "example": {
-          "amount": 15000.0,
-          "channel": "mobile",
-          "description": "Kira ödemesi",
-          "receiver_city": "Ankara",
-          "receiver_iban": "TR110006400000478893400002",
-          "receiver_name": "Mehmet Kaya",
-          "sender_city": "İstanbul",
-          "sender_iban": "TR330006100519786457841326",
-          "sender_name": "Ahmet Yılmaz"
-        }
-      },
-      "RiskScoringResponse": {
+      "RiskScoreResponse": {
         "properties": {
           "transaction_id": {
             "type": "string",
             "title": "Transaction Id"
           },
-          "timestamp": {
+          "model_version": {
             "type": "string",
-            "title": "Timestamp"
+            "title": "Model Version"
           },
-          "risk_score": {
+          "feature_set_version": {
+            "type": "string",
+            "title": "Feature Set Version"
+          },
+          "score": {
             "type": "number",
             "maximum": 1.0,
             "minimum": 0.0,
-            "title": "Risk Score",
-            "description": "Risk skoru (0-1)"
+            "title": "Score",
+            "description": "Model probability"
           },
-          "confidence": {
+          "threshold": {
             "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Confidence",
-            "description": "Güven skoru"
+            "title": "Threshold",
+            "description": "Decision threshold of the model"
           },
-          "decision": {
-            "$ref": "#/components/schemas/RiskDecision"
+          "is_fraud": {
+            "type": "boolean",
+            "title": "Is Fraud",
+            "description": "score >= threshold"
           },
-          "risk_level": {
-            "$ref": "#/components/schemas/RiskLevel"
+          "contribution_unit": {
+            "type": "string",
+            "title": "Contribution Unit",
+            "description": "Unit of `contribution` and `base_value`",
+            "default": "log_odds"
+          },
+          "base_value": {
+            "type": "number",
+            "title": "Base Value",
+            "description": "Model bias term in log-odds"
+          },
+          "top_features": {
+            "items": {
+              "$ref": "#/components/schemas/TopFeature"
+            },
+            "type": "array",
+            "title": "Top Features",
+            "description": "Top 5 features by |contribution| for this transaction"
+          },
+          "history_cold_start": {
+            "type": "boolean",
+            "title": "History Cold Start",
+            "description": "Neither account has any recorded transaction in either direction"
           },
           "latency_ms": {
             "type": "number",
-            "title": "Latency Ms",
-            "description": "İşlem süresi (ms)"
-          },
-          "model_scores": {
-            "additionalProperties": {
-              "type": "number"
-            },
-            "type": "object",
-            "title": "Model Scores"
-          },
-          "ensemble_method": {
-            "type": "string",
-            "title": "Ensemble Method",
-            "description": "Ensemble yöntemi",
-            "default": "stacking"
-          },
-          "top_risk_factors": {
-            "items": {
-              "$ref": "#/components/schemas/RiskFactor"
-            },
-            "type": "array",
-            "title": "Top Risk Factors"
-          },
-          "explanation_summary": {
-            "type": "string",
-            "title": "Explanation Summary",
-            "description": "Özet açıklama",
-            "default": ""
-          },
-          "similar_cases": {
-            "items": {
-              "$ref": "#/components/schemas/SimilarCase"
-            },
-            "type": "array",
-            "title": "Similar Cases"
-          },
-          "recommended_action": {
-            "type": "string",
-            "title": "Recommended Action",
-            "description": "Önerilen aksiyon",
-            "default": ""
-          },
-          "num_features_extracted": {
-            "type": "integer",
-            "title": "Num Features Extracted",
-            "default": 0
+            "title": "Latency Ms"
           }
         },
         "type": "object",
         "required": [
           "transaction_id",
-          "timestamp",
-          "risk_score",
-          "confidence",
-          "decision",
-          "risk_level",
+          "model_version",
+          "feature_set_version",
+          "score",
+          "threshold",
+          "is_fraud",
+          "base_value",
+          "top_features",
+          "history_cold_start",
           "latency_ms"
         ],
-        "title": "RiskScoringResponse",
-        "description": "Risk skorlama yanıtı.",
-        "example": {
-          "confidence": 0.92,
-          "decision": "block",
-          "explanation_summary": "Yüksek tutarlı işlem, yeni alıcı, gece saatinde",
-          "latency_ms": 25.4,
-          "model_scores": {
-            "CatBoost": 0.88,
-            "LightGBM": 0.91,
-            "XGBoost": 0.85
+        "title": "RiskScoreResponse",
+        "description": "Fraud model score for one transaction, with its log-odds explanation."
+      },
+      "RiskStatsResponse": {
+        "properties": {
+          "total_predictions": {
+            "type": "integer",
+            "title": "Total Predictions"
           },
-          "risk_level": "high",
-          "risk_score": 0.87,
-          "timestamp": "2024-01-15T14:30:00Z",
-          "transaction_id": "TX-ABC123"
-        }
+          "avg_latency_ms": {
+            "type": "number",
+            "title": "Avg Latency Ms"
+          },
+          "target_latency_ms": {
+            "type": "number",
+            "title": "Target Latency Ms"
+          },
+          "performance_status": {
+            "type": "string",
+            "title": "Performance Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "total_predictions",
+          "avg_latency_ms",
+          "target_latency_ms",
+          "performance_status"
+        ],
+        "title": "RiskStatsResponse",
+        "description": "Scoring counters since startup (outside the contract)."
       },
       "Severity": {
         "type": "string",
@@ -4157,40 +3956,6 @@ export const apiSchema = {
         ],
         "title": "Severity",
         "description": "Alert severity levels (aligned with SOC standards)."
-      },
-      "SimilarCase": {
-        "properties": {
-          "case_id": {
-            "type": "string",
-            "title": "Case Id"
-          },
-          "similarity_score": {
-            "type": "number",
-            "title": "Similarity Score"
-          },
-          "fraud_type": {
-            "type": "string",
-            "title": "Fraud Type"
-          },
-          "amount": {
-            "type": "number",
-            "title": "Amount"
-          },
-          "description": {
-            "type": "string",
-            "title": "Description"
-          }
-        },
-        "type": "object",
-        "required": [
-          "case_id",
-          "similarity_score",
-          "fraud_type",
-          "amount",
-          "description"
-        ],
-        "title": "SimilarCase",
-        "description": "Benzer fraud vakası."
       },
       "StatsResponse": {
         "properties": {
@@ -4324,55 +4089,29 @@ export const apiSchema = {
         "title": "TokenResponse",
         "description": "JWT token response."
       },
-      "TrainRequest": {
+      "TopFeature": {
         "properties": {
-          "n_samples": {
-            "type": "integer",
-            "maximum": 100000.0,
-            "minimum": 100.0,
-            "title": "N Samples",
-            "description": "Number of synthetic samples",
-            "default": 5000
-          },
-          "fraud_ratio": {
-            "type": "number",
-            "maximum": 0.5,
-            "minimum": 0.01,
-            "title": "Fraud Ratio",
-            "description": "Fraud ratio",
-            "default": 0.05
-          }
-        },
-        "type": "object",
-        "title": "TrainRequest",
-        "description": "Request to trigger model training."
-      },
-      "TrainResponse": {
-        "properties": {
-          "status": {
+          "feature": {
             "type": "string",
-            "title": "Status",
-            "default": "completed"
+            "title": "Feature"
           },
-          "training_time_seconds": {
+          "value": {
             "type": "number",
-            "title": "Training Time Seconds",
-            "default": 0.0
+            "title": "Value"
           },
-          "dataset_size": {
-            "type": "integer",
-            "title": "Dataset Size",
-            "default": 0
-          },
-          "metrics": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Metrics"
+          "contribution": {
+            "type": "number",
+            "title": "Contribution"
           }
         },
         "type": "object",
-        "title": "TrainResponse",
-        "description": "Response with training results."
+        "required": [
+          "feature",
+          "value",
+          "contribution"
+        ],
+        "title": "TopFeature",
+        "description": "One feature's contribution to a single score, in log-odds."
       },
       "TransactionCreate": {
         "properties": {
@@ -4475,6 +4214,67 @@ export const apiSchema = {
             "default": "",
             "examples": [
               "Kira ödemesi"
+            ]
+          },
+          "received_currency": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 3
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received Currency",
+            "description": "Currency received (ISO 4217); defaults to `currency`"
+          },
+          "sender_country": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sender Country",
+            "description": "Sender bank country (ISO 3166 alpha-2); defaults to TR",
+            "examples": [
+              "TR"
+            ]
+          },
+          "receiver_country": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Receiver Country",
+            "description": "Receiver bank country (ISO 3166 alpha-2); defaults to TR",
+            "examples": [
+              "TR"
+            ]
+          },
+          "payment_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 50
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Type",
+            "description": "Payment type, e.g. cross_border, cash_deposit; defaults to unknown",
+            "examples": [
+              "cross_border"
             ]
           },
           "timestamp": {
@@ -4582,12 +4382,30 @@ export const apiSchema = {
             "default": false
           },
           "fraud_score": {
-            "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fraud Score",
-            "description": "ML ensemble score",
-            "default": 0.0
+            "description": "Fraud model score; null when no model is loaded"
+          },
+          "model_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version",
+            "description": "Model that produced `fraud_score`; null without a model"
           },
           "alerts": {
             "anyOf": [
