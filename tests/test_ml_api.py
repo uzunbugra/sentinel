@@ -68,16 +68,17 @@ def artifact_dir(tmp_path):
 
 
 @pytest.fixture()
-def client(monkeypatch):
+def client():
+    """No database: auth is covered by test_api_auth, so every guard is overridden."""
     from fastapi.testclient import TestClient
 
-    import sentinelflow.api.routes.transactions as tx_routes
     from sentinelflow.api.app import app
+    from sentinelflow.api.routes.transactions import require_ingest_auth
     from sentinelflow.auth.dependencies import require_analyst, require_viewer
 
     app.dependency_overrides[require_viewer] = lambda: None
     app.dependency_overrides[require_analyst] = lambda: None
-    monkeypatch.setattr(tx_routes, "_INGEST_API_KEY", "test-key")
+    app.dependency_overrides[require_ingest_auth] = lambda: None
     try:
         yield TestClient(app)
     finally:
@@ -256,9 +257,8 @@ def test_risk_score_contract_fields(client, use_scorer, artifact_dir):
 
 def test_risk_score_sees_ingested_history(client, use_scorer, artifact_dir):
     use_scorer(_service(artifact_dir))
-    headers = {"X-API-Key": "test-key"}
     first = {**TX, "transaction_id": "TXN-HIST-1", "timestamp": "2026-11-05T09:00:00+00:00"}
-    assert client.post("/api/v1/transactions", json=first, headers=headers).status_code == 200
+    assert client.post("/api/v1/transactions", json=first).status_code == 200
     body = client.post("/api/v1/risk/score", json=TX).json()
     assert body["history_cold_start"] is False
 
@@ -308,7 +308,7 @@ def test_health_reports_ml_model(client, use_scorer, artifact_dir, tmp_path, mon
 
 def test_ingestion_without_model_returns_null_score_and_records(client, use_scorer, tmp_path):
     scorer = use_scorer(_service(tmp_path / "missing"))
-    res = client.post("/api/v1/transactions", json=TX, headers={"X-API-Key": "test-key"})
+    res = client.post("/api/v1/transactions", json=TX)
     assert res.status_code == 200, res.text
     body = res.json()
     assert body["fraud_score"] is None
@@ -325,7 +325,7 @@ def test_ingestion_below_threshold_makes_no_alert(client, use_scorer, tmp_path):
         metadata=metadata_for(model_text, threshold=0.999999),
     )
     use_scorer(_service(tmp_path / "model"))
-    body = client.post("/api/v1/transactions", json=TX, headers={"X-API-Key": "test-key"}).json()
+    body = client.post("/api/v1/transactions", json=TX).json()
     assert body["is_fraud"] is False
     assert body["alerts"] is None
     assert body["model_version"] == MODEL_VERSION
@@ -335,5 +335,5 @@ def test_ingestion_below_threshold_makes_no_alert(client, use_scorer, tmp_path):
 def test_ingestion_rejects_contract_violations(client, use_scorer, artifact_dir):
     use_scorer(_service(artifact_dir))
     bad = {**TX, "currency": ""}
-    res = client.post("/api/v1/transactions", json=bad, headers={"X-API-Key": "test-key"})
+    res = client.post("/api/v1/transactions", json=bad)
     assert res.status_code == 422
