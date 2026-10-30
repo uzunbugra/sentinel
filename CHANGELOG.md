@@ -8,6 +8,7 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 - **Sprint 4 — ML pipeline v2 decision (ML-01).** ADR `docs/adr/0003-ml-pipeline-v2.md` (SAML-D source, time split with a locked test set, LightGBM + logistic baseline, threshold policy, numeric targets, budgets, artifact format, no-model behaviour) and the data/feature/artifact/API contract `docs/contracts/sprint4-ml-api.md`.
+- **ML-06 — fraud model loader and service (#21).** `sentinelflow.ml.serving` validates a LightGBM artifact (files, `SHA256SUMS`, `metadata.json` schema, feature set version and order, objective, threshold) and `FraudModelService` scores one feature vector with log-odds contributions and top-5 features; a missing or invalid artifact leaves the service up in `not_loaded` / `invalid` state and never scores. New setting `SENTINELFLOW_MODEL_DIR` (default `models/fraud/current`). Not wired into the API, detector or risk engine yet.
 
 ## [2.2.0] - 2026-10-29
 
