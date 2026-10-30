@@ -35,6 +35,7 @@ import {
   type FauxAlert,
 } from "@/lib/landing-data"
 import { NetworkGraph } from "@/components/landing/NetworkGraph"
+import { ActiveModelCard } from "@/components/dashboard/active-model-card"
 
 const GlobeScene = dynamic(() => import("@/components/3d/GlobeScene"), {
   ssr: false,
@@ -490,6 +491,8 @@ function GraphStatsSection({
             ))}
           </div>
         </div>
+
+        <ActiveModelCard />
       </div>
     </section>
   )

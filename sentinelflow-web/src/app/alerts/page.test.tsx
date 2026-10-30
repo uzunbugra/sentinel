@@ -26,6 +26,7 @@ vi.mock("@/components/layout/header", () => ({
 
 import { apiRequest, ApiError } from "@/lib/auth"
 import { config } from "@/lib/config"
+import { legacyEnsembleEvidence, mlEvidence } from "@/test/ml-fixtures"
 import AlertsPage from "./page"
 
 const mockApi = vi.mocked(apiRequest)
@@ -288,6 +289,41 @@ describe("Alarmlar sayfası", () => {
     expect(await screen.findByText("00:30:05")).toBeInTheDocument()
     await userEvent.click(screen.getByText("Ali Yılmaz → Ayşe Demir"))
     expect(screen.getByText("13.10.2026 00:30")).toBeInTheDocument()
+  })
+
+  it("ML alarmının detayında alarm anındaki model değerlendirmesini gösterir", async () => {
+    mockApi.mockResolvedValue({
+      ...listResponse,
+      alerts: [{ ...sampleAlert, fraud_type: "ml_model", evidence: [mlEvidence] }],
+    })
+    render(<AlertsPage />)
+    await userEvent.click(await screen.findByText("Ali Yılmaz → Ayşe Demir"))
+
+    const section = screen.getByRole("region", { name: "Model değerlendirmesi" })
+    expect(section).toHaveTextContent("fraud-lgbm-20261105-a1b2c3d")
+    expect(section).toHaveTextContent("Skor eşiğin üstünde")
+    expect(screen.getAllByText("ML Model").length).toBeGreaterThan(0)
+    // Açıklama evidence'tan okunur; aktif model ucu çağrılmaz.
+    expect(mockApi).not.toHaveBeenCalledWith(config.endpoints.modelInfo)
+  })
+
+  it("metadata'sız eski ML alarmında durum mesajı, kural alarmında bölüm yok", async () => {
+    mockApi.mockResolvedValue({
+      ...listResponse,
+      total: 2,
+      alerts: [
+        { ...sampleAlert, fraud_type: "ml_ensemble", evidence: [legacyEnsembleEvidence] },
+        { ...sampleAlert, alert_id: "alert-2", sender_name: "Can Kaya" },
+      ],
+    })
+    render(<AlertsPage />)
+    const user = userEvent.setup()
+    await user.click(await screen.findByText("Ali Yılmaz → Ayşe Demir"))
+    expect(screen.getByRole("region", { name: "Model değerlendirmesi" })).toHaveTextContent(
+      "model metadata'sı kaydedilmeden önce üretildi",
+    )
+    await user.click(screen.getByText("Can Kaya → Ayşe Demir"))
+    expect(screen.queryByRole("region", { name: "Model değerlendirmesi" })).toBeNull()
   })
 
   it("alarm listesini yükler ve toplam sayısını gösterir", async () => {
