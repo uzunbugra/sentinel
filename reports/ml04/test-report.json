@@ -6,7 +6,7 @@
   "threshold": 0.11301326300215633,
   "test": {
     "lightgbm": {
-      "pr_auc": 0.3,
+      "pr_auc": 0.615156689895832,
       "roc_auc": 0.9835307194451883,
       "support_positive": 1697,
       "support_total": 1425728,
