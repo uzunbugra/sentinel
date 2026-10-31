@@ -104,7 +104,12 @@ Geçmiş (state) kuralları — ADR 0003 §4:
   `transaction_id` sırasıyla birbirini görür. (`[t − W, t)` gösterimi bu anlamdadır.)
 - Duplicate: aynı `(timestamp, transaction_id)` ile tekrar gelen işlem orijinalini görmez,
   bu yüzden orijinalle aynı vektörü alır; geçmişe ikinci kez yazılmaz. Kimlikler
-  karşılaştırmada string olarak ele alınır.
+  karşılaştırmada string olarak ele alınır. Kimlik kümesi sınırlıdır: kimlik, zamanı
+  kaydedilen en son işlemden en çok 7 gün (`MAX_WINDOW_NS`) eskiyse tutulur. Daha eski
+  bir işlem gönderen/alıcı hesabın saklanan olaylarıyla `(timestamp, transaction_id)`
+  üzerinden karşılaştırılır; olay artık saklanmıyorsa hiçbir pencereye giremediği için
+  tekrar yazılması özellikleri değiştirmez. Aynı kimliğin 7 günden sonra **farklı**
+  hesaplarla yeniden kullanılması yeni işlem sayılır.
 - `sender_seconds_since_prev` yalnız gönderenin **giden** işlemlerine bakar ve 7 günlük
   pencereyle sınırlı değildir.
 - Arayüz (ML-03, Alper):
