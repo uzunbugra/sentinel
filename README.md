@@ -116,10 +116,9 @@ flowchart TB
 - **Cache & Key-Value**: Redis 7.2
 
 ### Machine Learning & Data Science
-- **Core ML**: scikit-learn, XGBoost, LightGBM, CatBoost
-- **Deep Learning & Graph**: PyTorch, PyTorch Geometric, AutoEncoder models
-- **Explainability**: SHAP (SHapley Additive exPlanations)
-- **Federated Learning**: built-in FedAvg simulator; Flower adapter via the optional `pip install -e ".[federated]"` extra
+- **Fraud model**: one LightGBM binary classifier on the `fs-1` feature set, trained offline on SAML-D and served by the API and the Kafka detector (ADR `docs/adr/0003-ml-pipeline-v2.md`)
+- **Baseline & metrics**: scikit-learn (logistic regression baseline, PR-AUC)
+- **Explainability**: LightGBM per-feature contributions (log-odds), top 5 per alert
 
 ### Streaming & Graph Storage
 - **Message Broker**: Apache Kafka 7.5.0 + Zookeeper
@@ -267,9 +266,8 @@ pytest --cov=src/sentinelflow --cov-report=term-missing
 # Run specific test suites
 pytest tests/test_api.py        # API Endpoints
 pytest tests/test_api_auth.py   # JWT Auth, RBAC & KYC/CORS tests
-pytest tests/test_ml_models.py  # ML Engine & Ensembles
+pytest tests/test_ml_*.py       # Features, training, artifact, serving, detector
 pytest tests/test_kyc.py        # KYC Screening
-pytest tests/test_federated.py  # Federated Learning
 ```
 
 ### Code Quality Tools
@@ -300,7 +298,6 @@ sentinel/
 ├── README.md                  # Project Documentation
 ├── scripts/                   # Utility, Training & Seeding Scripts
 │   ├── seed_admin.py          # Admin User Initializer
-│   ├── train_competition.py   # Multi-Model ML Training Pipeline
 │   └── init_neo4j_schema.cypher # Neo4j Graph Schema Initialization
 │
 ├── sentinelflow-web/          # Next.js 16 Frontend Web Application

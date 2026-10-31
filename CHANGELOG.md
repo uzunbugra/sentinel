@@ -18,6 +18,7 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - `GET /api/v1/risk/stats` reports the account history counters (`history.recorded`, `duplicates`, `out_of_order`); `recorded` is 0 after a restart (ADR 0003 §4).
 
 ### Removed
+- **ML-08 — legacy ML code and heavy dependencies (#23).** Out of scope per ADR 0003 §1 and unused since ML-06: the ensemble / feature engine / explainer / dataset loader / train pipeline, XGBoost / CatBoost / AutoEncoder / GNN / temporal models, the competition dataset and `dataset_schema`, the federated package and the competition training scripts (kept at the `archive/ml-legacy-s4` tag). Core dependencies drop `torch`, `torch-geometric`, `xgboost`, `catboost`, `imbalanced-learn`, `shap` and the `federated` extra; `pyarrow` is now declared. A clean core install goes from 1.4 GB / 115 packages to 564 MB / 89 packages of site-packages, without PyTorch (CI checks it). `sentinelflow.ml` no longer imports anything at package import. Every module under `ml/` stays below 500 lines (`samld_dataset` display identities and time split moved to `samld_identity` / `samld_split`, same behaviour).
 - `POST /api/v1/ml/train` and `GET /api/v1/ml/train/status` (training is offline, ADR 0003 §10); `POST /api/v1/risk/batch` and `GET /api/v1/risk/features`; the five-model `RiskScoringEngine` behind `risk/score`.
 
 ### Fixed

@@ -95,20 +95,13 @@ dependencies = [
     "matplotlib>=3.8.0",
     
     # =============================================================================
-    # Machine Learning & AI Pipeline
+    # Machine Learning (ADR 0003): LightGBM model, scikit-learn LR baseline and
+    # metrics, Parquet datasets. PyTorch / CatBoost / XGBoost / SHAP were removed
+    # with the legacy ensemble in ML-08.
     # =============================================================================
     "scikit-learn>=1.4.0",
-    "xgboost>=2.0.3",
     "lightgbm>=4.3.0",
-    "catboost>=1.2.2",
-    "imbalanced-learn>=0.12.0",
-    "shap>=0.44.0",
-    "torch>=2.1.0",
-    
-    # =============================================================================
-    # Graph Neural Networks
-    # =============================================================================
-    "torch-geometric>=2.4.0",
+    "pyarrow>=14.0.0",
     
     # =============================================================================
     # Security
@@ -136,14 +129,6 @@ dev = [
 ml = [
     # Additional ML tools for research/experimentation
     "optuna>=3.4.0",
-]
-
-# Flower is optional: sentinelflow.ml.federated implements FedAvg itself and only
-# uses Flower for the optional FlowerFraudClient adapter. Every flwr release pins
-# cryptography/protobuf below their patched versions, so it stays out of the
-# runtime dependency set that the CI security scan audits.
-federated = [
-    "flwr>=1.5.0",
 ]
 
 benchmark = [

@@ -61,7 +61,7 @@ src/sentinelflow/
 ├── generator/      # Sentetik işlem üretici (CLI: sentinelflow-generate)
 ├── ingestor/       # Kafka → API köprüsü (X-API-Key ile besler)
 ├── kyc/            # PEP/yaptırım listesi taraması, CDD, risk skoru
-├── ml/             # Özellik motoru, ensemble, GNN, temporal, federated/
+├── ml/             # SAML-D verisi, fs-1 özellikleri, eğitim, artifact, servis (ADR 0003)
 ├── mlops/          # Deney takibi, model registry, drift, A/B, feature store
 ├── processor/      # Ana motor: detector, graph_engine, redis_geo, alert_writer
 ├── repository/     # Alert/Case/Event kalıcı katman soyutlamaları
@@ -81,7 +81,7 @@ gibi paketler **yoktur**; çalışan işlevler yukarıdaki `processor/`, `contra
   │       ├─ graph_engine  → Neo4j döngüsel halka tespiti (3-6 hop, 7 gün)
   │       ├─ redis_geo     → imkansız seyahat (> 900 km/h)
   │       ├─ kelime taraması → şüpheli açıklama kalıpları
-  │       └─ ml/ensemble   → anomali skoru + risk ağırlığı
+  │       └─ ml/serving    → fraud model skoru (ml_model alarmı)
   └─ POST /api/v1/transactions (doğrudan, senkron skor döner)
 
 Toplam risk skoru → alert_writer → PostgreSQL(alert) + Kafka(alerts)
@@ -90,20 +90,17 @@ Toplam risk skoru → alert_writer → PostgreSQL(alert) + Kafka(alerts)
 
 ## 4. ML Pipeline
 
-Özellik çıkarma (`ml/feature_engine`) 21 boyutlu vektör üretir. Ensemble
-oylaması ağırlıklı:
+Tek bir denetimli LightGBM modeli (ADR `docs/adr/0003-ml-pipeline-v2.md`): SAML-D
+üzerinde çevrimdışı eğitilir, sürümlü artifact olarak (`model.txt`, `metadata.json`,
+`SHA256SUMS`) API ingestion'ı, `risk/score` ve Kafka detector tarafından aynı şekilde
+yüklenir. Özellikler `fs-1` (`ml/features`, 15 özellik, eğitim ve servis aynı kod);
+alarm kanıtı model sürümü, eşik ve ilk 5 log-odds katkısını taşır
+(`docs/contracts/sprint4-ml-api.md`). Model yoksa servis ayakta kalır, ML skoru
+üretilmez, health `degraded` olur.
 
-| Model | Ağırlık | Not |
-| --- | --- | --- |
-| IsolationForest | 0.4 | Denetimsiz anomali |
-| XGBoost | 0.4 | Denetimli sınıflandırma |
-| AutoEncoder | 0.2 | Yeniden yapılandırma hatası |
-
-Ağır bağımlılıklar (torch, lightgbm, catboost, shap…) **opsiyoneldir**;
-kurulu değilse ilgili model devre dışı kalır, motor kalanlarla çalışır
-(`ml/models.py`, `ml/advanced_models.py` içinden korumalı import'lar).
-GNN (`ml/gnn_model.py`) ve temporal (`ml/temporal_model.py`) modeller eğitim
-scriptlerinden çağrılır; federated öğrenme `ml/federated/` altında simüle edilir.
+Eski ensemble (IsolationForest / XGBoost / AutoEncoder), GNN, temporal ve federated
+kodu ADR 0003 kapsamı dışındadır; ML-08'de kaldırıldı (`archive/ml-legacy-s4` tag'i).
+Çalıştırma kılavuzu ML-09'da `docs/ml/` altına gelir.
 
 ## 5. Graf Analizi (Neo4j)
 
