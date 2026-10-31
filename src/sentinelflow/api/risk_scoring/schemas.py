@@ -34,6 +34,18 @@ class RiskScoreResponse(BaseModel):
     latency_ms: float
 
 
+class HistoryStats(BaseModel):
+    """In-process account history counters (ADR 0003 §4)."""
+
+    recorded: int = Field(
+        ..., description="Transactions recorded since startup; 0 means the history is empty"
+    )
+    duplicates: int = Field(..., description="Transactions not recorded again (same id)")
+    out_of_order: int = Field(
+        ..., description="Transactions older than their account's latest event"
+    )
+
+
 class RiskStatsResponse(BaseModel):
     """Scoring counters since startup (outside the contract)."""
 
@@ -41,3 +53,4 @@ class RiskStatsResponse(BaseModel):
     avg_latency_ms: float
     target_latency_ms: float
     performance_status: str
+    history: HistoryStats

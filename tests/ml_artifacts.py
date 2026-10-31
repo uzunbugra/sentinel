@@ -100,21 +100,26 @@ def write_artifact(
     metadata: dict[str, Any] | None = None,
     checksums: dict[str, str] | None = None,
 ) -> Path:
-    """Write ``model.txt``, ``metadata.json``, ``model_card.md`` and ``SHA256SUMS``."""
+    """Write ``model.txt``, ``metadata.json``, ``model_card.md`` and ``SHA256SUMS``.
+
+    ``newline="\\n"`` keeps the bytes equal to the hashed text on Windows too.
+    """
     directory.mkdir(parents=True, exist_ok=True)
     if model_text is None:
         model_text = (booster or train_booster()).model_to_string()
     if metadata is None:
         metadata = metadata_for(model_text)
     metadata_text = json.dumps(metadata, indent=2)
-    (directory / "model.txt").write_text(model_text, encoding="utf-8")
-    (directory / "metadata.json").write_text(metadata_text, encoding="utf-8")
-    (directory / "model_card.md").write_text("# test model\n", encoding="utf-8")
+    (directory / "model.txt").write_text(model_text, encoding="utf-8", newline="\n")
+    (directory / "metadata.json").write_text(metadata_text, encoding="utf-8", newline="\n")
+    (directory / "model_card.md").write_text("# test model\n", encoding="utf-8", newline="\n")
     sums = checksums or {
         "model.txt": hashlib.sha256(model_text.encode()).hexdigest(),
         "metadata.json": hashlib.sha256(metadata_text.encode()).hexdigest(),
     }
     (directory / "SHA256SUMS").write_text(
-        "".join(f"{digest}  {name}\n" for name, digest in sums.items()), encoding="utf-8"
+        "".join(f"{digest}  {name}\n" for name, digest in sums.items()),
+        encoding="utf-8",
+        newline="\n",
     )
     return directory
