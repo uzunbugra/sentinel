@@ -271,9 +271,9 @@ Anlamlar:
 { "detail": { "code": "model_not_loaded", "message": "No valid fraud model is loaded", "status": "not_loaded" } }
 ```
 
-`POST /api/v1/risk/batch` aynı öğe biçimini liste olarak döner; ML-06'da korunur ya da
-kaldırılır (karar PR'da, OpenAPI ile birlikte). `GET /api/v1/risk/stats` gecikme/sayaç
-döner, sözleşme dışıdır.
+`POST /api/v1/risk/batch` ve `GET /api/v1/risk/features` ML-06'da **kaldırıldı**
+(istemcisi yoktu; çağrılırsa `404`). `GET /api/v1/risk/stats` gecikme/sayaç döner,
+sözleşme dışıdır. İstekte `timestamp` offset'siz gelirse UTC kabul edilir.
 
 ### 4.3 `GET /api/v1/system/health`
 
@@ -347,8 +347,9 @@ Alarm `fraud_type = "ml_model"` (yeni enum değeri). Evidence listesinde bir ö�
 
 - `POST /api/v1/ml/train` ve `GET /api/v1/ml/train/status` kaldırılır; eğitim offline CLI
   ve CI ile yapılır (ADR 0003 §10). İstemci çağırırsa `404`.
-- `/api/v1/ml/features` ve `/api/v1/ml/predict` (varsa) ML-06'da yeni özellik setine
-  bağlanır veya kaldırılır; karar PR'da OpenAPI ile birlikte bildirilir.
+- `GET /api/v1/ml/features` ML-06'da fs-1'e bağlandı: `{feature_set_version,
+  total_features, features: [{name, dtype, categorical}]}`, model girdi sırasıyla.
+  `/api/v1/ml/predict` yoktu; eklenmedi.
 
 ## 5. Ortak fixture (tek teslim örneği)
 
@@ -371,4 +372,4 @@ bu dosyalardan üretir. Fixture değişirse iki tarafın testleri aynı PR'da g�
 - [x] Alper: §2 geçmiş özellikleri ML-03'te tam kapsamla uygulandı (#31); pencere,
       duplicate ve cold-start yorumları §2'ye işlendi.
 - [ ] Ortak: ADR 0003 §7 sayısal hedefler — test seti açılmadan onay.
-- [ ] A (ML-06): `risk/batch`, `ml/features`, `ml/predict` uçlarının akıbeti.
+- [x] A (ML-06): `risk/batch` kaldırıldı, `ml/features` fs-1'e bağlandı, `ml/predict` yok (§4.2, §4.6).
