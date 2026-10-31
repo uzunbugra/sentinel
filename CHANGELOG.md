@@ -19,6 +19,7 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - `POST /api/v1/ml/train` and `GET /api/v1/ml/train/status` (training is offline, ADR 0003 §10); `POST /api/v1/risk/batch` and `GET /api/v1/risk/features`; the five-model `RiskScoringEngine` behind `risk/score`.
 
 ### Fixed
+- Neo4j schema is now applied idempotently by a one-shot `neo4j-init` service after authenticated Bolt readiness; memory settings use Neo4j 5 names (SF-403).
 - `AccountHistory` no longer keeps every transaction id for the life of the process: ids leave the duplicate set after the longest window (7 days of event time), and older duplicates are matched against the stored account events instead. Features are unchanged; memory no longer grows with the length of the stream.
 
 ## [2.2.0] - 2026-10-29
