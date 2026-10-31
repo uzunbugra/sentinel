@@ -115,11 +115,13 @@ altındaki artifact'i açılışta yükler. Model yoksa API çalışır, `ml_mod
 | Method | Path | Açıklama | Auth |
 | --- | --- | --- | --- |
 | POST | `/api/v1/risk/score` | Tek işlem skoru + log-odds katkıları; hesap geçmişini okur, yazmaz. Model yoksa `503 model_not_loaded` | analyst |
-| GET | `/api/v1/risk/stats` | Skorlama sayaçları ve ortalama gecikme | viewer |
+| GET | `/api/v1/risk/stats` | Skorlama sayaçları, ortalama gecikme ve hesap geçmişi sayaçları (`history`) | viewer |
 
 `POST /api/v1/transactions` geçmişi kaydeden tek yoldur: `fraud_score` ve
 `model_version` model yoksa `null` döner; skor eşiği geçerse `ml_model` alarmı
-evidence içinde model sürümü, eşik ve ilk 5 katkıyla oluşturulur.
+evidence içinde model sürümü, eşik ve ilk 5 katkıyla oluşturulur. Aynı işlem tekrar
+gelirse mevcut alarm döner, yeniden yayınlanmaz. Geçmiş süreç içindedir: yeniden
+başlatmadan sonra `risk/stats` → `history.recorded` 0'dır.
 
 ### KYC & Compliance
 

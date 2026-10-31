@@ -90,11 +90,14 @@ async def submit_transaction(
         is_fraud = bool(result and result.is_fraud)
 
         if scored is not None and is_fraud:
-            state.fraud_detected += 1
+            # A duplicate gets its existing alert back, but is not counted or broadcast again.
+            if not scored.duplicate:
+                state.fraud_detected += 1
             alert = _persist_model_alert(scored, tx_data)
             if alert is not None:
                 alerts_list.append(alert)
-                await state.broadcast_alert(alert.model_dump(mode="json"))
+                if not scored.duplicate:
+                    await state.broadcast_alert(alert.model_dump(mode="json"))
 
         elapsed = (time.perf_counter() - start_time) * 1000
 

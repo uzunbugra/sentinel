@@ -13,7 +13,7 @@ from sentinelflow.auth.dependencies import require_analyst, require_viewer
 from sentinelflow.contracts import User
 from sentinelflow.ml.features import FeatureInputError
 
-from .schemas import RiskScoreResponse, RiskStatsResponse
+from .schemas import HistoryStats, RiskScoreResponse, RiskStatsResponse
 
 router = APIRouter(prefix="/api/v1/risk", tags=["Risk Scoring"])
 
@@ -92,12 +92,22 @@ async def score_transaction(
     "/stats",
     response_model=RiskStatsResponse,
     summary="Risk scoring statistics",
+    description=(
+        "Scoring latency and the account history counters. The history lives in the "
+        "process: after a restart `history.recorded` is 0 and history features start cold."
+    ),
 )
 async def get_stats(_user: User = Depends(require_viewer)) -> RiskStatsResponse:
     avg = _Counters.avg_latency_ms()
+    history = state.scorer.history
     return RiskStatsResponse(
         total_predictions=_Counters.total_predictions,
         avg_latency_ms=round(avg, 3),
         target_latency_ms=TARGET_LATENCY_MS,
         performance_status="optimal" if avg < TARGET_LATENCY_MS else "degraded",
+        history=HistoryStats(
+            recorded=history.recorded,
+            duplicates=history.duplicates,
+            out_of_order=history.out_of_order,
+        ),
     )
