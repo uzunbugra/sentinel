@@ -12,24 +12,19 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from loguru import logger
 
-from sentinelflow.api.schemas import (
-    Evidence,
-    FraudType,
-    Severity,
-    TransactionCreate,
-    TransactionResponse,
-)
+from sentinelflow.api.schemas import FraudType, TransactionCreate, TransactionResponse
 from sentinelflow.api.state import state
 from sentinelflow.auth.dependencies import get_current_user
 from sentinelflow.contracts import User
-from sentinelflow.contracts.enums import DetectorType
 from sentinelflow.ml.features import FeatureInputError
-from sentinelflow.ml.serving import ScoredTransaction
+from sentinelflow.ml.serving import (
+    CRITICAL_SCORE,
+    ScoredTransaction,
+    model_evidence,
+    model_severity,
+)
 
 router = APIRouter()
-
-# Contract §4.4: model alerts at or above this score are critical, others high.
-CRITICAL_SCORE = 0.85
 
 # Optional legacy API key for service-to-service transaction ingestion.
 # Set SENTINELFLOW_API_KEY in the environment to enable this fallback.
@@ -118,32 +113,6 @@ async def submit_transaction(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def model_evidence(scored: ScoredTransaction) -> Evidence:
-    """ML alert evidence (contract §4.5), frozen with the model of this moment."""
-    result = scored.result
-    return Evidence(
-        detector_type=DetectorType.ML_MODEL,
-        detector_version=result.model_version,
-        confidence=result.score,
-        contribution=1.0,
-        summary=f"Model skoru {result.score:.2f} ≥ eşik {result.threshold:.2f}",
-        details={
-            "model_version": result.model_version,
-            "feature_set_version": result.feature_set_version,
-            "score": result.score,
-            "threshold": result.threshold,
-            "contribution_unit": result.contribution_unit,
-            "base_value": result.base_value,
-            "top_features": [
-                {"feature": f.feature, "value": f.value, "contribution": f.contribution}
-                for f in result.top_features
-            ],
-            "history_cold_start": scored.history_cold_start,
-        },
-        related_transactions=[scored.transaction_id],
-    )
-
-
 def _persist_model_alert(scored: ScoredTransaction, tx_data: dict[str, Any]) -> Any:
     """Create and store the ``ml_model`` alert; returns None if it cannot be saved."""
     from sentinelflow.api.deps import get_db_session
@@ -153,7 +122,7 @@ def _persist_model_alert(scored: ScoredTransaction, tx_data: dict[str, Any]) -> 
     score = scored.result.score
     alert_create = create_alert_from_detection(
         fraud_type=FraudType.ML_MODEL,
-        severity=Severity.CRITICAL if score >= CRITICAL_SCORE else Severity.HIGH,
+        severity=model_severity(score, CRITICAL_SCORE),
         confidence=score,
         tx_data=tx_data,
         description=f"Fraud model flagged the transaction (score: {score:.2f})",

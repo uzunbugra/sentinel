@@ -30,7 +30,8 @@ class RuntimeMixin:
         1. Runs graph analysis (Neo4j) for circular rings
         2. Runs geo analysis (Redis) for impossible travel
         3. Runs NLP analysis for blacklisted keywords
-        4. Publishes any detected fraud as alerts
+        4. Scores it with the fraud model (and records the account history)
+        5. Publishes any detected fraud as alerts
 
         Args:
             tx_data: Transaction data dictionary
@@ -60,9 +61,9 @@ class RuntimeMixin:
             alerts.append(blacklist_alert)
 
         # =====================================================================
-        # ENGINE 4: ML Ensemble Detection (IsolationForest+XGBoost+AutoEncoder)
+        # ENGINE 4: Fraud model (LightGBM artifact, fs-1 features)
         # =====================================================================
-        ml_alert = self._check_ml_ensemble(tx_data)
+        ml_alert = self._check_ml_model(tx_data)
         if ml_alert:
             alerts.append(ml_alert)
 
@@ -86,18 +87,18 @@ class RuntimeMixin:
         table.add_row("   +-- Circular Rings", f"{self.stats.circular_rings:,}")
         table.add_row("   +-- Impossible Travel", f"{self.stats.impossible_travel:,}")
         table.add_row("   +-- Blacklist Hits", f"{self.stats.blacklist_hits:,}")
-        table.add_row("   +-- AI Anomalies", f"[magenta]{self.stats.ai_anomalies:,}[/magenta]")
         table.add_row(
-            "   +-- ML Ensemble",
-            f"[bright_magenta]{self.stats.ml_ensemble_hits:,}[/bright_magenta]",
+            "   +-- Fraud Model",
+            f"[bright_magenta]{self.stats.ml_model_hits:,}[/bright_magenta]",
         )
         table.add_row("[x] Errors", f"{self.stats.errors:,}")
         table.add_row("[T] Uptime", f"{self.stats.uptime_seconds:.0f}s")
-        table.add_row("[ML] Feature Engine", f"{self._feature_engine.accounts_tracked:,} accounts")
-        table.add_row(
-            "[ML] Ensemble Models",
-            f"{self._ensemble.num_ready_models}/{self._ensemble.num_models} ready",
+        meta = self._scorer.service.metadata
+        model = (
+            meta.model_version if meta else f"[yellow]{self._scorer.service.status.value}[/yellow]"
         )
+        table.add_row("[ML] Model", model)
+        table.add_row("[ML] History", f"{self._scorer.history.recorded:,} recorded")
 
         # PostgreSQL status
         pg_status = (
@@ -149,6 +150,7 @@ class RuntimeMixin:
         self._init_graph_engine()
         self._init_redis_client()
         self._init_alert_writer()
+        self._init_fraud_model()
 
         logger.info("Fraud Detector Service started!")
         logger.info(f"Consuming from: {self.topic_in}")
