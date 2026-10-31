@@ -108,8 +108,8 @@ Geçmiş (state) kuralları — ADR 0003 §4:
   kaydedilen en son işlemden en çok 7 gün (`MAX_WINDOW_NS`) eskiyse tutulur. Daha eski
   bir işlem gönderen/alıcı hesabın saklanan olaylarıyla `(timestamp, transaction_id)`
   üzerinden karşılaştırılır; olay artık saklanmıyorsa hiçbir pencereye giremediği için
-  tekrar yazılması özellikleri değiştirmez. Aynı kimliğin 7 günden sonra **farklı**
-  hesaplarla yeniden kullanılması yeni işlem sayılır.
+  tekrar yazılması özellikleri değiştirmez. Aynı kimlik 7 günden sonra **farklı bir
+  zaman damgası veya farklı hesaplarla** yeniden gelirse yeni işlem sayılır.
 - `sender_seconds_since_prev` yalnız gönderenin **giden** işlemlerine bakar ve 7 günlük
   pencereyle sınırlı değildir.
 - Arayüz (ML-03, Alper):
