@@ -11,7 +11,9 @@ computed against the history *before* the transaction, then it is recorded
 model loaded later sees the same history it would have seen from the start.
 
 A duplicate ``transaction_id`` on the ingestion path gets the vector of the
-original (contract §2); those vectors are kept in a bounded cache.
+original (contract §2) while it is in a bounded cache; past the cache it is
+scored against the current history. Whether a transaction is a duplicate is
+decided by the history (``record`` returns False), not by the cache.
 """
 
 from __future__ import annotations
@@ -64,6 +66,7 @@ class ScoredTransaction:
     result: ScoreResult
     history_cold_start: bool
     latency_ms: float
+    duplicate: bool = False
 
 
 class TransactionScorer:
@@ -86,7 +89,8 @@ class TransactionScorer:
         """Score ``tx`` (a ``TransactionCreate`` dump with defaults applied).
 
         Returns ``None`` when no model is loaded; with ``record=True`` the
-        transaction is still added to the history.
+        transaction is still added to the history. ``duplicate`` is True when the
+        history already had this transaction and did not record it again.
 
         Raises:
             FeatureInputError: the transaction violates contract §1.
@@ -95,15 +99,18 @@ class TransactionScorer:
         canonical = canonical_transaction(tx)
         tid = str(canonical["transaction_id"])
 
+        duplicate = False
         with self._lock:
-            cached = self._vectors.get(tid) if record else None
-            if cached is not None:
-                vector, cold_start = cached
-            else:
-                vector = self.history.features_for(canonical)
-                cold_start = self.history.is_cold_start(canonical)
-            if record and self.history.record(canonical):
-                self._remember(tid, vector, cold_start)
+            vector = self.history.features_for(canonical)
+            cold_start = self.history.is_cold_start(canonical)
+            if record:
+                if self.history.record(canonical):
+                    self._remember(tid, vector, cold_start)
+                else:
+                    duplicate = True
+                    cached = self._vectors.get(tid)
+                    if cached is not None:
+                        vector, cold_start = cached
 
         try:
             result = self.service.score(vector)
@@ -115,6 +122,7 @@ class TransactionScorer:
             result=result,
             history_cold_start=cold_start,
             latency_ms=latency_ms,
+            duplicate=duplicate,
         )
 
     def _remember(self, tid: str, vector: np.ndarray, cold_start: bool) -> None:

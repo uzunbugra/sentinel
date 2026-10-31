@@ -163,6 +163,24 @@ def test_duplicate_id_gets_the_original_vector():
     assert scorer.history.recorded == 2
 
 
+def test_history_not_the_cache_decides_what_is_a_duplicate():
+    """An id the history accepts as new is scored fresh even if the cache still holds it."""
+    service = _RecordingService()
+    scorer = TransactionScorer(service)  # type: ignore[arg-type]
+    stale = np.full(len(FS1_FEATURE_NAMES), -1.0)
+    scorer._vectors[TX["transaction_id"]] = (stale, False)
+    scorer.score(TX, record=True)
+    assert not np.array_equal(service.vectors[0], stale)
+    assert scorer.history.recorded == 1
+
+
+def test_duplicate_flag(artifact_dir):
+    scorer = TransactionScorer(_service(artifact_dir))
+    assert scorer.score(TX, record=True).duplicate is False
+    assert scorer.score(TX, record=True).duplicate is True
+    assert scorer.score(TX, record=False).duplicate is False
+
+
 def test_duplicate_cache_is_bounded():
     scorer = TransactionScorer(_RecordingService(), duplicate_cache_size=2)  # type: ignore[arg-type]
     for i in range(5):
@@ -274,6 +292,23 @@ def test_risk_score_503_without_model(client, use_scorer, tmp_path):
     }
 
 
+def test_risk_stats_reports_history_counters(client, use_scorer, artifact_dir):
+    use_scorer(_service(artifact_dir))
+    assert client.get("/api/v1/risk/stats").json()["history"] == {
+        "recorded": 0,
+        "duplicates": 0,
+        "out_of_order": 0,
+    }
+    earlier = {**TX, "transaction_id": "TXN-OLD", "timestamp": "2026-11-05T09:00:00+00:00"}
+    for tx in (TX, TX, earlier):
+        assert client.post("/api/v1/transactions", json=tx).status_code == 200
+    assert client.get("/api/v1/risk/stats").json()["history"] == {
+        "recorded": 2,
+        "duplicates": 1,
+        "out_of_order": 1,
+    }
+
+
 def test_risk_batch_is_removed(client):
     assert client.post("/api/v1/risk/batch", json={"transactions": []}).status_code == 404
 
@@ -337,3 +372,46 @@ def test_ingestion_rejects_contract_violations(client, use_scorer, artifact_dir)
     bad = {**TX, "currency": ""}
     res = client.post("/api/v1/transactions", json=bad)
     assert res.status_code == 422
+
+
+def test_duplicate_ingestion_returns_the_alert_without_rebroadcast(
+    client, use_scorer, tmp_path, monkeypatch
+):
+    from sentinelflow.api.routes import transactions as tx_routes
+    from sentinelflow.api.state import state
+    from sentinelflow.contracts import Alert, FraudType, Severity
+
+    model_text = train_booster().model_to_string()
+    write_artifact(
+        tmp_path / "model", model_text=model_text, metadata=metadata_for(model_text, threshold=1e-6)
+    )
+    use_scorer(_service(tmp_path / "model"))
+    alert = Alert(
+        alert_id="ALR-1",
+        fraud_type=FraudType.ML_MODEL,
+        severity=Severity.HIGH,
+        confidence=0.5,
+        transaction_id=TX["transaction_id"],
+        sender_iban=TX["sender_iban"],
+        sender_name=TX["sender_name"],
+        receiver_iban=TX["receiver_iban"],
+        receiver_name=TX["receiver_name"],
+        amount=TX["amount"],
+    )
+    # The repository returns the existing alert for a duplicate (no DB here).
+    monkeypatch.setattr(tx_routes, "_persist_model_alert", lambda scored, tx_data: alert)
+    broadcasts: list[dict] = []
+
+    async def _broadcast(payload):
+        broadcasts.append(payload)
+
+    monkeypatch.setattr(state, "broadcast_alert", _broadcast)
+    monkeypatch.setattr(state, "fraud_detected", 0)
+
+    first = client.post("/api/v1/transactions", json=TX).json()
+    again = client.post("/api/v1/transactions", json=TX).json()
+    assert first["is_fraud"] and again["is_fraud"]
+    assert first["fraud_score"] == again["fraud_score"]
+    assert [a["alert_id"] for a in again["alerts"]] == ["ALR-1"]
+    assert [b["alert_id"] for b in broadcasts] == ["ALR-1"]
+    assert state.fraud_detected == 1

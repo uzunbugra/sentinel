@@ -180,6 +180,7 @@ def test_invalid_json_metadata(artifact_dir: Path) -> None:
     (artifact_dir / "SHA256SUMS").write_text(
         f"{model_sha}  model.txt\n{hashlib.sha256(b'{').hexdigest()}  metadata.json\n",
         encoding="utf-8",
+        newline="\n",
     )
     with pytest.raises(ArtifactError, match="not valid JSON"):
         load_artifact(

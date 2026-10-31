@@ -272,8 +272,11 @@ Anlamlar:
 ```
 
 `POST /api/v1/risk/batch` ve `GET /api/v1/risk/features` ML-06'da **kaldırıldı**
-(istemcisi yoktu; çağrılırsa `404`). `GET /api/v1/risk/stats` gecikme/sayaç döner,
+(istemcisi yoktu; çağrılırsa `404`). `GET /api/v1/risk/stats` gecikme/sayaç ve geçmiş
+sayaçlarını (`history.recorded`, `duplicates`, `out_of_order`; ADR 0003 §4) döner,
 sözleşme dışıdır. İstekte `timestamp` offset'siz gelirse UTC kabul edilir.
+`risk/score` daha önce kaydedilmiş bir `transaction_id` için de vektörü **güncel**
+geçmişe göre hesaplar (what-if); orijinal vektör yalnız ingestion'daki duplicate'a verilir.
 
 ### 4.3 `GET /api/v1/system/health`
 
@@ -310,6 +313,11 @@ sözleşme dışıdır. İstekte `timestamp` offset'siz gelirse UTC kabul edilir
 
 Model `score >= threshold` dediğinde ML alarmı oluşturulur (§4.5). Severity:
 `score >= 0.85` → `critical`, aksi `high` (mevcut davranış korunur).
+
+Duplicate (§2) ingestion: işlem skorlanır, geçmişe yazılmaz. Orijinalin vektörü son
+10.000 kaydın önbelleğindeyse aynen kullanılır; daha eskiyse güncel geçmişle hesaplanır.
+Alarm yeniden yazılmaz: yanıtta mevcut alarm döner, WebSocket'e ikinci kez yayınlanmaz ve
+`fraud_detected` sayacı artmaz.
 
 ### 4.5 ML alarmının `evidence` kaydı
 
