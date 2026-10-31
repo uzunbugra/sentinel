@@ -1883,6 +1883,7 @@ export const apiSchema = {
           "Risk Scoring"
         ],
         "summary": "Risk scoring statistics",
+        "description": "Scoring latency and the account history counters. The history lives in the process: after a restart `history.recorded` is 0 and history features start cold.",
         "operationId": "get_stats_api_v1_risk_stats_get",
         "responses": {
           "200": {
@@ -3536,6 +3537,33 @@ export const apiSchema = {
         "title": "HealthResponse",
         "description": "System health check response."
       },
+      "HistoryStats": {
+        "properties": {
+          "recorded": {
+            "type": "integer",
+            "title": "Recorded",
+            "description": "Transactions recorded since startup; 0 means the history is empty"
+          },
+          "duplicates": {
+            "type": "integer",
+            "title": "Duplicates",
+            "description": "Transactions not recorded again (same id)"
+          },
+          "out_of_order": {
+            "type": "integer",
+            "title": "Out Of Order",
+            "description": "Transactions older than their account's latest event"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recorded",
+          "duplicates",
+          "out_of_order"
+        ],
+        "title": "HistoryStats",
+        "description": "In-process account history counters (ADR 0003 §4)."
+      },
       "KYCScreenRequest": {
         "properties": {
           "name": {
@@ -3934,6 +3962,9 @@ export const apiSchema = {
           "performance_status": {
             "type": "string",
             "title": "Performance Status"
+          },
+          "history": {
+            "$ref": "#/components/schemas/HistoryStats"
           }
         },
         "type": "object",
@@ -3941,7 +3972,8 @@ export const apiSchema = {
           "total_predictions",
           "avg_latency_ms",
           "target_latency_ms",
-          "performance_status"
+          "performance_status",
+          "history"
         ],
         "title": "RiskStatsResponse",
         "description": "Scoring counters since startup (outside the contract)."

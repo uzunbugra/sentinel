@@ -16,6 +16,7 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ### Changed
 - `TransactionResponse.fraud_score` is `null` when no model is loaded (was a made-up `0.0`); new `model_version` field.
 - `GET /api/v1/ml/models` and `GET /api/v1/ml/features` have new response shapes (contract §4.1, §4.6); health component `ml_ensemble` is now `ml_model`.
+- `GET /api/v1/risk/stats` reports the account history counters (`history.recorded`, `duplicates`, `out_of_order`); `recorded` is 0 after a restart (ADR 0003 §4).
 
 ### Removed
 - `POST /api/v1/ml/train` and `GET /api/v1/ml/train/status` (training is offline, ADR 0003 §10); `POST /api/v1/risk/batch` and `GET /api/v1/risk/features`; the five-model `RiskScoringEngine` behind `risk/score`.
@@ -23,6 +24,8 @@ versioning follows [Semantic Versioning](https://semver.org/).
 ### Fixed
 - `AccountHistory` no longer keeps every transaction id for the life of the process: ids leave the duplicate set after the longest window (7 days of event time), and older duplicates are matched against the stored account events instead. Features are unchanged; memory no longer grows with the length of the stream.
 - `build_features_batch` compares transaction ids as strings when masking duplicates, like the streaming path (`5` and `"5"` are one id).
+- Ingesting the same transaction again returns its existing `ml_model` alert without broadcasting it or counting it again; an id the account history accepts as new is always scored against the current history, even if the duplicate-vector cache still holds it.
+- Test artifacts are written with `\n` line endings so their checksums also match on Windows.
 
 ## [2.2.0] - 2026-10-29
 
