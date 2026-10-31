@@ -1,0 +1,246 @@
+{
+  "stage": "test",
+  "evaluated_at": "2026-10-30T15:28:47+00:00",
+  "dataset_id": "samld-e8dfe86cce3f",
+  "model_sha256": "75a5b44ee5febde432002994ea3fb903689a7da7e966518a6380d2c5b1f2fcd5",
+  "threshold": 0.11301326300215633,
+  "test": {
+    "lightgbm": {
+      "pr_auc": 0.615156689895832,
+      "roc_auc": 0.9835307194451883,
+      "support_positive": 1697,
+      "support_total": 1425728,
+      "at_threshold": {
+        "threshold": 0.11301326300215633,
+        "precision": 0.2456597222222222,
+        "recall": 0.6670595167943429,
+        "f1": 0.35908009516256933,
+        "alerts": 4608,
+        "confusion_matrix": {
+          "tp": 1132,
+          "fp": 3476,
+          "fn": 565,
+          "tn": 1420555
+        }
+      },
+      "typology_recall": [
+        {
+          "typology": "Behavioural_Change_1",
+          "support": 62,
+          "detected": 26,
+          "recall": 0.41935483870967744
+        },
+        {
+          "typology": "Behavioural_Change_2",
+          "support": 62,
+          "detected": 49,
+          "recall": 0.7903225806451613
+        },
+        {
+          "typology": "Bipartite",
+          "support": 26,
+          "detected": 13,
+          "recall": 0.5
+        },
+        {
+          "typology": "Cash_Withdrawal",
+          "support": 241,
+          "detected": 198,
+          "recall": 0.8215767634854771
+        },
+        {
+          "typology": "Cycle",
+          "support": 49,
+          "detected": 11,
+          "recall": 0.22448979591836735
+        },
+        {
+          "typology": "Deposit-Send",
+          "support": 163,
+          "detected": 107,
+          "recall": 0.656441717791411
+        },
+        {
+          "typology": "Fan_In",
+          "support": 36,
+          "detected": 24,
+          "recall": 0.6666666666666666
+        },
+        {
+          "typology": "Fan_Out",
+          "support": 58,
+          "detected": 19,
+          "recall": 0.3275862068965517
+        },
+        {
+          "typology": "Gather-Scatter",
+          "support": 82,
+          "detected": 38,
+          "recall": 0.4634146341463415
+        },
+        {
+          "typology": "Layered_Fan_In",
+          "support": 88,
+          "detected": 56,
+          "recall": 0.6363636363636364
+        },
+        {
+          "typology": "Layered_Fan_Out",
+          "support": 100,
+          "detected": 27,
+          "recall": 0.27
+        },
+        {
+          "typology": "Over-Invoicing",
+          "support": 7,
+          "detected": 1,
+          "recall": 0.14285714285714285
+        },
+        {
+          "typology": "Scatter-Gather",
+          "support": 46,
+          "detected": 25,
+          "recall": 0.5434782608695652
+        },
+        {
+          "typology": "Single_large",
+          "support": 34,
+          "detected": 14,
+          "recall": 0.4117647058823529
+        },
+        {
+          "typology": "Smurfing",
+          "support": 152,
+          "detected": 128,
+          "recall": 0.8421052631578947
+        },
+        {
+          "typology": "Stacked Bipartite",
+          "support": 128,
+          "detected": 77,
+          "recall": 0.6015625
+        },
+        {
+          "typology": "Structuring",
+          "support": 363,
+          "detected": 319,
+          "recall": 0.8787878787878788
+        }
+      ]
+    },
+    "baseline": {
+      "pr_auc": 0.06277903520170966,
+      "roc_auc": 0.9164061656313707,
+      "support_positive": 1697,
+      "support_total": 1425728,
+      "at_threshold": {
+        "threshold": 0.9994617774048278,
+        "precision": 0.3229571984435798,
+        "recall": 0.04890984089569829,
+        "f1": 0.0849539406345957,
+        "alerts": 257,
+        "confusion_matrix": {
+          "tp": 83,
+          "fp": 174,
+          "fn": 1614,
+          "tn": 1423857
+        }
+      }
+    }
+  },
+  "latency": {
+    "n": 2000,
+    "p50_ms": 1.0785,
+    "p95_ms": 1.125805,
+    "p99_ms": 1.1499419999999998,
+    "max_ms": 44.1828,
+    "scope": "predict + pred_contrib, one row, ready vector"
+  },
+  "structure": {
+    "num_trees": 190,
+    "max_depth": 6
+  },
+  "artifact_bytes_model_txt": 636601,
+  "targets": [
+    {
+      "target": "PR-AUC (test)",
+      "value": 0.615156689895832,
+      "goal": ">= 0.4",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "target": "PR-AUC gain vs LR baseline (test)",
+      "value": 8.798759855409175,
+      "goal": ">= 25% relative",
+      "passed": true,
+      "note": "baseline PR-AUC 0.0628"
+    },
+    {
+      "target": "Precision at validation threshold (test)",
+      "value": 0.2456597222222222,
+      "goal": ">= 0.15",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "target": "Recall at validation threshold (test)",
+      "value": 0.6670595167943429,
+      "goal": ">= 0.5",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "target": "Typology recall (support >= 30, test)",
+      "value": 0.22448979591836735,
+      "goal": ">= 0.2 for each of 15 typologies",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "target": "Artifact size",
+      "value": 636601,
+      "goal": "<= 5242880 bytes",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "target": "Predict + contributions p95 (single row)",
+      "value": 1.125805,
+      "goal": "<= 5.0 ms",
+      "passed": true,
+      "note": "measured on the training machine, not the CI runner"
+    },
+    {
+      "target": "Trees",
+      "value": 190,
+      "goal": "<= 200",
+      "passed": true,
+      "note": ""
+    },
+    {
+      "target": "Max depth",
+      "value": 6,
+      "goal": "<= 6",
+      "passed": true,
+      "note": ""
+    }
+  ],
+  "publishable": true,
+  "git_sha": "70da572785ce130af857a3cda3cf517736017efc",
+  "git_dirty": false,
+  "library_versions": {
+    "python": "3.13.7",
+    "lightgbm": "4.7.0",
+    "numpy": "2.5.4",
+    "pandas": "3.1.0",
+    "scikit-learn": "1.9.1",
+    "pyarrow": "26.0.0"
+  },
+  "hardware": {
+    "platform": "Windows-11-10.0.26300-SP0",
+    "machine": "AMD64",
+    "processor": "Intel64 Family 6 Model 141 Stepping 1, GenuineIntel",
+    "logical_cpus": 12
+  }
+}
