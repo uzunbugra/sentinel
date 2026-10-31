@@ -94,6 +94,32 @@ class TransactionCreate(ContractBase):
         examples=["Kira ödemesi"],
     )
 
+    # Model inputs (docs/contracts/sprint4-ml-api.md §1); defaults are applied
+    # by the feature module, not here.
+    received_currency: str | None = Field(
+        default=None,
+        max_length=3,
+        description="Currency received (ISO 4217); defaults to `currency`",
+    )
+    sender_country: str | None = Field(
+        default=None,
+        max_length=2,
+        description="Sender bank country (ISO 3166 alpha-2); defaults to TR",
+        examples=["TR"],
+    )
+    receiver_country: str | None = Field(
+        default=None,
+        max_length=2,
+        description="Receiver bank country (ISO 3166 alpha-2); defaults to TR",
+        examples=["TR"],
+    )
+    payment_type: str | None = Field(
+        default=None,
+        max_length=50,
+        description="Payment type, e.g. cross_border, cash_deposit; defaults to unknown",
+        examples=["cross_border"],
+    )
+
     # Timestamp
     timestamp: datetime | None = Field(
         default=None,

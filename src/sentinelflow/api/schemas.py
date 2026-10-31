@@ -11,9 +11,9 @@ All core schemas come from sentinelflow.contracts (single source of truth).
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # =============================================================================
 # Re-export from contracts (single source of truth)
@@ -61,7 +61,15 @@ class TransactionResponse(BaseModel):
     status: str = Field(default="analyzed", description="Processing status")
     message: str = Field(default="Transaction analyzed successfully")
     is_fraud: bool = Field(default=False, description="Fraud detection result")
-    fraud_score: float = Field(default=0.0, ge=0.0, le=1.0, description="ML ensemble score")
+    fraud_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+        description="Fraud model score; null when no model is loaded",
+    )
+    model_version: str | None = Field(
+        default=None, description="Model that produced `fraud_score`; null without a model"
+    )
     alerts: list[Alert] | None = Field(default=None, description="Generated alerts, if any")
     processing_time_ms: float = Field(default=0.0)
 
@@ -80,60 +88,67 @@ class BatchTransactionResponse(BaseModel):
 # =============================================================================
 
 
-class MLFeatureResponse(BaseModel):
-    """Response with extracted features."""
+class ModelMetrics(BaseModel):
+    """Evaluation metrics recorded in the artifact; a missing value is null, not 0."""
 
-    transaction_id: str
-    features: dict[str, float] = Field(..., description="Extracted feature values")
-    num_features: int = Field(default=21)
-
-
-class MLPredictionResponse(BaseModel):
-    """Response with ML prediction."""
-
-    transaction_id: str
-    is_fraud: bool
-    ensemble_score: float = Field(..., ge=0.0, le=1.0)
-    model_scores: dict[str, float] = Field(default_factory=dict)
-    explanation: dict[str, Any] | None = None
+    split: str | None = None
+    pr_auc: float | None = None
+    roc_auc: float | None = None
+    precision: float | None = None
+    recall: float | None = None
+    f1: float | None = None
+    support_positive: int | None = None
+    support_total: int | None = None
+    baseline_pr_auc: float | None = None
 
 
-class ModelInfo(BaseModel):
-    """Information about a single ML model."""
+class ActiveModel(BaseModel):
+    """The fraud model the API is serving (contract §4.1)."""
 
-    name: str
-    version: str = "1.0.0"
-    ready: bool = False
-    last_trained: datetime | None = None
-    metrics: dict[str, float] = Field(default_factory=dict)
+    model_config = ConfigDict(protected_namespaces=())
+
+    model_version: str
+    model_family: str
+    feature_set_version: str
+    feature_names: list[str]
+    threshold: float
+    dataset_id: str
+    trained_at: str
+    loaded_at: datetime
+    metrics: ModelMetrics
+    model_sha256: str
 
 
 class ModelStatusResponse(BaseModel):
-    """Status of all ML models."""
+    """`GET /ml/models`: always 200; `model` is null unless `status` is `loaded`."""
 
-    isolation_forest: ModelInfo = Field(default_factory=lambda: ModelInfo(name="IsolationForest"))
-    xgboost: ModelInfo = Field(default_factory=lambda: ModelInfo(name="XGBoost"))
-    autoencoder: ModelInfo = Field(default_factory=lambda: ModelInfo(name="AutoEncoder"))
-    ensemble_ready: bool = False
-    ensemble_threshold: float = 0.5
+    status: Literal["loaded", "not_loaded", "invalid"]
+    model: ActiveModel | None = None
+    error: str | None = None
 
 
-class TrainRequest(BaseModel):
-    """Request to trigger model training."""
+class TopFeature(BaseModel):
+    """One feature's contribution to a single score, in log-odds."""
 
-    n_samples: int = Field(
-        default=5000, ge=100, le=100000, description="Number of synthetic samples"
-    )
-    fraud_ratio: float = Field(default=0.05, ge=0.01, le=0.5, description="Fraud ratio")
+    feature: str
+    value: float
+    contribution: float
 
 
-class TrainResponse(BaseModel):
-    """Response with training results."""
+class FeatureDefinition(BaseModel):
+    """One feature of the served feature set."""
 
-    status: str = "completed"
-    training_time_seconds: float = 0.0
-    dataset_size: int = 0
-    metrics: dict[str, Any] = Field(default_factory=dict)
+    name: str
+    dtype: str
+    categorical: bool
+
+
+class FeatureSetResponse(BaseModel):
+    """`GET /ml/features`: the feature set the service computes."""
+
+    feature_set_version: str
+    total_features: int
+    features: list[FeatureDefinition]
 
 
 # =============================================================================
@@ -280,12 +295,12 @@ __all__ = [
     "CaseListResponse",
     "CaseSummary",
     # ML
-    "MLFeatureResponse",
-    "MLPredictionResponse",
-    "ModelInfo",
+    "ActiveModel",
+    "FeatureDefinition",
+    "FeatureSetResponse",
+    "ModelMetrics",
     "ModelStatusResponse",
-    "TrainRequest",
-    "TrainResponse",
+    "TopFeature",
     # System
     "ComponentStatus",
     "HealthResponse",

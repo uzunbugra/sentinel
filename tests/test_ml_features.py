@@ -455,6 +455,43 @@ def test_batch_duplicate_ids_compare_as_strings_like_stream():
     assert vectors[2, FEATURE_NAMES.index("sender_tx_count_24h")] == 1
 
 
+def test_id_set_keeps_only_the_longest_window():
+    history = AccountHistory()
+    for h in range(30 * 24):
+        history.record(make_tx(f"B-{h}", T0 + timedelta(hours=h), f"S{h % 50}", "R", 1.0))
+    # 7 days of hourly ids, both edges inclusive.
+    assert len(history._seen) == len(history._seen_by_time) == 7 * 24 + 1
+    assert "B-0" not in history and f"B-{30 * 24 - 1}" in history
+
+
+def test_expired_id_is_still_a_duplicate_while_its_event_is_stored():
+    history = AccountHistory()
+    tx = make_tx("D-1", T0, "S", "R", 10.0)
+    history.record(tx)
+    history.record(make_tx("X-1", T0 + timedelta(days=8), "OTHER-S", "OTHER-R", 1.0))
+    assert "D-1" not in history
+    assert history.record(tx) is False
+    assert history.duplicates == 1
+    nxt = history.features_for(make_tx("D-2", T0 + timedelta(minutes=1), "S", "R", 1.0))
+    assert nxt[FEATURE_NAMES.index("sender_tx_count_24h")] == 1
+
+
+def test_expired_and_pruned_duplicate_leaves_features_unchanged():
+    later = T0 + timedelta(days=8)
+    head = [
+        make_tx("D-1", T0, "S", "R", 10.0),
+        make_tx("L-1", later, "S", "R2", 2.0),
+        make_tx("L-2", later + timedelta(minutes=1), "S2", "R", 3.0),
+    ]
+    with_replay = AccountHistory()
+    stream(head, with_replay)
+    with_replay.record(head[0])
+    plain = AccountHistory()
+    stream(head, plain)
+    probe = make_tx("P-1", later + timedelta(minutes=2), "S", "R", 1.0)
+    assert np.array_equal(with_replay.features_for(probe), plain.features_for(probe))
+
+
 def test_out_of_order_record_is_counted_and_used():
     history = AccountHistory()
     history.record(make_tx("O-2", T0 + timedelta(hours=2), "S", "R", 1.0))

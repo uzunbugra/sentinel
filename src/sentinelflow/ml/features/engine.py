@@ -21,13 +21,15 @@ History rules (contract §2, ADR 0003 §4):
 * A window of width ``W`` covers earlier events with ``timestamp >= t - W``:
   the lower edge is inclusive, the upper edge is "strictly earlier in order".
 * A ``transaction_id`` that was already recorded is scored but not recorded
-  again.
+  again. Ids are kept only for the longest window (see :class:`AccountHistory`),
+  so memory does not grow with the length of the stream.
 * Only canonical fields are read. Labels never enter the state; account ids are
   only used as keys.
 """
 
 from __future__ import annotations
 
+import heapq
 import math
 from array import array
 from bisect import bisect_left, insort
@@ -186,12 +188,21 @@ class AccountHistory:
 
     ``track_ids=False`` skips the duplicate-id set; only for callers that remove
     duplicates themselves (the batch builder does).
+
+    The id set is bounded: an id is kept while its timestamp is within
+    ``MAX_WINDOW_NS`` of the latest recorded timestamp. An older transaction is
+    checked against the stored events of its sender and receiver instead. Its
+    original is either still there, or it was pruned and can no longer reach any
+    window, so recording it again leaves the features unchanged.
     """
 
     def __init__(self, *, track_ids: bool = True) -> None:
         self._out: dict[str, _Side] = {}
         self._in: dict[str, _Side] = {}
         self._seen: set[str] | None = set() if track_ids else None
+        # Min-heap of (timestamp, id) for ``_seen``, oldest first.
+        self._seen_by_time: list[_Key] = []
+        self._latest_ns: int | None = None
         self.recorded = 0
         self.duplicates = 0
         self.out_of_order = 0
@@ -277,12 +288,39 @@ class AccountHistory:
 
     def _record_checked(self, c: _Canonical) -> bool:
         if self._seen is not None:
-            if c[0] in self._seen:
+            tid, t = c[0], c[1]
+            if tid in self._seen or (self._before_id_horizon(t) and self._has_event(c)):
                 self.duplicates += 1
                 return False
-            self._seen.add(c[0])
+            self._remember_id(tid, t)
         self._record(c)
         return True
+
+    def _before_id_horizon(self, t: int) -> bool:
+        """True when an id with timestamp ``t`` may already have left ``_seen``."""
+        return self._latest_ns is not None and t < self._latest_ns - MAX_WINDOW_NS
+
+    def _has_event(self, c: _Canonical) -> bool:
+        """True when the sender's or receiver's stored events contain this key."""
+        key = (c[1], c[0])
+        for side in (self._out.get(c[2]), self._in.get(c[3])):
+            if side is not None:
+                pos = bisect_left(side.keys, key)
+                if pos < len(side.keys) and side.keys[pos] == key:
+                    return True
+        return False
+
+    def _remember_id(self, tid: str, t: int) -> None:
+        assert self._seen is not None
+        if self._latest_ns is None or t > self._latest_ns:
+            self._latest_ns = t
+        horizon = self._latest_ns - MAX_WINDOW_NS
+        if t >= horizon:
+            self._seen.add(tid)
+            heapq.heappush(self._seen_by_time, (t, tid))
+        heap = self._seen_by_time
+        while heap and heap[0][0] < horizon:
+            self._seen.discard(heapq.heappop(heap)[1])
 
     def _record(self, c: _Canonical) -> None:
         tid, t, sender, receiver, amount = c[:5]
