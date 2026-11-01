@@ -263,6 +263,10 @@ services:
       # Service-to-service ingestion auth (X-API-Key fallback for generators).
       SENTINELFLOW_API_KEY: ${SENTINELFLOW_API_KEY:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      # Fraud model artifact (ADR 0003 §9), relative to /app; see docs/ml/README.md.
+      SENTINELFLOW_MODEL_DIR: ${SENTINELFLOW_MODEL_DIR:-models/fraud/current}
+    volumes:
+      - ./models:/app/models:ro
     networks:
       - sentinelflow-network
     healthcheck:
