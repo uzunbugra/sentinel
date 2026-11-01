@@ -127,26 +127,42 @@ services:
       - "7687:7687"  # Bolt Protocol
     environment:
       NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in .env (see .env.example)}
+      CYPHER_PASSWORD: ${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in .env (see .env.example)}
       NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
-      NEO4J_dbms_memory_pagecache_size: 512M
-      NEO4J_dbms_memory_heap_initial__size: 512M
-      NEO4J_dbms_memory_heap_max__size: 1G
+      NEO4J_server_memory_pagecache_size: 512M
+      NEO4J_server_memory_heap_initial__size: 512M
+      NEO4J_server_memory_heap_max__size: 1G
       NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
       NEO4J_dbms_security_procedures_allowlist: apoc.*,gds.*
     volumes:
       - neo4j_data:/data
       - neo4j_logs:/logs
       - neo4j_plugins:/plugins
-      # Create constraints/indexes automatically on first boot.
-      - ./scripts/init_neo4j_schema.cypher:/docker-entrypoint-initdb.d/init_neo4j_schema.cypher:ro
     networks:
       - sentinelflow-network
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:7474"]
+      test: ["CMD-SHELL", "cypher-shell -a bolt://localhost:7687 -u neo4j -p \"$$CYPHER_PASSWORD\" 'RETURN 1' > /dev/null"]
       interval: 30s
       timeout: 10s
       retries: 5
     restart: unless-stopped
+
+  # Apply the schema after authenticated Bolt queries are ready; safe to rerun.
+  neo4j-init:
+    image: neo4j:5.15.0-community
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    environment:
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:?Set NEO4J_PASSWORD in .env (see .env.example)}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - exec cypher-shell -a bolt://neo4j:7687 -u neo4j -p "$$NEO4J_PASSWORD" --file /schema/init_neo4j_schema.cypher
+    volumes:
+      - ./scripts/init_neo4j_schema.cypher:/schema/init_neo4j_schema.cypher:ro
+    networks:
+      - sentinelflow-network
+    restart: "no"
 
   # =============================================================================
   # REDIS - In-Memory Cache & Geo-Spatial Operations

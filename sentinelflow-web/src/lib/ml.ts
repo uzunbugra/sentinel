@@ -2,7 +2,8 @@ import { apiRequest, ApiError } from "./auth"
 import { config } from "./config"
 
 // Handwritten API types governed by docs/contracts/sprint4-ml-api.md (§4.1, §4.5).
-// Replace with generated types once ML-06 reflects them into api-schema.ts.
+// api-schema.ts holds the OpenAPI object, not TS types; ml.contract.test.ts
+// checks these against it.
 
 export type ModelLoadStatus = "loaded" | "not_loaded" | "invalid"
 

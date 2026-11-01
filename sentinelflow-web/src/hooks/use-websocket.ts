@@ -2,7 +2,10 @@
 
 import { useEffect, useRef, useState, useCallback } from "react"
 import { config, getWsUrl } from "@/lib/config"
+import type { AlertEvidence } from "@/lib/ml"
 
+// The API broadcasts the full stored alert (`Alert.model_dump`); fields past
+// the first block are optional so older payloads still parse.
 type Alert = {
     alert_id: string
     fraud_type: string
@@ -13,6 +16,16 @@ type Alert = {
     amount: number
     sender_iban?: string
     receiver_iban?: string
+    transaction_id?: string
+    sender_name?: string
+    sender_city?: string
+    receiver_name?: string
+    receiver_city?: string
+    currency?: string
+    title?: string
+    is_dismissed?: boolean
+    case_id?: string | null
+    evidence?: AlertEvidence[]
 }
 
 type WebSocketStatus = "connecting" | "connected" | "disconnected" | "error"

@@ -364,15 +364,17 @@ def build_features_batch(df: pd.DataFrame, history: AccountHistory | None = None
     n = len(df)
     ts_ns = _timestamps_to_ns(df[spec.TIMESTAMP])
     tids = df[spec.TRANSACTION_ID].tolist()
+    # Ids compare as strings, like the streaming path (``5`` and ``"5"`` are one id).
+    tid_keys = [str(x) for x in tids]
     order = (
-        pd.DataFrame({"t": ts_ns, "id": [str(x) for x in tids], "pos": np.arange(n)})
+        pd.DataFrame({"t": ts_ns, "id": tid_keys, "pos": np.arange(n)})
         .sort_values(["t", "id", "pos"], kind="mergesort")["pos"]
         .to_numpy()
     )
 
     if history is None:
         history = AccountHistory(track_ids=False)
-    ids_sorted = pd.Series([tids[i] for i in order], dtype=object)
+    ids_sorted = pd.Series([tid_keys[i] for i in order], dtype=object)
     duplicate = ids_sorted.duplicated(keep="first").to_numpy()
     tracks_ids = history._seen is not None
 
