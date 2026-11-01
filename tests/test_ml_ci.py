@@ -78,6 +78,31 @@ def test_missing_report_fails(tmp_path):
     assert ci.main(["gate", "--report-dir", str(tmp_path)]) == 1
 
 
+def test_selection_without_model_sha256_is_rejected(report_copy):
+    """None == None must not pass as 'the report is for the frozen model'."""
+    path = report_copy / ci.SELECTION_FILE
+    selection = json.loads(path.read_text(encoding="utf-8"))
+    selection["files"]["model.txt"].pop("sha256")
+    path.write_text(json.dumps(selection), encoding="utf-8")
+    _edit_report(report_copy, lambda r: r.pop("model_sha256"))
+    with pytest.raises(ci.GateError, match="no model.txt sha256"):
+        ci.gate(report_copy)
+
+
+@pytest.mark.parametrize("key", ["test", "structure", "latency"])
+def test_report_with_missing_keys_is_a_gate_error(report_copy, capsys, key):
+    _edit_report(report_copy, lambda r: r.pop(key))
+    with pytest.raises(ci.GateError, match="locked-test report is missing"):
+        ci.gate(report_copy)
+    assert ci.main(["gate", "--report-dir", str(report_copy)]) == 1
+    assert "locked-test report is missing" in capsys.readouterr().err
+
+
+def test_gate_markdown_reports_missing_keys():
+    with pytest.raises(ci.GateError, match="locked-test report is missing"):
+        ci.gate_markdown("t", [], {"dataset_id": "x"})
+
+
 def test_synthetic_dataset_has_the_ml02_layout(tmp_path):
     manifest = ci.write_synthetic(tmp_path / "ds", "fast")
     frame = pd.read_parquet(tmp_path / "ds" / "transactions.parquet")
