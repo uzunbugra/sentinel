@@ -243,6 +243,11 @@ class DetectionChecksMixin:
             logger.warning(f"Transaction {tx_data.get('transaction_id')} not scored: {e}")
             self.stats.errors += 1
             return None
+        except Exception:
+            # A model failure must not drop the alerts the other engines already raised.
+            logger.exception(f"Fraud model failed for {tx_data.get('transaction_id')}")
+            self.stats.errors += 1
+            return None
 
         if scored is None or scored.duplicate or not scored.result.is_fraud:
             return None
