@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from enum import Enum
 from uuid import uuid4
 
+from sentinelflow.contracts import Evidence
+
 
 class FraudType(str, Enum):
     """Types of fraud detected by the system."""
@@ -19,7 +21,8 @@ class FraudType(str, Enum):
     BLACKLIST_KEYWORD = "blacklist_keyword"
     MULE_ACCOUNT = "mule_account"
     AI_DETECTED_ANOMALY = "ai_detected_anomaly"
-    ML_ENSEMBLE = "ml_ensemble"
+    ML_ENSEMBLE = "ml_ensemble"  # legacy alerts only
+    ML_MODEL = "ml_model"
 
 
 # Blacklisted keywords for NLP check (Turkish + English)
@@ -76,6 +79,8 @@ class FraudAlert:
     description: str = ""
     evidence: dict = field(default_factory=dict)
     related_transactions: list[str] = field(default_factory=list)
+    # Contract evidence records persisted with the alert (``ml_model``: contract §4.5)
+    evidence_records: list[Evidence] = field(default_factory=list)
 
     # Metadata
     detected_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
@@ -113,8 +118,7 @@ class DetectorStats:
     circular_rings: int = 0
     impossible_travel: int = 0
     blacklist_hits: int = 0
-    ai_anomalies: int = 0
-    ml_ensemble_hits: int = 0
+    ml_model_hits: int = 0
     errors: int = 0
     start_time: datetime = field(default_factory=datetime.utcnow)
 

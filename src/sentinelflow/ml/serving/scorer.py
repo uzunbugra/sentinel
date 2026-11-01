@@ -18,12 +18,15 @@ decided by the history (``record`` returns False), not by the cache.
 
 from __future__ import annotations
 
+import contextlib
+import re
 import threading
 import time
 from collections import OrderedDict
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -34,6 +37,22 @@ from .service import FraudModelService, ModelNotLoadedError, ScoreResult
 
 DEFAULT_DUPLICATE_CACHE_SIZE = 10_000
 
+# Seconds fraction of 1-6 digits, before an offset or at the end of the string.
+_ISO_FRACTION = re.compile(r"\.(\d{1,6})(?=[+-]|$)")
+
+
+def parse_iso_timestamp(value: str) -> datetime:
+    """``datetime.fromisoformat`` that also takes ``Z`` and short fractions on 3.10.
+
+    Python 3.10 accepts only what ``isoformat()`` writes (0, 3 or 6 fraction
+    digits, no ``Z``); 3.11 parses both. Raises ``ValueError`` like the original.
+    """
+    text = value.strip()
+    if text[-1:] in ("Z", "z"):
+        text = text[:-1] + "+00:00"
+    text = _ISO_FRACTION.sub(lambda m: "." + m.group(1).ljust(6, "0"), text)
+    return datetime.fromisoformat(text)
+
 
 def canonical_transaction(tx: Mapping[str, Any]) -> dict[str, Any]:
     """Map a ``TransactionCreate`` dump to the canonical record (contract §1).
@@ -41,8 +60,12 @@ def canonical_transaction(tx: Mapping[str, Any]) -> dict[str, Any]:
     Missing optional fields stay ``None``; the feature module applies defaults.
     """
     timestamp = tx.get("timestamp")
+    if isinstance(timestamp, str):
+        # Kafka messages carry ISO strings; unparseable ones are left to the feature module.
+        with contextlib.suppress(ValueError):
+            timestamp = parse_iso_timestamp(timestamp)
     if isinstance(timestamp, datetime) and timestamp.tzinfo is None:
-        # The API treats naive timestamps as UTC (contract §4: dates are UTC).
+        # Naive timestamps are UTC (contract §4: dates are UTC).
         timestamp = timestamp.replace(tzinfo=timezone.utc)
     return {
         "transaction_id": tx.get("transaction_id"),
@@ -129,3 +152,20 @@ class TransactionScorer:
         self._vectors[tid] = (vector, cold_start)
         if len(self._vectors) > self._cache_size:
             self._vectors.popitem(last=False)
+
+
+def build_scorer(model_dir: str | Path | None = None) -> TransactionScorer:
+    """The scorer of a serving process (API or detector): one model, empty history.
+
+    ``model_dir`` defaults to ``SENTINELFLOW_MODEL_DIR``. The model is not loaded
+    yet; call ``scorer.service.load()`` at startup.
+    """
+    from sentinelflow.config import get_settings
+    from sentinelflow.ml.features import FEATURE_NAMES, FEATURE_SET_VERSION
+
+    service = FraudModelService(
+        model_dir if model_dir is not None else get_settings().serving.dir,
+        feature_set_version=FEATURE_SET_VERSION,
+        feature_names=FEATURE_NAMES,
+    )
+    return TransactionScorer(service)

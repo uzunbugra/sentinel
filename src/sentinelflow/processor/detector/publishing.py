@@ -47,6 +47,8 @@ class AlertPublishingMixin:
                         "amount": alert.amount,
                     },
                     description=alert.description,
+                    evidence=alert.evidence_records or None,
+                    related_transactions=alert.related_transactions or None,
                 )
 
                 persisted = self._alert_writer.write(alert_create)

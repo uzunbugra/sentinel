@@ -189,13 +189,38 @@ def test_duplicate_cache_is_bounded():
 
 
 def test_canonical_transaction_treats_naive_timestamps_as_utc():
-    from datetime import datetime
+    """datetime from the API, ISO string from Kafka: both naive values are UTC."""
+    from datetime import datetime, timezone
 
     canonical = canonical_transaction({**TX, "timestamp": datetime(2026, 11, 5, 10, 0)})
     assert canonical["timestamp"].utcoffset().total_seconds() == 0
     assert canonical["sender_account"] == TX["sender_iban"]
     assert canonical["payment_currency"] == "TRY"
     assert canonical["received_currency"] is None  # default applied by the feature module
+    from_kafka = canonical_transaction({**TX, "timestamp": "2026-11-05T10:00:00.5"})
+    assert from_kafka["timestamp"] == datetime(2026, 11, 5, 10, 0, 0, 500000, tzinfo=timezone.utc)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "2026-11-05T10:00:00.5",
+        "2026-11-05T10:00:00.50Z",
+        "2026-11-05T10:00:00.500+00:00",
+        "2026-11-05T13:00:00.5+03:00",
+        "2026-11-05T10:00:00.500000z",
+    ],
+)
+def test_canonical_transaction_parses_z_and_short_fractions(text):
+    """Python 3.10's fromisoformat takes neither; Kafka producers may send both."""
+    from datetime import datetime, timezone
+
+    parsed = canonical_transaction({**TX, "timestamp": text})["timestamp"]
+    assert parsed == datetime(2026, 11, 5, 10, 0, 0, 500000, tzinfo=timezone.utc)
+
+
+def test_canonical_transaction_leaves_unparseable_timestamps_to_the_feature_module():
+    assert canonical_transaction({**TX, "timestamp": "dün"})["timestamp"] == "dün"
 
 
 # --- GET /ml/models ---------------------------------------------------------------

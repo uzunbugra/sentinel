@@ -13,10 +13,10 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-import numpy as np
 from loguru import logger
 
-from sentinelflow.ml.feature_engine import TransactionFeatureEngine
+from sentinelflow.ml.features import FeatureInputError
+from sentinelflow.ml.serving import model_evidence, model_severity
 from sentinelflow.processor.redis_geo import get_city_coordinates
 
 from .types import BLACKLIST_KEYWORDS, FraudAlert, FraudType
@@ -223,87 +223,51 @@ class DetectionChecksMixin:
 
         return None
 
-    def _check_ml_ensemble(self, tx_data: dict) -> FraudAlert | None:
+    def _check_ml_model(self, tx_data: dict) -> FraudAlert | None:
         """
-        ENGINE 4: ML Ensemble Fraud Detection.
+        ENGINE 4: Fraud model (contract §4.4-4.5).
 
-        Uses multiple ML models (IsolationForest, XGBoost, AutoEncoder) with
-        weighted voting to detect anomalous transactions. Provides SHAP-based
-        explanations for flagged transactions.
-
-        Pipeline:
-        1. Feature Engineering → 21 features from raw transaction
-        2. Multi-Model Prediction → Ensemble weighted vote
-        3. Explainability → SHAP/heuristic top reasons
+        Scores the transaction against the fs-1 account history *before* it and
+        then records it (ADR 0003 §4). No model → no score and no alert. A
+        duplicate transaction id is scored but raises no second alert.
 
         Args:
             tx_data: Transaction data dictionary
 
         Returns:
-            FraudAlert if ensemble flags fraud, None otherwise
+            FraudAlert if the model score is at or above its threshold, None otherwise
         """
         try:
-            # Step 1: Extract features
-            features_dict = self._feature_engine.extract(tx_data)
-            features_vector = np.array(
-                [
-                    features_dict.get(name, 0.0)
-                    for name in TransactionFeatureEngine.get_feature_names()
-                ],
-                dtype=np.float64,
-            )
-
-            # Step 2: Feed to IsolationForest for online learning
-            self._isolation_forest_model.add_sample_and_maybe_retrain(features_vector)
-
-            # Step 3: Ensemble prediction
-            prediction = self._ensemble.predict(features_vector)
-
-            # Also keep legacy amount buffer for backward compat
-            amount = float(tx_data.get("amount", 0.0))
-            self._amount_buffer.append(amount)
-
-            if prediction.is_fraud:
-                self.stats.ml_ensemble_hits += 1
-                self.stats.ai_anomalies += 1
-
-                # Step 4: Generate explanation
-                explanation = self._explainer.explain(
-                    features=features_vector,
-                    feature_values=features_dict,
-                )
-
-                # Determine severity based on score
-                if prediction.final_score >= 0.85:
-                    severity = "critical"
-                elif prediction.final_score >= 0.75:
-                    severity = "high"
-                else:
-                    severity = "medium"
-
-                return FraudAlert(
-                    fraud_type=FraudType.ML_ENSEMBLE,
-                    severity=severity,
-                    confidence=min(0.99, prediction.final_score),
-                    transaction_id=tx_data.get("transaction_id", ""),
-                    sender_iban=tx_data.get("sender_iban", ""),
-                    sender_name=tx_data.get("sender_name", ""),
-                    receiver_iban=tx_data.get("receiver_iban", ""),
-                    receiver_name=tx_data.get("receiver_name", ""),
-                    amount=amount,
-                    description=(
-                        f"ML Ensemble detected fraud (score: {prediction.final_score:.2f}): "
-                        f"{explanation.summary()}"
-                    ),
-                    evidence={
-                        **prediction.to_dict(),
-                        "xai_explanation": explanation.to_dict(),
-                        "features": {k: round(v, 4) for k, v in features_dict.items()},
-                    },
-                )
-
-        except Exception as e:
-            logger.error(f"ML ensemble error: {e}")
+            scored = self._scorer.score(tx_data, record=True)
+        except FeatureInputError as e:
+            logger.warning(f"Transaction {tx_data.get('transaction_id')} not scored: {e}")
             self.stats.errors += 1
+            return None
+        except Exception:
+            # A model failure must not drop the alerts the other engines already raised.
+            logger.exception(f"Fraud model failed for {tx_data.get('transaction_id')}")
+            self.stats.errors += 1
+            return None
 
-        return None
+        if scored is None or scored.duplicate or not scored.result.is_fraud:
+            return None
+
+        self.stats.ml_model_hits += 1
+        result = scored.result
+        evidence = model_evidence(scored)
+        return FraudAlert(
+            fraud_type=FraudType.ML_MODEL,
+            severity=model_severity(result.score).value,
+            confidence=result.score,
+            transaction_id=scored.transaction_id,
+            sender_iban=tx_data.get("sender_iban", ""),
+            sender_name=tx_data.get("sender_name", ""),
+            receiver_iban=tx_data.get("receiver_iban", ""),
+            receiver_name=tx_data.get("receiver_name", ""),
+            amount=float(tx_data.get("amount", 0.0)),
+            description=f"Fraud model flagged the transaction (score: {result.score:.2f})",
+            evidence=evidence.model_dump(mode="json"),
+            related_transactions=[scored.transaction_id],
+            detector_version=result.model_version,
+            evidence_records=[evidence],
+        )

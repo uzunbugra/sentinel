@@ -14,7 +14,7 @@ import time
 from fastapi import WebSocket
 from loguru import logger
 
-from sentinelflow.ml.serving import TransactionScorer
+from sentinelflow.ml.serving import TransactionScorer, build_scorer
 
 
 class AppState:
@@ -33,7 +33,7 @@ class AppState:
         self.db_initialized = False
 
         # Fraud model + fs-1 account history (ADR 0003 §8-9)
-        self.scorer: TransactionScorer = self._build_scorer()
+        self.scorer: TransactionScorer = build_scorer()
 
     def init_database(self) -> bool:
         """Initialize database connection and tables."""
@@ -47,19 +47,6 @@ class AppState:
         except Exception as e:
             logger.error(f"Database initialization failed: {e}")
             return False
-
-    @staticmethod
-    def _build_scorer() -> TransactionScorer:
-        from sentinelflow.config import get_settings
-        from sentinelflow.ml.features import FEATURE_NAMES, FEATURE_SET_VERSION
-        from sentinelflow.ml.serving import FraudModelService
-
-        service = FraudModelService(
-            get_settings().serving.dir,
-            feature_set_version=FEATURE_SET_VERSION,
-            feature_names=FEATURE_NAMES,
-        )
-        return TransactionScorer(service)
 
     def load_fraud_model(self) -> bool:
         """Load the fraud model artifact; the API keeps running without it."""
