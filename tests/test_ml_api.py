@@ -201,6 +201,28 @@ def test_canonical_transaction_treats_naive_timestamps_as_utc():
     assert from_kafka["timestamp"] == datetime(2026, 11, 5, 10, 0, 0, 500000, tzinfo=timezone.utc)
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "2026-11-05T10:00:00.5",
+        "2026-11-05T10:00:00.50Z",
+        "2026-11-05T10:00:00.500+00:00",
+        "2026-11-05T13:00:00.5+03:00",
+        "2026-11-05T10:00:00.500000z",
+    ],
+)
+def test_canonical_transaction_parses_z_and_short_fractions(text):
+    """Python 3.10's fromisoformat takes neither; Kafka producers may send both."""
+    from datetime import datetime, timezone
+
+    parsed = canonical_transaction({**TX, "timestamp": text})["timestamp"]
+    assert parsed == datetime(2026, 11, 5, 10, 0, 0, 500000, tzinfo=timezone.utc)
+
+
+def test_canonical_transaction_leaves_unparseable_timestamps_to_the_feature_module():
+    assert canonical_transaction({**TX, "timestamp": "dün"})["timestamp"] == "dün"
+
+
 # --- GET /ml/models ---------------------------------------------------------------
 
 

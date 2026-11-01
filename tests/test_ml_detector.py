@@ -150,3 +150,15 @@ def test_published_alert_persists_the_evidence(tmp_path):
     assert stored.fraud_type == "ml_model"
     assert stored.related_transactions == [KAFKA_TX["transaction_id"]]
     assert stored.evidence[0].details["model_version"] == MODEL_VERSION
+
+
+def test_model_failure_is_counted_not_raised(tmp_path, monkeypatch):
+    """A model error must not escape and drop the other engines' pending alerts."""
+    detector = _detector(_model_dir(tmp_path))
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("booster crashed")
+
+    monkeypatch.setattr(detector._scorer, "score", _boom)
+    assert detector._check_ml_model(KAFKA_TX) is None
+    assert detector.stats.errors == 1
