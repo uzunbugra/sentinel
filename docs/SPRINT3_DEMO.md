@@ -47,6 +47,9 @@ docker compose --profile frontend ps
 
 Beklenen: `postgres`, `redis`, `zookeeper`, `kafka`, `neo4j`, `api`, `frontend`,
 `redis-commander` konteynerleri `healthy`; `kafka-ui` healthcheck tanımlamaz (`Up`).
+`neo4j-init` tek seferlik çalışır; başarılı sonuç `Exited (0)` olmalıdır
+(`docker compose ps -a neo4j-init`). Neo4j `healthy` olması şemanın tamamlandığı
+anlamına gelmez; init çıkışını ve aşağıdaki şema kontrollerini de doğrulayın.
 Temiz başlangıç için önce `docker compose --profile frontend down -v` (verileri siler).
 İlk build birkaç dakika sürer (smoke'ta ~16 dk, imaj indirmeleri dahil).
 
@@ -69,6 +72,23 @@ docker compose exec kafka kafka-broker-api-versions --bootstrap-server localhost
 Invoke-WebRequest http://localhost:7474 -UseBasicParsing | Select-Object StatusCode
 Invoke-WebRequest http://localhost:3000/login -UseBasicParsing | Select-Object StatusCode
 ```
+
+Neo4j şeması, kimlik doğrulamalı Bolt healthcheck'i başarılı olduktan sonra
+`neo4j-init` tarafından otomatik uygulanır. Parola `.env` içindeki
+`NEO4J_PASSWORD` değerinden gelir; aşağıdaki komutlarda ekrana yazılmaz:
+
+```powershell
+docker compose ps -a neo4j neo4j-init
+docker compose logs neo4j-init
+docker compose exec -T neo4j sh -c 'cypher-shell -u neo4j -p "$CYPHER_PASSWORD" --format plain "SHOW CONSTRAINTS YIELD name RETURN name ORDER BY name;"'
+docker compose exec -T neo4j sh -c 'cypher-shell -u neo4j -p "$CYPHER_PASSWORD" --format plain "SHOW INDEXES YIELD name, type, state RETURN name, type, state ORDER BY name;"'
+```
+
+Beklenen: 3 uniqueness constraint, bunların 3 backing RANGE index'i, 5 açıkça
+tanımlı RANGE index ve 2 varsayılan LOOKUP index (toplam 10 index, `ONLINE`).
+İkinci `docker compose --profile frontend up -d` çalıştırması da başarılı olmalı;
+`neo4j-init` yeniden çalışır ve `IF NOT EXISTS` sayesinde `Exited (0)` ile biter.
+Şemayı ayrıca yeniden uygulamak için `docker compose run --rm neo4j-init` kullanın.
 
 ### 4. Yönetici hesabını oluştur (seed)
 
@@ -255,8 +275,7 @@ Doldurulacaklar:
 
 - `prometheus` yalnız `--profile monitoring` ile, `frontend` yalnız `--profile frontend` ile başlar.
 - Web `NEXT_PUBLIC_*` değerleri build sırasında gömülür; değiştirince `--build` gerekir.
-- Neo4j imajı `/docker-entrypoint-initdb.d` klasörünü çalıştırmaz: compose'taki
-  `init_neo4j_schema.cypher` bağlanır ama uygulanmaz (smoke'ta `SHOW CONSTRAINTS` → 0).
-  Analist akışını etkilemez; ayrı bir düzeltme olarak takip edilmeli.
-- Neo4j, compose'taki 4.x adlı `dbms.memory.*` ayarları için kullanımdan kaldırma
-  uyarısı verir (`server.memory.*`); başlatmayı engellemez.
+- İlk smoke'ta eksik olan Neo4j şeması SF-403 takibinde `neo4j-init` servisiyle
+  düzeltildi; `/docker-entrypoint-initdb.d` bağlaması kaldırıldı. Bellek ayarları
+  Neo4j 5 `server.memory.*` adlarını kullanır; `dbms.security.procedures.*`
+  izin ayarları Neo4j 5'te geçerlidir.

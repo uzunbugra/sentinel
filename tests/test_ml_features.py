@@ -443,6 +443,18 @@ def test_duplicate_is_scored_but_recorded_once():
     assert nxt[FEATURE_NAMES.index("sender_tx_count_24h")] == 1
 
 
+def test_batch_duplicate_ids_compare_as_strings_like_stream():
+    # Mixed-type id column: ``5`` and ``"5"`` are the same id on both paths.
+    txs = [
+        make_tx(5, T0, "S", "R", 10.0),
+        make_tx("5", T0, "S", "R", 10.0),
+        make_tx("6", T0 + timedelta(minutes=1), "S", "R", 1.0),
+    ]
+    vectors = batch(txs)
+    assert_vectors_equal(vectors, stream(txs))
+    assert vectors[2, FEATURE_NAMES.index("sender_tx_count_24h")] == 1
+
+
 def test_id_set_keeps_only_the_longest_window():
     history = AccountHistory()
     for h in range(30 * 24):
