@@ -131,13 +131,16 @@ def write_synthetic(out_dir: Path, size: str = "fast", seed: int = 7) -> dict[st
 
 def recheck_targets(report: Mapping[str, Any]) -> list[dict[str, Any]]:
     """The ADR targets recomputed from the report's metrics with today's ``TARGETS``."""
-    return check_targets(
-        report["test"]["lightgbm"],
-        report["test"]["baseline"],
-        report["structure"],
-        report["artifact_bytes_model_txt"],
-        report["latency"],
-    )
+    try:
+        return check_targets(
+            report["test"]["lightgbm"],
+            report["test"]["baseline"],
+            report["structure"],
+            report["artifact_bytes_model_txt"],
+            report["latency"],
+        )
+    except (KeyError, TypeError) as exc:
+        raise GateError(f"locked-test report is missing {exc}") from exc
 
 
 def gate(report_dir: Path) -> tuple[bool, list[dict[str, Any]], dict[str, Any]]:
@@ -148,6 +151,8 @@ def gate(report_dir: Path) -> tuple[bool, list[dict[str, Any]], dict[str, Any]]:
     except FileNotFoundError as exc:
         raise GateError(f"locked-test report missing: {exc.filename}") from exc
     frozen = selection.get("files", {}).get("model.txt", {}).get("sha256")
+    if not frozen:
+        raise GateError("selection.json has no model.txt sha256")
     if frozen != report.get("model_sha256"):
         raise GateError("test report is not for the model frozen in selection.json")
     if report.get("dataset_id") != selection.get("dataset_id"):
@@ -164,6 +169,13 @@ def _fmt(value: Any) -> str:
 
 
 def gate_markdown(title: str, targets: Sequence[Mapping[str, Any]], report: Mapping) -> str:
+    try:
+        return _gate_markdown(title, targets, report)
+    except (KeyError, TypeError) as exc:
+        raise GateError(f"locked-test report is missing {exc}") from exc
+
+
+def _gate_markdown(title: str, targets: Sequence[Mapping[str, Any]], report: Mapping) -> str:
     lgbm = report["test"]["lightgbm"]
     lines = [
         f"### {title}",
