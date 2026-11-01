@@ -4,7 +4,8 @@
 """
 Guards for the api/app.py split: public import paths stay stable, the app
 factory wires every router, the WebSocket stream still works, and hand-written
-API modules stay under the 500-line limit from docs/SPRINT3_PLAN.md.
+API modules stay under the 500-line limit from docs/SPRINT3_PLAN.md. The same
+limit covers the ``ml`` package since ML-08 (docs/SPRINT4_PLAN.md).
 """
 
 from pathlib import Path
@@ -12,7 +13,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-API_DIR = Path(__file__).resolve().parents[1] / "src" / "sentinelflow" / "api"
+PACKAGE_DIR = Path(__file__).resolve().parents[1] / "src" / "sentinelflow"
+API_DIR = PACKAGE_DIR / "api"
+ML_DIR = PACKAGE_DIR / "ml"
 MAX_MODULE_LINES = 500
 
 
@@ -67,9 +70,11 @@ def test_websocket_clients_are_tracked_and_released():
 
 @pytest.mark.parametrize(
     "module",
-    sorted(p for p in API_DIR.rglob("*.py") if "__pycache__" not in p.parts),
-    ids=lambda p: str(p.relative_to(API_DIR)),
+    sorted(
+        p for root in (API_DIR, ML_DIR) for p in root.rglob("*.py") if "__pycache__" not in p.parts
+    ),
+    ids=lambda p: str(p.relative_to(PACKAGE_DIR)),
 )
-def test_api_modules_stay_small(module):
+def test_api_and_ml_modules_stay_small(module):
     lines = len(module.read_text(encoding="utf-8").splitlines())
     assert lines < MAX_MODULE_LINES, f"{module.name} has {lines} lines"

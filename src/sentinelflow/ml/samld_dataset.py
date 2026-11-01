@@ -35,12 +35,24 @@ import subprocess
 import sys
 import zipfile
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 import pandas as pd
+
+from sentinelflow.ml.samld_identity import display_identities
+from sentinelflow.ml.samld_split import (
+    DEFAULT_TRAIN_FRACTION,
+    DEFAULT_VAL_FRACTION,
+    SPLIT_COLUMN,
+    SPLITS,
+    SamldDatasetError,
+    SplitBoundary,
+    assign_splits,
+    check_split_invariants,
+    compute_split_boundaries,
+)
 
 TRANSFORM_VERSION = "samld-v1"
 MANIFEST_SCHEMA_VERSION = 1
@@ -52,9 +64,6 @@ AMOUNT_SCALE = 50
 UNKNOWN = "unknown"
 
 # Default chronological split (ADR 0003 §3).
-DEFAULT_TRAIN_FRACTION = 0.70
-DEFAULT_VAL_FRACTION = 0.15
-SPLITS: tuple[str, ...] = ("train", "val", "test")
 
 # --- Raw SAML-D columns -------------------------------------------------------
 RAW_COLUMNS: tuple[str, ...] = (
@@ -89,7 +98,6 @@ CANONICAL_COLUMNS: tuple[str, ...] = (
 )
 # Display-only columns (demo/UI); derived from the account id, never features.
 DISPLAY_COLUMNS: tuple[str, ...] = ("sender_iban", "sender_name", "receiver_iban", "receiver_name")
-SPLIT_COLUMN = "split"
 OUTPUT_COLUMNS: tuple[str, ...] = CANONICAL_COLUMNS + DISPLAY_COLUMNS + (SPLIT_COLUMN,)
 
 # --- Category vocabularies (raw value -> canonical code) -----------------------
@@ -137,47 +145,6 @@ PAYMENT_TYPES: Mapping[str, str] = {
     "Cross-border": "cross_border",
     "Debit card": "debit_card",
 }
-
-# --- Display identities --------------------------------------------------------
-# Fictional 5-digit bank codes (not assigned to real Turkish banks). Name lists are
-# common Turkish names; FIRST_NAMES is 40 male then 40 female names.
-DISPLAY_BANK_CODES: tuple[str, ...] = tuple(f"9{n:04d}" for n in range(1, 12))
-# fmt: off
-FIRST_NAMES: tuple[str, ...] = (
-    "Ahmet", "Mehmet", "Mustafa", "Ali", "Hüseyin", "Hasan", "İbrahim", "Murat", "Ömer",
-    "Yusuf", "Emre", "Burak", "Can", "Cem", "Deniz", "Eren", "Fatih", "Gökhan", "Halil",
-    "Kemal", "Kerem", "Levent", "Onur", "Orhan", "Serkan", "Sinan", "Tolga", "Uğur", "Volkan",
-    "Yasin", "Bora", "Tuncay", "Barış", "Enes", "Furkan", "Hakan", "Selim", "Tarık", "Umut",
-    "Berk", "Ayşe", "Fatma", "Emine", "Hatice", "Zeynep", "Elif", "Meryem", "Şerife", "Zehra",
-    "Sultan", "Hanife", "Merve", "Büşra", "Esra", "Gizem", "Selin", "Ece", "Derya", "Ebru",
-    "Özlem", "Pınar", "Seda", "Tuğba", "Yasemin", "Nur", "Aslı", "Burcu", "Cansu", "Dilek",
-    "Gamze", "İrem", "Kübra", "Melike", "Neslihan", "Sevgi", "Sibel", "Şule", "Tuba", "Yağmur",
-    "Zerrin",
-)
-LAST_NAMES: tuple[str, ...] = (
-    "Yılmaz", "Kaya", "Demir", "Şahin", "Çelik", "Yıldız", "Yıldırım", "Öztürk", "Aydın",
-    "Özdemir", "Arslan", "Doğan", "Kılıç", "Aslan", "Çetin", "Kara", "Koç", "Kurt", "Özkan",
-    "Şimşek", "Polat", "Özcan", "Korkmaz", "Çakır", "Erdoğan", "Yavuz", "Can", "Acar", "Şen",
-    "Aktaş", "Güler", "Yalçın", "Güneş", "Kartal", "Bulut", "Keskin", "Ünal", "Turan", "Gül",
-    "Özer", "Işık", "Kaplan", "Avcı", "Sarı", "Aydemir", "Taş", "Köse", "Yüksel", "Ateş",
-    "Aksoy", "Sezer", "Karataş", "Erdem", "Tunç", "Altın", "Toprak", "Karaca", "Özgür", "Duman",
-    "Akın",
-)
-# fmt: on
-DOUBLE_FIRST_NAME_PERCENT = 45
-
-
-class SamldDatasetError(ValueError):
-    """Raised when the source or the prepared dataset breaks an ML-02 invariant."""
-
-
-@dataclass(frozen=True)
-class SplitBoundary:
-    """Rows with ``timestamp >= start`` belong to ``split`` (until the next boundary)."""
-
-    split: str
-    start: pd.Timestamp
-
 
 # =============================================================================
 # Source handling
@@ -259,38 +226,6 @@ def _map_category(series: pd.Series, vocabulary: Mapping[str, str]) -> pd.Series
     return series.astype("string").map(vocabulary).fillna(UNKNOWN).astype("category")
 
 
-def _iban(account: str, bank_code: str) -> str:
-    """TR IBAN: TR + mod-97 check digits + bank code + reserve 0 + 16-digit account."""
-    bban = f"{bank_code}0{int(account):016d}"
-    # Move "TR00" to the end and replace letters (T=29, R=27) before mod 97.
-    check = 98 - int(f"{bban}292700") % 97
-    return f"TR{check:02d}{bban}"
-
-
-def _display_identity(account: str) -> tuple[str, str]:
-    digest = hashlib.sha256(f"{TRANSFORM_VERSION}:{account}".encode()).digest()
-    pick = int.from_bytes(digest[:8], "big")
-    bank = DISPLAY_BANK_CODES[pick % len(DISPLAY_BANK_CODES)]
-    first = FIRST_NAMES[(pick >> 8) % len(FIRST_NAMES)]
-    last = LAST_NAMES[(pick >> 16) % len(LAST_NAMES)]
-    name = f"{first} {last}"
-    if (pick >> 24) % 100 < DOUBLE_FIRST_NAME_PERCENT:
-        # Second first name of the same gender half as the first one.
-        half = len(FIRST_NAMES) // 2
-        offset = 0 if FIRST_NAMES.index(first) < half else half
-        second = FIRST_NAMES[offset + (pick >> 32) % half]
-        if second != first:
-            name = f"{first} {second} {last}"
-    return _iban(account, bank), name
-
-
-def display_identities(accounts: pd.Series) -> pd.DataFrame:
-    """IBAN and name per unique account, deterministic in the account id."""
-    unique = pd.unique(accounts.astype(str))
-    pairs = [_display_identity(account) for account in unique]
-    return pd.DataFrame(pairs, index=pd.Index(unique, name="account"), columns=["iban", "name"])
-
-
 def transform(raw: pd.DataFrame) -> pd.DataFrame:
     """Return the canonical record (contract §1) plus display columns, in source order.
 
@@ -337,7 +272,9 @@ def transform(raw: pd.DataFrame) -> pd.DataFrame:
     if not out["is_laundering"].isin([0, 1]).all():
         raise SamldDatasetError("is_laundering must be 0 or 1.")
 
-    identities = display_identities(pd.concat([out["sender_account"], out["receiver_account"]]))
+    identities = display_identities(
+        pd.concat([out["sender_account"], out["receiver_account"]]), TRANSFORM_VERSION
+    )
     for side in ("sender", "receiver"):
         matched = identities.reindex(out[f"{side}_account"].astype(str).to_numpy())
         out[f"{side}_iban"] = pd.Series(matched["iban"].to_numpy(), dtype="string[pyarrow]")
@@ -348,70 +285,6 @@ def transform(raw: pd.DataFrame) -> pd.DataFrame:
     if not np.array_equal(order, row_number):
         out = out.iloc[order].reset_index(drop=True)
     return out
-
-
-# =============================================================================
-# Chronological split
-# =============================================================================
-
-
-def compute_split_boundaries(
-    timestamps: pd.Series,
-    train_fraction: float = DEFAULT_TRAIN_FRACTION,
-    val_fraction: float = DEFAULT_VAL_FRACTION,
-) -> list[SplitBoundary]:
-    """Cut a sorted timestamp series into train/val/test by row fraction.
-
-    Each cut moves forward to the first row whose timestamp differs from the previous
-    row, so equal timestamps never straddle a boundary.
-    """
-    if not 0 < train_fraction < 1 or not 0 < val_fraction < 1:
-        raise SamldDatasetError("Split fractions must be in (0, 1).")
-    if train_fraction + val_fraction >= 1:
-        raise SamldDatasetError("train_fraction + val_fraction must be < 1 (test needs rows).")
-    values = timestamps.to_numpy()
-    if len(values) and not (values[1:] >= values[:-1]).all():
-        raise SamldDatasetError("Timestamps must be sorted before splitting.")
-
-    n = len(values)
-    starts = [0]
-    for fraction in (train_fraction, train_fraction + val_fraction):
-        cut = min(int(n * fraction), n - 1)
-        if cut > 0 and values[cut] == values[cut - 1]:
-            # Inside a timestamp group: move the whole group to the later split.
-            cut = int(np.searchsorted(values, values[cut], side="right"))
-        starts.append(cut)
-    if not (0 < starts[1] < starts[2] < n):
-        raise SamldDatasetError(
-            "Cannot split without breaking a timestamp group: each split needs at least "
-            f"one distinct timestamp (row starts {starts}, {n} rows)."
-        )
-    return [
-        SplitBoundary(split, pd.Timestamp(values[start]))
-        for split, start in zip(SPLITS, starts, strict=True)
-    ]
-
-
-def assign_splits(timestamps: pd.Series, boundaries: Sequence[SplitBoundary]) -> pd.Series:
-    """Label each row with its split from the boundaries' start timestamps."""
-    codes = np.zeros(len(timestamps), dtype="int8")
-    for boundary in boundaries[1:]:
-        codes += (timestamps >= boundary.start).to_numpy(dtype="int8")
-    return pd.Series(pd.Categorical.from_codes(codes, categories=list(SPLITS)), name=SPLIT_COLUMN)
-
-
-def check_split_invariants(df: pd.DataFrame) -> None:
-    """Raise unless splits are time-disjoint and in train < val < test order."""
-    bounds = df.groupby(SPLIT_COLUMN, observed=False)["timestamp"].agg(["min", "max", "size"])
-    for split in SPLITS:
-        if bounds.loc[split, "size"] == 0:
-            raise SamldDatasetError(f"Split '{split}' is empty.")
-    for earlier, later in zip(SPLITS, SPLITS[1:], strict=False):
-        if not bounds.loc[earlier, "max"] < bounds.loc[later, "min"]:
-            raise SamldDatasetError(
-                f"max({earlier})={bounds.loc[earlier, 'max']} must be < "
-                f"min({later})={bounds.loc[later, 'min']}."
-            )
 
 
 # =============================================================================
