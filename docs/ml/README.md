@@ -82,14 +82,22 @@ python -m sentinelflow.ml.samld_dataset --source path/to/archive.zip --out data/
 
 ### 3.2 Özellikler, seçim, kilitli test, paket
 
+Her yeni eğitim turu için daha önce kullanılmamış bir `RUN` adı seçin.
+
 ```bash
 DATASET=data/samld/samld-e8dfe86cce3f
+RUN=ml04-rerun-01
+REPORT_DIR="reports/$RUN"
+WORK_DIR="data/$RUN"
 
-python -m sentinelflow.ml.training features --dataset-dir $DATASET
-python -m sentinelflow.ml.training select   --dataset-dir $DATASET
-git add reports/ml04/selection.json && git commit -m "chore(ml): freeze model selection"
-python -m sentinelflow.ml.training evaluate-test --dataset-dir $DATASET
-python -m sentinelflow.ml.training package
+python -m sentinelflow.ml.training features --dataset-dir "$DATASET"
+python -m sentinelflow.ml.training select --dataset-dir "$DATASET" \
+  --report-dir "$REPORT_DIR" --work-dir "$WORK_DIR"
+git add "$REPORT_DIR/selection.json" && git commit -m "chore(ml): freeze model selection"
+python -m sentinelflow.ml.training evaluate-test --dataset-dir "$DATASET" \
+  --report-dir "$REPORT_DIR" --work-dir "$WORK_DIR"
+python -m sentinelflow.ml.training package \
+  --report-dir "$REPORT_DIR" --work-dir "$WORK_DIR"
 ```
 
 | Adım | Ne yapar | Reddettiği durum |
@@ -99,10 +107,10 @@ python -m sentinelflow.ml.training package
 | `evaluate-test` | Test bölmesini **bir kez** açar (`test-opened.json`), ADR 0003 §7–§8 hedeflerini ölçer, `test-report.json` ve `report.md` yazar | `selection.json` commit'li değil ya da HEAD'den farklı; test daha önce açılmış; model dosyası seçimle uyuşmuyor |
 | `package` | `models/fraud/<model_version>/` dizinini yazar (`model.txt`, `metadata.json`, `model_card.md`, `SHA256SUMS`) | Hedeflerden biri geçmedi; model test edilen model değil; seçimde git SHA yok |
 
-Ara dosyalar `data/ml04/` altına yazılır (`--work-dir`). Kilitli test kuralı nedeniyle
-`reports/ml04` yayınlanan modelin kaydıdır. Yeni bir eğitim turu başka bir
-`--report-dir` (ve `--work-dir`) ile yapılır. Yeni model yayınlanacaksa raporu aynı PR'da
-`reports/ml04`'ün yerine geçer, çünkü CI kalite kapısı o dizini kontrol eder (§5).
+Ara dosyalar `$WORK_DIR` altına, seçim ve test raporu `$REPORT_DIR` altına yazılır.
+`reports/ml04` yayınlanan modelin kaydıdır. Yeni model yayınlanacaksa yeni turun
+raporu aynı PR'da `reports/ml04`'ün yerine geçer, çünkü CI kalite kapısı o dizini
+kontrol eder (§5).
 
 ### 3.3 Kaggle olmadan hızlı deneme
 
