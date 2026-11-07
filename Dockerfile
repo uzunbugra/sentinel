@@ -43,9 +43,10 @@ RUN groupadd --gid 1000 sentinelflow && \
 
 WORKDIR /app
 
-# Install runtime dependencies
+# Install runtime dependencies, including OpenMP for LightGBM.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and install wheel
