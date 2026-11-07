@@ -168,7 +168,7 @@ Hesap geçmişi model olmadan da kaydedilir; sonradan yüklenen model aynı geç
 | Workflow / job | Ne zaman | Ne yapar |
 |---|---|---|
 | `ci.yml` → *ML Model Tests* | Her PR | Çekirdek kurulumda `import torch`'un başarısız olduğunu kontrol eder, `tests/test_samld_dataset.py` ve `tests/test_ml_*.py` testlerini koşar |
-| `ml-pipeline.yml` → *Quality Gate* | `ml/**`, `reports/ml04/**`, fixture veya workflow değişince; haftalık; elle | `reports/ml04` raporunu seçim SHA'sı ve `dataset_id` ile doğrular, hedefleri yeniden hesaplar. Hedef altındaki bir rapor workflow'u kırmızıya çevirir |
+| `ml-pipeline.yml` → *Quality Gate* | `ml/**`, `reports/ml04/**`, fixture, `pyproject.toml` veya workflow değişince; haftalık; elle | `reports/ml04` raporunu seçim SHA'sı ve `dataset_id` ile doğrular, hedefleri yeniden hesaplar. Hedef altındaki bir rapor workflow'u kırmızıya çevirir |
 | `ml-pipeline.yml` → *Training Pipeline* | Aynı tetikleyiciler | Sentetik veri (`fast`, haftalık koşuda `full`) → features → select → evaluate-test → package → metrik özeti → servis gecikmesi. Çıktılar `ml-pipeline-<size>` artifact'ı olarak yüklenir |
 
 Gerçek SAML-D CI'da kullanılmaz (lisans ve boyut). Gerçek modelin metrikleri commit'li
