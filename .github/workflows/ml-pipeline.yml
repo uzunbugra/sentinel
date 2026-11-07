@@ -15,6 +15,7 @@ on:
       - 'src/sentinelflow/ml/**'
       - 'reports/ml04/**'
       - 'tests/fixtures/ml/**'
+      - 'pyproject.toml'
       - '.github/workflows/ml-pipeline.yml'
   pull_request:
     branches: [main, develop]
@@ -22,6 +23,7 @@ on:
       - 'src/sentinelflow/ml/**'
       - 'reports/ml04/**'
       - 'tests/fixtures/ml/**'
+      - 'pyproject.toml'
       - '.github/workflows/ml-pipeline.yml'
   workflow_dispatch:
     inputs:
