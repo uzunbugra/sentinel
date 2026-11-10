@@ -142,6 +142,10 @@ ln -sfn fraud-lgbm-20261030-0e0c647 models/fraud/current
 # API ve detector'ı yeniden başlat; ikisi de aynı dizini okur
 ```
 
+Sembolik bağlantı kullanılamıyorsa (ör. Windows'ta yetki yoksa) artifact'ın dört
+dosyasını (`model.txt`, `metadata.json`, `model_card.md`, `SHA256SUMS`) doğrudan
+`models/fraud/current/` dizinine kopyalamak da olur.
+
 - **Docker:** `docker-compose.yml` `./models` dizinini API konteynerine salt okunur
   bağlar (`/app/models`). Artifact'ı `models/fraud/<model_version>/` altına koyup `current`
   bağlantısını güncelleyin, sonra `docker compose up -d api` çalıştırın.
