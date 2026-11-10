@@ -242,7 +242,8 @@ Ortam: Windows 11, Docker Desktop 29.2.1 (Compose v5.1.0, linux/x86_64), temiz v
 | Timeline | 200, 6 olay: `case_created`, 2× `alert_linked_to_case`, `case_status_changed`, `note_added`, `case_assigned` |
 
 Akış API üzerinden doğrulandı. Tarayıcıda yalnız login sayfası ve yönlendirme
-kontrol edildi; giriş sonrası UI senaryosu SF-404 Playwright testlerine bırakıldı.
+kontrol edildi. Giriş sonrası UI senaryosu artık SF-404 Playwright testleriyle her PR'da
+koşuyor ([`sentinelflow-web/e2e/`](../sentinelflow-web/e2e/README.md)).
 
 ---
 
