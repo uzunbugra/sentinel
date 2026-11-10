@@ -306,6 +306,106 @@ jobs:
           NEXT_PUBLIC_API_URL: http://localhost:8000
 
   # ===========================================================================
+  # Browser tests (SF-404): real API + PostgreSQL + production web build
+  # ===========================================================================
+  e2e:
+    name: E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: sentinelflow
+          POSTGRES_PASSWORD: sentinelflow_ci
+          POSTGRES_DB: sentinelflow_e2e
+        options: >-
+          --health-cmd "pg_isready -U sentinelflow -d sentinelflow_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg2://sentinelflow:sentinelflow_ci@localhost:5432/sentinelflow_e2e
+      CORS_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      # No model on purpose: e2e/model-state.spec.ts checks the degraded state.
+      SENTINELFLOW_MODEL_DIR: build/e2e/no-model
+      PYTHONPATH: src
+      E2E_PYTHON: python
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:8000
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Generate per-run secrets
+        run: |
+          jwt="$(openssl rand -hex 32)"
+          password="E2e-$(openssl rand -hex 12)"
+          echo "::add-mask::$jwt"
+          echo "::add-mask::$password"
+          echo "JWT_SECRET_KEY=$jwt" >> "$GITHUB_ENV"
+          echo "E2E_PASSWORD=$password" >> "$GITHUB_ENV"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install API
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: sentinelflow-web/package-lock.json
+
+      - name: Install web dependencies and Chromium
+        working-directory: sentinelflow-web
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Build web
+        working-directory: sentinelflow-web
+        run: npm run build
+
+      - name: Start API and web
+        run: |
+          mkdir -p build/e2e
+          nohup python -m uvicorn sentinelflow.api.app:app --host 127.0.0.1 --port 8000 \
+            > build/e2e/api.log 2>&1 &
+          (cd sentinelflow-web && nohup npm run start -- --hostname 127.0.0.1 --port 3000 \
+            > ../build/e2e/web.log 2>&1 &)
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8000/api/v1/system/health > /dev/null \
+              && curl -sf http://localhost:3000 > /dev/null && exit 0
+            sleep 2
+          done
+          echo "API or web did not start"; tail -50 build/e2e/api.log build/e2e/web.log; exit 1
+
+      - name: Run Playwright
+        working-directory: sentinelflow-web
+        run: npx playwright test
+
+      - name: Upload traces, screenshots and logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: |
+            sentinelflow-web/test-results/
+            sentinelflow-web/playwright-report/
+            build/e2e/*.log
+          retention-days: 14
+
+  # ===========================================================================
   # Build Docker Image
   # ===========================================================================
   build:
