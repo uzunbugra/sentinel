@@ -8,9 +8,13 @@ export const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:3000"
 /** Must match NEXT_PUBLIC_API_URL of the web build (default http://127.0.0.1:8000). */
 export const API_URL = process.env.E2E_API_URL ?? "http://127.0.0.1:8000"
 
-const venvPython = path.join(REPO_ROOT, ".venv", "bin", "python")
+// The virtualenv layout differs on Windows (Scripts/python.exe) and elsewhere (bin/python).
+const venvPython = [
+  path.join(REPO_ROOT, ".venv", "bin", "python"),
+  path.join(REPO_ROOT, ".venv", "Scripts", "python.exe"),
+].find((candidate) => existsSync(candidate))
 /** Python with the sentinelflow package; it runs the API and scripts/e2e_seed.py. */
-export const PYTHON = process.env.E2E_PYTHON ?? (existsSync(venvPython) ? venvPython : "python")
+export const PYTHON = process.env.E2E_PYTHON ?? venvPython ?? "python"
 
 export const USERS = {
   analyst: "e2e_analyst",

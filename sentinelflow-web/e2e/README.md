@@ -16,7 +16,7 @@ Playwright testleri gerçek API'ye ve web'in production build'ine karşı koşar
 - `alert --tag`: Her test kendi kural alarmını benzersiz bir etiketle oluşturur.
 - `cleanup --tag`: Test bitince, başarısız olsa bile, o etiketin alarmını, vakasını ve olaylarını siler.
 
-Testler başka testlerin verisine güvenmez. Yine de veritabanında `e2e_` hesapları oluşturulduğu için ayrı bir test veritabanı kullanın.
+Testler başka testlerin verisine güvenmez. Seed betiği yalnız adında `e2e` geçen bir veritabanına yazar (ör. `sentinelflow_e2e`). Böylece `.env` geliştirme veritabanını gösteriyorsa `e2e_` hesapları oraya yazılmaz, koşu baştan durur.
 
 ## Yerelde çalıştırmak
 
@@ -39,7 +39,18 @@ npm run build
 npm run test:e2e
 ```
 
-API (`127.0.0.1:8000`) ve web (`127.0.0.1:3000`) çalışmıyorsa Playwright ikisini kendisi başlatır. Çalışıyorlarsa onları kullanır. Python varsayılan olarak repo kökündeki `.venv`'den alınır; başka bir yorumlayıcı için `E2E_PYTHON` kullanın.
+Windows'ta (PowerShell) 2. adım:
+
+```powershell
+$env:DATABASE_URL = 'postgresql+psycopg2://sentinelflow:sf404_local@localhost:55432/sentinelflow_e2e'
+$env:JWT_SECRET_KEY = -join ((1..32) | ForEach-Object { '{0:x2}' -f (Get-Random -Maximum 256) })
+$env:E2E_PASSWORD = 'E2e-' + [guid]::NewGuid().ToString('N').Substring(0, 24)
+$env:SENTINELFLOW_MODEL_DIR = 'build/e2e/no-model'
+```
+
+API (`127.0.0.1:8000`) ve web (`127.0.0.1:3000`) çalışmıyorsa Playwright ikisini kendisi başlatır. Çalışıyorlarsa onları kullanır. Bu durumda açık API'nin de yukarıdaki test veritabanına bağlı olması gerekir; geliştirme API'si açıksa önce onu kapatın.
+
+Python varsayılan olarak repo kökündeki `.venv`'den alınır (`.venv/bin/python` ya da Windows'ta `.venv/Scripts/python.exe`). Başka bir yorumlayıcı için `E2E_PYTHON` kullanın.
 
 Başarısız testin trace'i, ekran görüntüsü ve videosu `test-results/` altında kalır:
 

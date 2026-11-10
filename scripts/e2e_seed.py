@@ -9,6 +9,9 @@ Usage:
     python scripts/e2e_seed.py alert --tag T    # one rule alert, prints {"alert_id": ...}
     python scripts/e2e_seed.py cleanup --tag T  # removes T's alerts, cases and events
 
+The database name must contain ``e2e`` (e.g. ``sentinelflow_e2e``), so a ``.env`` that
+points at the development database is refused instead of filled with test accounts.
+
 The users' password is read from ``E2E_PASSWORD`` (required). Running ``users`` again
 resets the password, role and lockout, so a test run never depends on an earlier one.
 
@@ -34,17 +37,28 @@ except ImportError:
     pass
 
 from sqlalchemy import delete, select
+from sqlalchemy.engine import make_url
 
 from sentinelflow.auth.password import hash_password
 from sentinelflow.auth.service import AuthService
 from sentinelflow.contracts import UserCreate, UserRole
-from sentinelflow.database.models import AlertModel, CaseEventModel, CaseModel, UserModel
-from sentinelflow.database.postgres import DatabaseSession, init_db
+from sentinelflow.database.models import AlertModel, CaseEventModel, CaseModel
+from sentinelflow.database.postgres import DatabaseSession, get_database_url, init_db
 from sentinelflow.processor.alert_writer import create_alert_from_detection
 from sentinelflow.repository import AlertRepository
 
 USERS = {"e2e_analyst": UserRole.ANALYST, "e2e_viewer": UserRole.VIEWER}
 TAG_PATTERN = re.compile(r"^[A-Za-z0-9-]{1,40}$")
+
+
+def _require_test_database() -> None:
+    """Refuse to write e2e users and alerts into a database not named for tests."""
+    database = make_url(get_database_url()).database or ""
+    if "e2e" not in database.lower():
+        raise SystemExit(
+            f"refusing to seed database {database!r}: its name must contain 'e2e' "
+            "(see sentinelflow-web/e2e/README.md)"
+        )
 
 
 def _password() -> str:
@@ -128,6 +142,7 @@ def main(argv: list[str] | None = None) -> int:
     if getattr(args, "tag", None) is not None and not TAG_PATTERN.match(args.tag):
         parser.error("--tag: letters, digits and '-' only, at most 40 characters")
 
+    _require_test_database()
     init_db()
     if args.command == "users":
         ensure_users()
