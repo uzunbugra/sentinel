@@ -31,6 +31,7 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - `docs/mlops.md`, `docs/ml_model_cards.md` and `docs/benchmark.md`: they described the removed ensemble and numbers that were never measured; replaced by `docs/ml/README.md` and the model card.
 
 ### Fixed
+- CI *Frontend Lint & Build* runs on Node 22 like `engines`, `.nvmrc` and the E2E job (was Node 20, SF-406). `scripts/e2e_seed.py` refuses a database whose name has no `e2e`, so a `.env` pointing at the development database is not filled with test accounts; the e2e tests also find a Windows `.venv` (SF-404 follow-up).
 - ML Pipeline quality gate: a `selection.json` without the model checksum, or a report with missing keys, fails with a clear `GateError` instead of passing (`None == None`) or a `KeyError` traceback; the workflow also runs when `pyproject.toml` changes.
 - Neo4j schema is now applied idempotently by a one-shot `neo4j-init` service after authenticated Bolt readiness; memory settings use Neo4j 5 names (SF-403).
 - `AccountHistory` no longer keeps every transaction id for the life of the process: ids leave the duplicate set after the longest window (7 days of event time), and older duplicates are matched against the stored account events instead. Features are unchanged; memory no longer grows with the length of the stream.
