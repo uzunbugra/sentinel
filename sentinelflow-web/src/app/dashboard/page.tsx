@@ -195,7 +195,7 @@ const MOTORS = [
   { n: "Circular Ring", t: "Neo4j" },
   { n: "Impossible Travel", t: "Redis Geo" },
   { n: "NLP Blacklist", t: "scikit-learn" },
-  { n: "AI Anomaly", t: "IsolationForest" },
+  { n: "ML Fraud Model", t: "LightGBM" },
 ]
 
 export default function DashboardPage() {

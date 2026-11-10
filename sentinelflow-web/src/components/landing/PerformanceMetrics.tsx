@@ -1,8 +1,9 @@
 "use client"
 
 // =============================================================================
-// PerformanceMetrics — 10.000 tx/sn, <100ms tespit, <50ms graf sorgu gibi
-// rakamları büyük tipografiyle, scroll'da count-up ile gösterir.
+// PerformanceMetrics — kilitli test raporundaki (reports/ml04) ölçülmüş model
+// rakamlarını büyük tipografiyle, scroll'da count-up ile gösterir. Uçtan uca
+// gecikme ve Kafka verimi ölçülmediği için burada sayı olarak verilmez.
 // =============================================================================
 
 import { motion } from "motion/react"
@@ -39,11 +40,12 @@ export function PerformanceMetrics() {
             {"// Performans"}
           </span>
           <h2 className="mt-3 font-display text-3xl sm:text-4xl font-semibold tracking-tight text-ink">
-            İnsan refleksinden hızlı.
+            Ölçülen sayılar.
           </h2>
           <p className="mt-4 text-muted leading-relaxed">
-            İşlemler Kafka topic&apos;ine düştükten sonra bir uyarının dashboard&apos;a
-            düşmesine kadar geçen süre genellikle bir göz kırpmadan kısadır.
+            Model rakamları SAML-D&apos;nin bir kez açılan kilitli test bölmesinden;
+            gecikme eğitim makinesinde tek işlem için ölçüldü. Uçtan uca alarm
+            gecikmesi ve Kafka verimi henüz ölçülmedi.
           </p>
         </motion.div>
 
@@ -60,15 +62,14 @@ export function PerformanceMetrics() {
               <div className="font-display font-semibold tabular-nums text-4xl sm:text-5xl text-ink leading-none">
                 <span
                   className={
-                    m.label.includes("gecikme") || m.label.includes("sorgu")
-                      ? "text-signal"
-                      : ""
+                    m.highlight ? "text-signal" : ""
                   }
                 >
                   <CountUp
                     value={m.value}
                     prefix={m.prefix}
                     suffix={m.suffix}
+                    decimals={m.decimals}
                     duration={1.8}
                   />
                 </span>
