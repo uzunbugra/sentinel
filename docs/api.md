@@ -60,7 +60,7 @@ Aşağıdaki tabloda **Auth** sütunu gereken asgari rolü gösterir.
 | --- | --- | --- | --- |
 | GET | `/api/v1/alerts` | Alert listesi (filtre/sayfalama) | viewer |
 | GET | `/api/v1/alerts/stats` | Alert istatistikleri | viewer |
-| GET | `/api/v1/alerts/{alert_id}` | Alert detayı (SHAP/açıklama dahil) | viewer |
+| GET | `/api/v1/alerts/{alert_id}` | Alert detayı (kanıt dahil; `ml_model` alarmında model sürümü ve ilk 5 katkı) | viewer |
 | POST | `/api/v1/alerts/{alert_id}/dismiss` | Yanlış pozitif olarak kapat | analyst |
 | POST | `/api/v1/alerts/{alert_id}/link-case/{case_id}` | **Deprecated** — `POST /api/v1/cases/{case_id}/alerts` ile aynı kurallar | analyst |
 

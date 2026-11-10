@@ -20,7 +20,7 @@ flowchart LR
         DET["processor/detector\n(Kafka tüketici + motor)"]
         GRAPH["processor/graph_engine\n(Neo4j döngü tespiti)"]
         GEO["processor/redis_geo\n(imkansız seyahat)"]
-        ML["ml/ensemble\n(IF + XGBoost + AutoEncoder)"]
+        ML["ml/serving\n(LightGBM dolandırıcılık modeli)"]
         KW["Kelime/karaliste tarayıcı"]
     end
 
@@ -100,7 +100,7 @@ alarm kanıtı model sürümü, eşik ve ilk 5 log-odds katkısını taşır
 
 Eski ensemble (IsolationForest / XGBoost / AutoEncoder), GNN, temporal ve federated
 kodu ADR 0003 kapsamı dışındadır; ML-08'de kaldırıldı (`archive/ml-legacy-s4` tag'i).
-Çalıştırma kılavuzu ML-09'da `docs/ml/` altına gelir.
+Eğitim ve servise alma kılavuzu: [`docs/ml/README.md`](ml/README.md).
 
 ## 5. Graf Analizi (Neo4j)
 
@@ -147,6 +147,8 @@ böyle bir dağıtım için hazırlandı.
 
 ## 9. Ölçümler
 
-Performans/ölçüm iddiaları için bkz. `docs/benchmark.md` ve `docs/ml_model_cards.md`.
+ML ölçümleri (model metrikleri, artifact boyutu, çıkarım gecikmesi) için bkz.
+[`docs/ml/README.md`](ml/README.md) §6 ve `reports/ml04/report.md`. Uçtan uca gecikme ve
+Kafka verimi henüz ölçülmedi.
 Bu belgeye sabit sayı kopyalamaktan kaçınılır; ölçümler tekrar üretilebilir
 script'lerle belgelenir.

@@ -16,13 +16,12 @@
 
 ## 📋 Overview
 
-**SentinelFlow** is a graduation project: a real-time financial fraud detection and AML platform that analyzes streaming transactions and gives analysts an alert-to-case investigation workflow. It targets **sub-100ms** per-transaction analysis and covers multi-layer fraud vectors including:
+**SentinelFlow** is a graduation project: a real-time financial fraud detection and AML platform that analyzes streaming transactions and gives analysts an alert-to-case investigation workflow. It covers multi-layer fraud vectors including:
 
 - 🔄 **Money Laundering Rings (AML)**: Circular fund flow detection ($A \rightarrow B \rightarrow C \rightarrow A$) using graph algorithms.
 - ✈️ **Impossible Travel Anomalies**: Geo-spatial velocity validation across consecutive card/transfer events via Redis Geo.
-- 🤖 **AI/ML Anomaly Scoring**: Multi-model ensembles (XGBoost, LightGBM, CatBoost, AutoEncoder, Isolation Forest) with SHAP explainability.
+- 🤖 **ML Fraud Scoring**: One LightGBM model trained offline on the SAML-D AML dataset, served by the API and the Kafka detector, with the top 5 feature contributions on every alert ([ML guide](docs/ml/README.md)).
 - 📋 **KYC & Sanctions Compliance**: Real-time screening against PEP (Politically Exposed Persons) and international sanction lists (OFAC, EU, UN).
-- 🕸️ **Graph Neural Networks & Federated Learning**: Advanced graph embedding models and privacy-preserving multi-institutional model aggregation via Flower.
 
 ---
 
@@ -46,12 +45,12 @@ flowchart TB
             GRAPH["Neo4j Engine\n(Cypher Graph Ring Matching)"]
             GEO["Redis Geo Engine\n(Impossible Travel Speed Test)"]
             NLP["NLP & Blacklist Engine\n(Suspicious Keyword Matcher)"]
-            ML["ML Ensemble Engine\n(XGBoost / CatBoost / IsolationForest)"]
-            SHAP["SHAP Explainer\n(Feature Attribution & Risk Breakdown)"]
+            ML["Fraud Model\n(LightGBM, fs-1 features)"]
+            EXPLAIN["Feature Contributions\n(top 5 per alert)"]
         end
 
         INGEST --> GRAPH & GEO & NLP & ML
-        ML --> SHAP
+        ML --> EXPLAIN
     end
 
     subgraph StorageLayer["3. Persistence & Cache"]
@@ -80,18 +79,18 @@ flowchart TB
 ## ✨ Key Features
 
 ### 🚀 Performance & Scalability
-- **Sub-100ms End-to-End Latency**: Optimized pipeline executing graph traversal, spatial math, regex filters, and ML inference concurrently.
-- **High-Throughput Streaming**: Handles 10,000+ transactions/sec powered by Apache Kafka partitioning.
+- **Fast model inference**: single-transaction LightGBM predict + contributions p95 1.1 ms (locked-test report, training machine). End-to-end latency and Kafka throughput have not been benchmarked yet.
+- **Streaming ingestion**: Apache Kafka topic consumed by the detector; API ingestion for direct clients.
 - **Asynchronous Architecture**: Fully async Python stack utilizing FastAPI, asyncpg, and Redis asyncio.
 
 ### 🛡️ Multi-Layer Security & AML Compliance
 - **PEP & Sanctions Screening**: Automatic match verification against sanctions datasets (OFAC, EU, UN).
 - **Role-Based Access Control (RBAC)**: JWT authentication with role enforcement on every data route (`viewer` = read-only, `analyst` = investigate, `admin` = manage). Transaction ingestion additionally supports `X-API-Key` for service accounts.
 
-### 📊 Explainable AI & MLOps
-- **SHAP Feature Explanations**: Provides analysts with exact feature contributions for every flagged fraud score.
-- **Federated Learning (Flower)**: Train shared fraud detection models across multiple banking nodes without exposing sensitive customer data.
-- **Automated Model Retraining**: CI/CD integration with automated baseline comparison, hyperparameter optimization, and artifact tracking.
+### 📊 Explainable ML & Model Pipeline
+- **Feature contributions**: every `ml_model` alert carries the model version and the top 5 LightGBM contributions (log-odds).
+- **Reproducible training**: versioned dataset, time split with a locked test set opened once, logistic-regression baseline, checksummed model artifact with a model card.
+- **CI quality gate**: the ML Pipeline workflow fails when the published model's report misses the ADR 0003 targets and runs the full training chain on synthetic data.
 
 ---
 
@@ -102,8 +101,7 @@ flowchart TB
 | **Circular Money Ring** | Neo4j Graph DB | Scans transaction topology for directed cyclic paths ($N$-hop loops) within 7-day windows. | 🔴 **CRITICAL** |
 | **Impossible Travel** | Redis GeoSpatial | Computes geographical distance & velocity between sequential card/transfer events. Flags $>900\text{ km/h}$. | 🟠 **HIGH** |
 | **NLP & Blacklist** | Regex / Keyword | Scans transaction descriptions against categorized dictionaries (Gambling, Crypto, Anonymizers, Urgency). | 🟡 **MEDIUM - CRITICAL** |
-| **Ensemble ML Anomaly** | XGBoost + CatBoost + LightGBM + Isolation Forest | Combines supervised gradient boosting and unsupervised isolation scores with dynamic thresholding. | 🟠 **HIGH** |
-| **Graph Neural Network (GNN)** | PyTorch Geometric / DGL | Evaluates structural risk scores based on graph node embeddings and transaction neighborhood topologies. | 🟠 **HIGH** |
+| **Fraud Model** | LightGBM (`fs-1`, 15 features) | Scores each transaction against the account history before it; alerts at the validation-chosen threshold (test PR-AUC 0.615, recall 0.667, precision 0.246). | 🟠 **HIGH** – 🔴 **CRITICAL** (score ≥ 0.85) |
 
 ---
 
@@ -241,7 +239,7 @@ Interactive API Swagger documentation is available at `http://localhost:8000/doc
 | `POST` | `/api/v1/transactions` | Submit a transaction for fraud analysis (JWT or `X-API-Key`) | 🔒 |
 | `POST` | `/api/v1/auth/login` | Authenticate user & receive JWT access token | ❌ |
 | `GET` | `/api/v1/alerts` | List detected fraud alerts with filtering options (viewer+) | 🔒 |
-| `GET` | `/api/v1/alerts/{alert_id}` | Retrieve detailed alert information with SHAP explanation (viewer+) | 🔒 |
+| `GET` | `/api/v1/alerts/{alert_id}` | Retrieve detailed alert information with its evidence (viewer+) | 🔒 |
 | `POST` | `/api/v1/alerts/{alert_id}/dismiss` | Dismiss an alert as false positive (analyst+) | 🔒 |
 | `POST` | `/api/v1/cases` | Create a case from alerts in one transaction (analyst+) | 🔒 |
 | `PATCH` | `/api/v1/cases/{case_id}` | Change status / priority / assignment, add notes (analyst+) | 🔒 |
@@ -314,7 +312,7 @@ sentinel/
 │   ├── generator/             # Transaction Generator Engine
 │   ├── ingestor/              # Kafka Ingestion & Event Bridge
 │   ├── kyc/                   # PEP & Sanctions Screening Engine
-│   ├── ml/                    # Machine Learning, GNN, SHAP & Federated Learning
+│   ├── ml/                    # SAML-D dataset, fs-1 features, training, model serving
 │   ├── processor/             # Main Fraud Detector Engine (Neo4j, Redis, ML)
 │   └── dashboard/             # Streamlit Analyst Dashboard
 │
