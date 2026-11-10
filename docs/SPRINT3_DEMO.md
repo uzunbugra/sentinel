@@ -11,7 +11,8 @@ Sprint 3, alarmdan vakaya uçtan uca analist iş akışını çalışır hale ge
 - **Zaman çizelgesi (audit)** - Her değişiklik için bir vaka olayı
 
 Bu belge iki kontrol noktasından ilkidir (SF-403): mevcut analist akışının temiz
-Docker kurulumunda doğrulanması. ML demosu ML-05/06 sonrasına bırakılmıştır (son bölüm).
+Docker kurulumunda doğrulanması. Gerçek model akışı için
+[Sprint 4 ML demosuna](SPRINT4_DEMO.md) bakın.
 
 ---
 
@@ -258,16 +259,10 @@ kontrol edildi; giriş sonrası UI senaryosu SF-404 Playwright testlerine bırak
 
 ---
 
-## Sprint 4 ML Demosu (yer tutucu — ML-05/06 sonrası)
+## Sprint 4 ML Demosu
 
-> Bu bölüm ML-05/06 tamamlanıp gerçek model artifact'ı API'ye bağlandıktan sonra
-> doldurulacak. Elle eklenen fixture alarm ML demosu sayılmaz.
-
-Doldurulacaklar:
-- Demo işlemi (tekrarlanabilir fixture), model sürümü ve beklenen skor/sonuç
-- İşlem → ML alarmı → vaka → timeline akışı
-- Alarm detayında `model_version`, skor, eşik ve top katkılar (SF-405)
-- Sistem/model ekranında aktif model kartı özeti
+[Sprint 4 ML demosu](SPRINT4_DEMO.md), gerçek model paketinden üretilen
+alarmı vaka ve olay geçmişiyle birlikte doğrular.
 
 ---
 
