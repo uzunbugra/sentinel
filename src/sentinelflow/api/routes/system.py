@@ -54,7 +54,7 @@ async def health_check() -> HealthResponse:
 
     return HealthResponse(
         status=overall,
-        version="2.2.0",
+        version="2.3.0",
         schema_version=SCHEMA_VERSION,
         uptime_seconds=round(uptime, 2),
         components=components,
@@ -123,7 +123,7 @@ async def root():
     """API root - service info."""
     return {
         "service": "SentinelFlow Fraud Detection API",
-        "version": "2.2.0",
+        "version": "2.3.0",
         "schema_version": SCHEMA_VERSION,
         "docs": "/docs",
         "health": "/api/v1/system/health",
