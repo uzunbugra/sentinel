@@ -2,220 +2,96 @@
 # SentinelFlow API - ML Routes
 # =============================================================================
 """
-Machine Learning model management endpoints.
+Active fraud model and feature set (docs/contracts/sprint4-ml-api.md §4.1).
+
+Training is offline (CLI + CI, ADR 0003 §10); the API only serves.
 """
 
 from __future__ import annotations
 
-import os
-import time
-from datetime import datetime, timezone
+from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from loguru import logger
+from fastapi import APIRouter, Depends
+from pydantic import ValidationError
 
 from sentinelflow.api.schemas import (
-    ModelInfo,
+    ActiveModel,
+    FeatureDefinition,
+    FeatureSetResponse,
+    ModelMetrics,
     ModelStatusResponse,
-    TrainRequest,
-    TrainResponse,
 )
-from sentinelflow.auth.dependencies import require_analyst, require_viewer
+from sentinelflow.api.state import state
+from sentinelflow.auth.dependencies import require_viewer
 from sentinelflow.contracts import User
+from sentinelflow.ml.features import (
+    CATEGORICAL_FEATURES,
+    FEATURE_DTYPES,
+    FEATURE_NAMES,
+    FEATURE_SET_VERSION,
+)
 
 router = APIRouter(prefix="/ml", tags=["Machine Learning"])
 
-# Global state for training status
-_training_status = {
-    "is_training": False,
-    "started_at": None,
-    "progress": 0,
-    "message": "",
-}
+
+def _metrics(raw: dict[str, Any]) -> ModelMetrics:
+    """Keep only the contract keys; anything absent or malformed becomes null."""
+    values: dict[str, Any] = {}
+    for name in ModelMetrics.model_fields:
+        try:
+            ModelMetrics(**{name: raw.get(name)})
+        except ValidationError:
+            continue
+        values[name] = raw.get(name)
+    return ModelMetrics(**values)
 
 
 @router.get(
     "/models",
     response_model=ModelStatusResponse,
-    summary="Get ML model status",
-    description="Returns the status of all ML models in the ensemble.",
+    summary="Active fraud model",
+    description="Always 200. `model` is null when no valid model is loaded; `error` says why.",
 )
-async def get_model_status(_user: User = Depends(require_viewer)):
-    """Get status of ML models."""
-    try:
-
-        models_dir = os.path.join(os.getcwd(), "models")
-
-        # Check IsolationForest
-        if_path = os.path.join(models_dir, "isolation_forest.pkl")
-        if_ready = os.path.exists(if_path)
-        if_info = ModelInfo(
-            name="IsolationForest",
-            version="1.0.0",
-            ready=if_ready,
-            last_trained=(
-                datetime.fromtimestamp(os.path.getmtime(if_path), tz=timezone.utc)
-                if if_ready
-                else None
-            ),
-        )
-
-        # Check XGBoost
-        xgb_path = os.path.join(models_dir, "xgboost_fraud.json")
-        xgb_ready = os.path.exists(xgb_path)
-        xgb_info = ModelInfo(
-            name="XGBoost",
-            version="1.0.0",
-            ready=xgb_ready,
-            last_trained=(
-                datetime.fromtimestamp(os.path.getmtime(xgb_path), tz=timezone.utc)
-                if xgb_ready
-                else None
-            ),
-        )
-
-        # Check AutoEncoder
-        ae_path = os.path.join(models_dir, "autoencoder.pt")
-        ae_ready = os.path.exists(ae_path)
-        ae_info = ModelInfo(
-            name="AutoEncoder",
-            version="1.0.0",
-            ready=ae_ready,
-            last_trained=(
-                datetime.fromtimestamp(os.path.getmtime(ae_path), tz=timezone.utc)
-                if ae_ready
-                else None
-            ),
-        )
-
-        ensemble_ready = if_ready and xgb_ready
-
-        return ModelStatusResponse(
-            isolation_forest=if_info,
-            xgboost=xgb_info,
-            autoencoder=ae_info,
-            ensemble_ready=ensemble_ready,
-            ensemble_threshold=0.7,
-        )
-
-    except Exception as e:
-        logger.error(f"Error getting model status: {e}")
-        return ModelStatusResponse()
-
-
-@router.post(
-    "/train",
-    response_model=TrainResponse,
-    summary="Train ML models",
-    description="Trigger training of all ML models with synthetic data.",
-)
-async def train_models(
-    request: TrainRequest,
-    background_tasks: BackgroundTasks,
-    user: User = Depends(require_analyst),
-):
-    """Train ML models."""
-    global _training_status
-
-    if _training_status["is_training"]:
-        raise HTTPException(
-            status_code=409,
-            detail="Training already in progress",
-        )
-
-    _training_status["is_training"] = True
-    _training_status["started_at"] = datetime.now(timezone.utc)
-    _training_status["progress"] = 0
-    _training_status["message"] = "Starting training..."
-
-    # Run training in background
-    background_tasks.add_task(
-        _run_training,
-        n_samples=request.n_samples,
-        fraud_ratio=request.fraud_ratio,
+async def get_model_status(_user: User = Depends(require_viewer)) -> ModelStatusResponse:
+    service = state.scorer.service
+    meta = service.metadata
+    loaded_at = service.loaded_at
+    if meta is None or loaded_at is None:
+        return ModelStatusResponse(status=service.status.value, model=None, error=service.error)
+    return ModelStatusResponse(
+        status=service.status.value,
+        model=ActiveModel(
+            model_version=meta.model_version,
+            model_family=meta.model_family,
+            feature_set_version=meta.feature_set_version,
+            feature_names=list(meta.feature_names),
+            threshold=meta.threshold,
+            dataset_id=meta.dataset_id,
+            trained_at=meta.trained_at,
+            loaded_at=loaded_at,
+            metrics=_metrics(dict(meta.metrics)),
+            model_sha256=meta.model_sha256,
+        ),
+        error=None,
     )
-
-    return TrainResponse(
-        status="started",
-        training_time_seconds=0,
-        dataset_size=request.n_samples,
-        metrics={"message": "Training started in background"},
-    )
-
-
-@router.get(
-    "/train/status",
-    summary="Get training status",
-)
-async def get_training_status(_user: User = Depends(require_analyst)):
-    """Get current training status."""
-    global _training_status
-
-    return {
-        "is_training": _training_status["is_training"],
-        "started_at": _training_status["started_at"],
-        "progress": _training_status["progress"],
-        "message": _training_status["message"],
-    }
-
-
-async def _run_training(n_samples: int, fraud_ratio: float):
-    """Background training task."""
-    global _training_status
-
-    start_time = time.time()
-
-    try:
-        from sentinelflow.ml.train_pipeline import TrainPipeline
-
-        _training_status["message"] = "Starting training pipeline..."
-        _training_status["progress"] = 10
-
-        # pipeline.run() kendi sentetik dataset'ini üretir; ayrıca loader çağırmaya gerek yok
-        pipeline = TrainPipeline(output_dir="models")
-
-        _training_status["progress"] = 30
-        _training_status["message"] = "Training models (IsolationForest + XGBoost + AutoEncoder)..."
-        pipeline.run(
-            n_samples=n_samples,
-            fraud_ratio=fraud_ratio,
-        )
-
-        elapsed = time.time() - start_time
-        _training_status["progress"] = 100
-        _training_status["message"] = f"Training completed in {elapsed:.1f}s"
-        logger.info(f"Training completed: {n_samples} samples, {elapsed:.1f}s")
-    except Exception as e:
-        logger.error(f"Training failed: {e}")
-        _training_status["message"] = f"Training failed: {str(e)}"
-    finally:
-        _training_status["is_training"] = False
 
 
 @router.get(
     "/features",
-    summary="Get feature definitions",
-    description="Returns the list of features used by the ML ensemble.",
+    response_model=FeatureSetResponse,
+    summary="Served feature set",
+    description="Feature names in model input order, with dtype and categorical flag.",
 )
-async def get_features(_user: User = Depends(require_viewer)):
-    """Get ML feature definitions."""
-    try:
-        from sentinelflow.ml.feature_engine import FEATURE_DESCRIPTIONS, FEATURE_NAMES
-
-        features = []
-        for name in FEATURE_NAMES:
-            features.append(
-                {
-                    "name": name,
-                    "description": FEATURE_DESCRIPTIONS.get(name, ""),
-                }
+async def get_features(_user: User = Depends(require_viewer)) -> FeatureSetResponse:
+    return FeatureSetResponse(
+        feature_set_version=FEATURE_SET_VERSION,
+        total_features=len(FEATURE_NAMES),
+        features=[
+            FeatureDefinition(
+                name=name,
+                dtype=str(FEATURE_DTYPES[name]),
+                categorical=name in CATEGORICAL_FEATURES,
             )
-
-        return {
-            "total_features": len(FEATURE_NAMES),
-            "features": features,
-        }
-
-    except Exception as e:
-        logger.error(f"Error getting features: {e}")
-        return {"total_features": 0, "features": []}
+            for name in FEATURE_NAMES
+        ],
+    )

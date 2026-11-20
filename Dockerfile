@@ -35,7 +35,7 @@ FROM python:3.11-slim AS production
 
 LABEL maintainer="Buğra Uzun, Yusuf Eren Bozkurt"
 LABEL description="SentinelFlow - Real-Time Financial Fraud Detection System"
-LABEL version="2.2.0"
+LABEL version="2.3.0"
 
 # Create non-root user
 RUN groupadd --gid 1000 sentinelflow && \
@@ -43,9 +43,10 @@ RUN groupadd --gid 1000 sentinelflow && \
 
 WORKDIR /app
 
-# Install runtime dependencies
+# Install runtime dependencies, including OpenMP for LightGBM.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy and install wheel

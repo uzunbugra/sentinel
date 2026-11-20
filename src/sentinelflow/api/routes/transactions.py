@@ -1,7 +1,7 @@
 # =============================================================================
 # SentinelFlow API - Transaction Ingestion
 # =============================================================================
-"""``POST /api/v1/transactions``: JWT or legacy X-API-Key, ML ensemble scoring."""
+"""``POST /api/v1/transactions``: JWT or legacy X-API-Key, fraud model scoring."""
 
 from __future__ import annotations
 
@@ -12,15 +12,17 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from loguru import logger
 
-from sentinelflow.api.schemas import (
-    FraudType,
-    Severity,
-    TransactionCreate,
-    TransactionResponse,
-)
+from sentinelflow.api.schemas import FraudType, TransactionCreate, TransactionResponse
 from sentinelflow.api.state import state
 from sentinelflow.auth.dependencies import get_current_user
 from sentinelflow.contracts import User
+from sentinelflow.ml.features import FeatureInputError
+from sentinelflow.ml.serving import (
+    CRITICAL_SCORE,
+    ScoredTransaction,
+    model_evidence,
+    model_severity,
+)
 
 router = APIRouter()
 
@@ -65,59 +67,32 @@ async def submit_transaction(
     _auth: None = Depends(require_ingest_auth),
 ) -> TransactionResponse:
     """Analyze a transaction for fraud."""
-    from sentinelflow.api.deps import get_db_session
-    from sentinelflow.processor.alert_writer import create_alert_from_detection
-    from sentinelflow.repository import AlertRepository
-
     start_time = time.perf_counter()
+    tx_data = tx.with_defaults().model_dump()
+    tx_id = tx_data["transaction_id"]
 
     try:
-        tx_with_defaults = tx.with_defaults()
-        tx_id = tx_with_defaults.transaction_id
+        # Ingestion is the only path that records the account history.
+        scored = state.scorer.score(tx_data, record=True)
+    except FeatureInputError as exc:
+        state.errors += 1
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    try:
         state.transactions_processed += 1
-
-        is_fraud = False
-        fraud_score = 0.0
         alerts_list: list[Any] = []
+        result = scored.result if scored else None
+        is_fraud = bool(result and result.is_fraud)
 
-        # Run ML detection if available
-        if state._ml_loaded and state._ensemble:
-            import numpy as np
-
-            from sentinelflow.ml.feature_engine import FEATURE_NAMES
-
-            tx_data = tx_with_defaults.model_dump()
-            features_dict = state._feature_engine.extract(tx_data)
-            features_vector = np.array([features_dict[name] for name in FEATURE_NAMES])
-
-            prediction = state._ensemble.predict(features_vector)
-            fraud_score = prediction.final_score
-            is_fraud = prediction.is_fraud
-
-            if is_fraud:
+        if scored is not None and is_fraud:
+            # A duplicate gets its existing alert back, but is not counted or broadcast again.
+            if not scored.duplicate:
                 state.fraud_detected += 1
-
-                # Create alert and persist
-                alert_create = create_alert_from_detection(
-                    fraud_type=FraudType.ML_ENSEMBLE,
-                    severity=Severity.CRITICAL if fraud_score > 0.85 else Severity.HIGH,
-                    confidence=fraud_score,
-                    tx_data=tx_data,
-                    description=f"ML Ensemble detected fraud (score: {fraud_score:.2f})",
-                )
-
-                # Persist to database
-                try:
-                    session = next(get_db_session())
-                    repo = AlertRepository(session)
-                    alert = repo.create(alert_create)
-                    session.commit()
-                    alerts_list.append(alert)
-
-                    # Broadcast to WebSocket
+            alert = _persist_model_alert(scored, tx_data)
+            if alert is not None:
+                alerts_list.append(alert)
+                if not scored.duplicate:
                     await state.broadcast_alert(alert.model_dump(mode="json"))
-                except Exception as e:
-                    logger.error(f"Failed to persist alert: {e}")
 
         elapsed = (time.perf_counter() - start_time) * 1000
 
@@ -126,7 +101,8 @@ async def submit_transaction(
             status="analyzed",
             message="Fraud detected!" if is_fraud else "Transaction is clean",
             is_fraud=is_fraud,
-            fraud_score=round(fraud_score, 4),
+            fraud_score=round(result.score, 4) if result else None,
+            model_version=result.model_version if result else None,
             alerts=alerts_list if alerts_list else None,
             processing_time_ms=round(elapsed, 2),
         )
@@ -135,3 +111,32 @@ async def submit_transaction(
         state.errors += 1
         logger.error(f"Transaction analysis error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def _persist_model_alert(scored: ScoredTransaction, tx_data: dict[str, Any]) -> Any:
+    """Create and store the ``ml_model`` alert; returns None if it cannot be saved."""
+    from sentinelflow.api.deps import get_db_session
+    from sentinelflow.processor.alert_writer import create_alert_from_detection
+    from sentinelflow.repository import AlertRepository
+
+    score = scored.result.score
+    alert_create = create_alert_from_detection(
+        fraud_type=FraudType.ML_MODEL,
+        severity=model_severity(score, CRITICAL_SCORE),
+        confidence=score,
+        tx_data=tx_data,
+        description=f"Fraud model flagged the transaction (score: {score:.2f})",
+        evidence=[model_evidence(scored)],
+        related_transactions=[scored.transaction_id],
+    )
+    try:
+        session = next(get_db_session())
+        try:
+            alert = AlertRepository(session).create(alert_create)
+            session.commit()
+            return alert
+        finally:
+            session.close()
+    except Exception as e:
+        logger.error(f"Failed to persist alert: {e}")
+        return None

@@ -68,8 +68,8 @@ export function AlertFeedPreview() {
             </h2>
             <p className="mt-4 text-muted leading-relaxed">
               Her uyarı; motor adı, güven skoru, IBAN zinciri ve tutarıyla birlikte
-              milisaniye zaman damgalı olarak düşer. Aşağıdaki akış canlı sistemin
-              birebir önizlemesidir — satırlar gerçek hızda gelir.
+              milisaniye zaman damgalı olarak düşer. Aşağıdaki akış örnek verilerle
+              hazırlanmış bir önizlemedir; canlı alarmlar dashboard&apos;dadır.
             </p>
 
             {/* lejant */}

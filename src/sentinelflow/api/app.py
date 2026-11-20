@@ -44,11 +44,11 @@ Bitirme projesi olarak geliştirilmiş, yapay zeka destekli
 gerçek zamanlı dolandırıcılık tespit platformu.
 
 ### Özellikler
-- **ML Ensemble**: IsolationForest + XGBoost + AutoEncoder ile çoklu model oylama
+- **Dolandırıcılık modeli**: SAML-D ile offline eğitilmiş tek LightGBM modeli (`/api/v1/ml`, `/api/v1/risk`)
 - **PostgreSQL**: Kalıcı alert ve case yönetimi
 - **Case Management**: Alert korelasyonu, triage, audit log
 - **WebSocket**: Canlı alert akışı
-- **Explainability**: Neden dolandırıcılık tespit edildiğini açıklar
+- **Explainability**: ML alarmında model sürümü ve ilk 5 özellik katkısı
 
 ### API Grupları
 - `/api/v1/alerts` - Alarm listesi ve detayları
@@ -78,7 +78,7 @@ def create_app() -> FastAPI:
     application = FastAPI(
         title="SentinelFlow - Fraud Detection API",
         description=API_DESCRIPTION,
-        version="2.2.0",
+        version="2.3.0",
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",

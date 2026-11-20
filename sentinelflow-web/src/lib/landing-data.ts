@@ -2,7 +2,8 @@
 // SentinelFlow — Landing sayfası statik veri katmanı
 // =============================================================================
 // Tüm metinler projenin gerçek işleviyle (circular ring, impossible travel,
-// NLP blacklist, Isolation Forest) uyumlu, sahte ama inandırıcı uyarı/örneklerle.
+// NLP blacklist, LightGBM fraud modeli) uyumlu; uyarı akışı örnek veridir.
+// Sayılar yalnız ölçülmüş değerlerdir (reports/ml04/report.md).
 // =============================================================================
 
 export const REPO_URL = "https://github.com/uzunbugra/sentinel"
@@ -82,16 +83,16 @@ export const ENGINES: DetectionEngine[] = [
     exampleDetail: "3 anahtar kelime, güven 0.92",
   },
   {
-    id: "ai-anomaly",
+    id: "ml-model",
     code: "ML-04",
-    name: "AI Anomaly",
-    tech: "Isolation Forest",
-    techNote: "Unsupervised outlier",
+    name: "ML Fraud Model",
+    tech: "LightGBM",
+    techNote: "Supervised, SAML-D",
     severity: "high",
     description:
-      "Etiketli veriye ihtiyaç duymadan, işlem tutarlarının istatistiksel dağılımındaki aykırı noktaları (uyumsuz davranış) izole eder.",
-    example: "Tutar ₺184.500 — hesap ortalaması ₺2.300",
-    exampleDetail: "z-score 8.4, anomali skoru 0.96",
+      "SAML-D aklama veri setiyle eğitilmiş LightGBM modeli, tutar ve hesap geçmişinden çıkarılan 15 özellikle her işleme 0–1 arası skor verir. Eşiği geçen işlem, skora en çok katkı yapan beş özellikle alarm olur.",
+    example: "Skor 0.96 ≥ eşik 0.113",
+    exampleDetail: "Katkılar: sender_unique_receivers_7d, log_amount, …",
   },
 ]
 
@@ -112,7 +113,7 @@ export const FLOW_STEPS: FlowStep[][] = [
     { id: "ring", label: "Ring", sub: "Neo4j", kind: "detector" },
     { id: "geo", label: "Travel", sub: "Redis", kind: "detector" },
     { id: "nlp", label: "NLP", sub: "Blacklist", kind: "detector" },
-    { id: "ml", label: "AI", sub: "IsolationForest", kind: "detector" },
+    { id: "ml", label: "ML", sub: "LightGBM", kind: "detector" },
   ],
   [
     { id: "neo", label: "Neo4j", sub: "Graph DB", kind: "store" },
@@ -130,12 +131,14 @@ export interface Metric {
   prefix?: string
   label: string
   decimals?: number
+  highlight?: boolean
 }
 
+// Kaynak: reports/ml04/report.md (kilitli test; gecikme eğitim makinesinde ölçüldü).
 export const METRICS: Metric[] = [
-  { value: 10000, suffix: "", label: "İşlem / sn hedefi" },
-  { value: 100, suffix: "ms", prefix: "<", label: "Tespit gecikmesi" },
-  { value: 50, suffix: "ms", prefix: "<", label: "Graf sorgu süresi" },
+  { value: 1.1, decimals: 1, suffix: " ms", label: "Model skoru p95 (tek işlem)", highlight: true },
+  { value: 0.62, decimals: 2, suffix: "", label: "PR-AUC (kilitli test)" },
+  { value: 67, suffix: "%", label: "Recall (kilitli test)", highlight: true },
   { value: 4, suffix: "", label: "Aktif tespit motoru" },
 ]
 
@@ -152,7 +155,7 @@ export const TECH_STACK: TechItem[] = [
   { name: "Apache Kafka", role: "Event streaming", color: "#e74c3c" },
   { name: "Neo4j", role: "Graph database", color: "#018bff" },
   { name: "Redis", role: "Cache / Geo-spatial", color: "#ff4438" },
-  { name: "scikit-learn", role: "Isolation Forest", color: "#f89939" },
+  { name: "LightGBM", role: "Fraud modeli", color: "#f89939" },
   { name: "Streamlit", role: "SOC dashboard", color: "#ff4b4b" },
   { name: "Docker", role: "Container runtime", color: "#2496ed" },
   { name: "Python", role: "Servis dili", color: "#ffd43b" },
@@ -206,11 +209,11 @@ export interface FauxAlert {
 export const FAUX_ALERTS: FauxAlert[] = [
   { id: "ALERT-7f3a2c", ts: "14:02:31.482", engine: "circular_ring", severity: "critical", detail: "TR12→TR47→TR89→TR12", amount: "₺480.000" },
   { id: "ALERT-9b1e0d", ts: "14:02:29.118", engine: "impossible_travel", severity: "high", detail: "IST→BER 9.000 km/h", amount: "₺12.400" },
-  { id: "ALERT-2c8a4f", ts: "14:02:27.901", engine: "ml_ensemble", severity: "high", detail: "z=8.4 score 0.96", amount: "₺184.500" },
+  { id: "ALERT-2c8a4f", ts: "14:02:27.901", engine: "ml_model", severity: "high", detail: "score 0.96 ≥ 0.113", amount: "₺184.500" },
   { id: "ALERT-4d6b11", ts: "14:02:25.337", engine: "blacklist_keyword", severity: "medium", detail: "match: loan_laundering", amount: "₺7.900" },
   { id: "ALERT-1a9f3e", ts: "14:02:23.005", engine: "circular_ring", severity: "critical", detail: "4-node ring detected", amount: "₺1.2M" },
   { id: "ALERT-8e2c77", ts: "14:02:20.664", engine: "impossible_travel", severity: "high", detail: "ANK→TYO 2dk", amount: "₺33.100" },
-  { id: "ALERT-5b0a19", ts: "14:02:18.221", engine: "ml_ensemble", severity: "medium", detail: "amount outlier", amount: "₺96.250" },
+  { id: "ALERT-5b0a19", ts: "14:02:18.221", engine: "ml_model", severity: "medium", detail: "score 0.42 ≥ 0.113", amount: "₺96.250" },
   { id: "ALERT-3f7d44", ts: "14:02:15.880", engine: "blacklist_keyword", severity: "medium", detail: "unicode mask match", amount: "₺2.100" },
   { id: "ALERT-6c1b8a", ts: "14:02:13.447", engine: "circular_ring", severity: "high", detail: "3-node ring forming", amount: "₺58.000" },
   { id: "ALERT-0d4e2c", ts: "14:02:10.992", engine: "impossible_travel", severity: "medium", detail: "IZR→IST 4dk", amount: "₺4.700" },
@@ -218,7 +221,7 @@ export const FAUX_ALERTS: FauxAlert[] = [
 
 // Ek uyarılar (feed'i canlı tutmak için döngüsel ek)
 export const FAUX_ALERTS_EXTRA: FauxAlert[] = [
-  { id: "ALERT-a1b2c3", ts: "14:02:08.531", engine: "ml_ensemble", severity: "high", detail: "z=6.1 score 0.91", amount: "₺142.000" },
+  { id: "ALERT-a1b2c3", ts: "14:02:08.531", engine: "ml_model", severity: "high", detail: "score 0.91 ≥ 0.113", amount: "₺142.000" },
   { id: "ALERT-d4e5f6", ts: "14:02:06.114", engine: "circular_ring", severity: "critical", detail: "5-node ring", amount: "₺870.000" },
   { id: "ALERT-g7h8i9", ts: "14:02:03.702", engine: "blacklist_keyword", severity: "medium", detail: "match: cash_out", amount: "₺1.450" },
   { id: "ALERT-j1k2l3", ts: "14:02:01.288", engine: "impossible_travel", severity: "high", detail: "BER→IST 6dk", amount: "₺21.800" },

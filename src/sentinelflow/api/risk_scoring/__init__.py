@@ -1,45 +1,17 @@
 # =============================================================================
-# SentinelFlow - Real-Time Risk Scoring API (TEKNOFEST Edition)
+# SentinelFlow - Real-Time Risk Scoring API
 # =============================================================================
 """
-Yüksek performanslı, gerçek zamanlı risk skorlama servisi.
-
-Özellikler:
-- <30ms latency hedefi
-- Parallel feature extraction
-- Cached model predictions
-- Comprehensive SHAP explanations
-- Async/await optimized
-
-TEKNOFEST jürisi için kritik:
-- Hızlı yanıt süresi
-- Açıklanabilir AI
-- Güvenilir risk skorları
+``POST /api/v1/risk/score``: scores one transaction with the served fraud model
+(ADR 0003, docs/contracts/sprint4-ml-api.md §4.2) without changing the account
+history. Ingestion (``POST /api/v1/transactions``) is the only path that records.
 """
 
-from .engine import RiskScoringEngine
-from .routes import get_engine, router
-from .schemas import (
-    BatchRiskRequest,
-    BatchRiskResponse,
-    RiskDecision,
-    RiskFactor,
-    RiskLevel,
-    RiskScoringRequest,
-    RiskScoringResponse,
-    SimilarCase,
-)
+from .routes import router
+from .schemas import RiskScoreResponse, RiskStatsResponse
 
 __all__ = [
-    "BatchRiskRequest",
-    "BatchRiskResponse",
-    "RiskDecision",
-    "RiskFactor",
-    "RiskLevel",
-    "RiskScoringEngine",
-    "RiskScoringRequest",
-    "RiskScoringResponse",
-    "SimilarCase",
-    "get_engine",
+    "RiskScoreResponse",
+    "RiskStatsResponse",
     "router",
 ]

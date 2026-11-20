@@ -17,7 +17,8 @@ class FraudType(str, Enum):
     MULE_ACCOUNT = "mule_account"
     STRUCTURING = "structuring"
     VELOCITY_ANOMALY = "velocity_anomaly"
-    ML_ENSEMBLE = "ml_ensemble"
+    ML_ENSEMBLE = "ml_ensemble"  # legacy alerts (before Sprint 4)
+    ML_MODEL = "ml_model"
     COMPLIANCE_VIOLATION = "compliance_violation"
 
 
@@ -104,5 +105,6 @@ class DetectorType(str, Enum):
     GRAPH_ANALYSIS = "graph_analysis"
     GEO_ANALYSIS = "geo_analysis"
     NLP_ANALYSIS = "nlp_analysis"
-    ML_ENSEMBLE = "ml_ensemble"
+    ML_ENSEMBLE = "ml_ensemble"  # legacy alerts (before Sprint 4)
+    ML_MODEL = "ml_model"
     COMPLIANCE_ENGINE = "compliance_engine"

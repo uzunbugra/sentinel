@@ -43,6 +43,7 @@ export function fraudLabel(type: string): string {
     circular_ring: "Circular Ring",
     impossible_travel: "Impossible Travel",
     blacklist_keyword: "Blacklist Keyword",
+    ml_model: "ML Model",
     ml_ensemble: "ML Ensemble",
     mule_account: "Mule Account",
     high_value_anomaly: "High Value",

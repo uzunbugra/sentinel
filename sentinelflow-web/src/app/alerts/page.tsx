@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react"
 import Link from "next/link"
 import { LinkCaseDialog } from "@/components/alerts/link-case-dialog"
+import { ModelEvaluation } from "@/components/alerts/model-evaluation"
 import { keyboardFocusWithin } from "@/components/ui/keyboard-focus"
 import { Header } from "@/components/layout/header"
 import { useWebSocket } from "@/hooks/use-websocket"
@@ -20,6 +21,7 @@ import {
 import { formatDateTime, formatTime } from "@/lib/datetime"
 import { cn } from "@/lib/utils"
 import { apiRequest, canWrite } from "@/lib/auth"
+import type { AlertEvidence } from "@/lib/ml"
 import { useAuth } from "@/contexts/auth-context"
 import {
   LoadingState,
@@ -47,6 +49,7 @@ interface Alert {
   detected_at: string
   is_dismissed: boolean
   case_id: string | null
+  evidence?: AlertEvidence[]
 }
 
 interface AlertsResponse {
@@ -72,6 +75,7 @@ const fraudTypeLabels: Record<string, string> = {
   mule_account: "Mule Hesap",
   structuring: "Yapılandırma",
   velocity_anomaly: "Hız Anomalisi",
+  ml_model: "ML Model",
   ml_ensemble: "ML Tespit",
   compliance_violation: "Uyum İhlali",
 }
@@ -140,20 +144,21 @@ export default function AlertsPage() {
             fraud_type: wa.fraud_type,
             severity: wa.severity,
             confidence: wa.confidence,
-            transaction_id: wa.alert_id,
+            transaction_id: wa.transaction_id || wa.alert_id,
             sender_iban: wa.sender_iban || "",
-            sender_name: "",
-            sender_city: "",
+            sender_name: wa.sender_name || "",
+            sender_city: wa.sender_city || "",
             receiver_iban: wa.receiver_iban || "",
-            receiver_name: "",
-            receiver_city: "",
+            receiver_name: wa.receiver_name || "",
+            receiver_city: wa.receiver_city || "",
             amount: wa.amount,
-            currency: "TRY",
-            title: wa.fraud_type,
+            currency: wa.currency || "TRY",
+            title: wa.title || wa.fraud_type,
             description: wa.description,
             detected_at: wa.detected_at,
-            is_dismissed: false,
-            case_id: null,
+            is_dismissed: wa.is_dismissed ?? false,
+            case_id: wa.case_id ?? null,
+            evidence: wa.evidence,
           }))
           return [...wsMapped, ...prev].slice(0, pageSize)
         })
@@ -432,6 +437,11 @@ export default function AlertsPage() {
                         <dd className="text-sm text-zinc-400">{selectedAlert.description}</dd>
                       </dl>
                     )}
+                    
+                    <ModelEvaluation
+                      fraudType={selectedAlert.fraud_type}
+                      evidence={selectedAlert.evidence}
+                    />
                     
                     <hr className="border-zinc-800" />
                     

@@ -35,6 +35,7 @@ import {
   type FauxAlert,
 } from "@/lib/landing-data"
 import { NetworkGraph } from "@/components/landing/NetworkGraph"
+import { ActiveModelCard } from "@/components/dashboard/active-model-card"
 
 const GlobeScene = dynamic(() => import("@/components/3d/GlobeScene"), {
   ssr: false,
@@ -194,7 +195,7 @@ const MOTORS = [
   { n: "Circular Ring", t: "Neo4j" },
   { n: "Impossible Travel", t: "Redis Geo" },
   { n: "NLP Blacklist", t: "scikit-learn" },
-  { n: "AI Anomaly", t: "IsolationForest" },
+  { n: "ML Fraud Model", t: "LightGBM" },
 ]
 
 export default function DashboardPage() {
@@ -490,6 +491,8 @@ function GraphStatsSection({
             ))}
           </div>
         </div>
+
+        <ActiveModelCard />
       </div>
     </section>
   )

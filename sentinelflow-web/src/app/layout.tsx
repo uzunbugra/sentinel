@@ -24,21 +24,21 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "SentinelFlow — Real-Time Financial Fraud Detection",
   description:
-    "Para hareket ederken dolandırıcılığı yakalar. Kafka, Neo4j, Redis ve Isolation Forest ile dairesel aklama, imkansız seyahat ve anomali tespiti.",
+    "Para hareket ederken dolandırıcılığı yakalar. Kafka, Neo4j, Redis ve LightGBM ile dairesel aklama, imkansız seyahat ve ML dolandırıcılık skoru.",
   keywords: [
     "fraud detection",
     "money laundering",
     "Neo4j",
     "Kafka",
     "Redis",
-    "Isolation Forest",
+    "LightGBM",
     "real-time",
     "SOC",
   ],
   openGraph: {
     title: "SentinelFlow — Real-Time Financial Fraud Detection",
     description:
-      "Gerçek zamanlı finansal dolandırıcılık tespit sistemi. Sub-100ms gecikme, 10.000 tx/sn.",
+      "Gerçek zamanlı finansal dolandırıcılık tespit sistemi. Graf, konum ve LightGBM tabanlı tespit; her ML alarmı model açıklamasıyla gelir.",
     type: "website",
   },
 }

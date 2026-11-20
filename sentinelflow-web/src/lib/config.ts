@@ -47,7 +47,7 @@ export const config = {
     me: "/api/v1/auth/me",
     refresh: "/api/v1/auth/refresh",
 
-    // ML
+    // ML (docs/contracts/sprint4-ml-api.md §4)
     predict: "/api/v1/risk/score",
     modelInfo: "/api/v1/ml/models",
     mlFeatures: "/api/v1/ml/features",

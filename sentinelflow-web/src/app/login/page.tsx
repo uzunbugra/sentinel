@@ -119,12 +119,16 @@ export default function LoginPage() {
             </button>
           </form>
           
-          {/* Demo credentials */}
-          <div className="mt-6 p-3 bg-zinc-800/30 border border-zinc-800 rounded-lg">
-            <p className="text-xs text-zinc-500 text-center">
-              Demo: <span className="text-zinc-400">admin</span> / <span className="text-zinc-400">Admin123!</span>
-            </p>
-          </div>
+          {/* Local dev hint: no fixed credentials; the first admin comes from scripts/seed_admin.py */}
+          {process.env.NODE_ENV === "development" && (
+            <div className="mt-6 p-3 bg-zinc-800/30 border border-zinc-800 rounded-lg">
+              <p className="text-xs text-zinc-500 text-center">
+                Yerel geliştirme: ilk yönetici hesabı{" "}
+                <span className="text-zinc-400">scripts/seed_admin.py</span> ile oluşturulur
+                (şifre <span className="text-zinc-400">SEED_ADMIN_PASSWORD</span>).
+              </p>
+            </div>
+          )}
         </div>
         
         {/* Footer */}

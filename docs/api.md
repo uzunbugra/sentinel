@@ -1,6 +1,6 @@
 # SentinelFlow API Referansı
 
-> Bu belge `v2.2.0` rota tablosundan üretilmiştir. Değişmez kaynak(lar):
+> Bu belge `v2.3.0` rota tablosundan üretilmiştir. Değişmez kaynak(lar):
 > interaktif Swagger (`http://localhost:8000/docs`) ve üretilen sözleşmedir
 > (`sentinelflow-web/src/lib/api-schema.ts`). Rota değiştirdikten sonra
 > `python scripts/export_openapi.py` çalıştırıp sözleşmeyi commit edin;
@@ -21,7 +21,7 @@
 | Rol | Yetki |
 | --- | --- |
 | `viewer` | Salt okunur: listeler, detay, istatistik |
-| `analyst` | Soruşturma: alert dismiss, case yönetimi, KYC tarama, model eğitimi, risk skorlama |
+| `analyst` | Soruşturma: alert dismiss, case yönetimi, KYC tarama, risk skorlama |
 | `admin` | Tam yönetim (kullanıcı yönetimi gelecek sürümlerde) |
 
 Aşağıdaki tabloda **Auth** sütunu gereken asgari rolü gösterir.
@@ -33,7 +33,7 @@ Aşağıdaki tabloda **Auth** sütunu gereken asgari rolü gösterir.
 | Method | Path | Açıklama | Auth |
 | --- | --- | --- | --- |
 | GET | `/` | Kök karşılama | — |
-| GET | `/api/v1/system/health` | Sağlık kontrolü (bileşen durumları) | — |
+| GET | `/api/v1/system/health` | Sağlık kontrolü (`api`, `database`, `ml_model`); biri sağlıksızsa `degraded` | — |
 | GET | `/api/v1/system/stats` | Sistem istatistikleri | — |
 | GET | `/metrics` | Prometheus metrikleri | — |
 
@@ -60,7 +60,7 @@ Aşağıdaki tabloda **Auth** sütunu gereken asgari rolü gösterir.
 | --- | --- | --- | --- |
 | GET | `/api/v1/alerts` | Alert listesi (filtre/sayfalama) | viewer |
 | GET | `/api/v1/alerts/stats` | Alert istatistikleri | viewer |
-| GET | `/api/v1/alerts/{alert_id}` | Alert detayı (SHAP/açıklama dahil) | viewer |
+| GET | `/api/v1/alerts/{alert_id}` | Alert detayı (kanıt dahil; `ml_model` alarmında model sürümü ve ilk 5 katkı) | viewer |
 | POST | `/api/v1/alerts/{alert_id}/dismiss` | Yanlış pozitif olarak kapat | analyst |
 | POST | `/api/v1/alerts/{alert_id}/link-case/{case_id}` | **Deprecated** — `POST /api/v1/cases/{case_id}/alerts` ile aynı kurallar | analyst |
 
@@ -101,21 +101,27 @@ kayıt yazılmaz.
 
 ### Machine Learning
 
+Sözleşme: `docs/contracts/sprint4-ml-api.md` §4, karar: ADR 0003. Model offline
+eğitilir; API yalnız `SENTINELFLOW_MODEL_DIR` (varsayılan `models/fraud/current`)
+altındaki artifact'i açılışta yükler. Model yoksa API çalışır, `ml_model` `degraded` olur.
+
 | Method | Path | Açıklama | Auth |
 | --- | --- | --- | --- |
-| GET | `/api/v1/ml/models` | Model durumu (ensemble hazır mı) | viewer |
-| GET | `/api/v1/ml/features` | Özellik tanımları | viewer |
-| POST | `/api/v1/ml/train` | Model eğitimi başlat | analyst |
-| GET | `/api/v1/ml/train/status` | Eğitim durumu | analyst |
+| GET | `/api/v1/ml/models` | Aktif model ve metrikleri; her zaman `200`, `status` = `loaded` \| `not_loaded` \| `invalid` | viewer |
+| GET | `/api/v1/ml/features` | Servis edilen özellik seti (`fs-1`, model girdi sırasıyla) | viewer |
 
 ### Risk Scoring
 
 | Method | Path | Açıklama | Auth |
 | --- | --- | --- | --- |
-| POST | `/api/v1/risk/score` | Gerçek zamanlı risk skoru | analyst |
-| POST | `/api/v1/risk/batch` | Toplu risk skorlama | analyst |
-| GET | `/api/v1/risk/stats` | Skorlama istatistikleri | viewer |
-| GET | `/api/v1/risk/features` | Kullanılan özellikler | viewer |
+| POST | `/api/v1/risk/score` | Tek işlem skoru + log-odds katkıları; hesap geçmişini okur, yazmaz. Model yoksa `503 model_not_loaded` | analyst |
+| GET | `/api/v1/risk/stats` | Skorlama sayaçları, ortalama gecikme ve hesap geçmişi sayaçları (`history`) | viewer |
+
+`POST /api/v1/transactions` geçmişi kaydeden tek yoldur: `fraud_score` ve
+`model_version` model yoksa `null` döner; skor eşiği geçerse `ml_model` alarmı
+evidence içinde model sürümü, eşik ve ilk 5 katkıyla oluşturulur. Aynı işlem tekrar
+gelirse mevcut alarm döner, yeniden yayınlanmaz. Geçmiş süreç içindedir: yeniden
+başlatmadan sonra `risk/stats` → `history.recorded` 0'dır.
 
 ### KYC & Compliance
 

@@ -3,12 +3,13 @@
 // =============================================================================
 // Hero — açılışta canlı çalışan minyatür graf/akış animasyonu (arka planda
 // işlem noktaları akar, ara sıra biri "flagged" olup kırmızıya döner).
-// Başlık sistemin ne yaptığını tek cümlede söyler. Altında canlı sayaçlar
-// (işlem/sn, tespit gecikmesi, aktif motor sayısı) count-up ile dolar.
+// Başlık sistemin ne yaptığını tek cümlede söyler. Altındaki sayaçlar yalnız
+// ölçülmüş ya da doğrulanabilir değerleri count-up ile gösterir: model skoru p95
+// (reports/ml04), alarm başına model katkısı ve aktif motor sayısı.
 // =============================================================================
 
 import { motion } from "motion/react"
-import { ArrowRight, Activity, Timer, Cpu } from "lucide-react"
+import { ArrowRight, ListOrdered, Timer, Cpu } from "lucide-react"
 import Link from "next/link"
 import { NetworkGraph } from "./NetworkGraph"
 import { CountUp } from "./CountUp"
@@ -16,24 +17,27 @@ import { REPO_URL } from "@/lib/landing-data"
 
 const HERO_STATS = [
   {
-    icon: Activity,
-    value: 10000,
-    suffix: "",
+    icon: Timer,
+    value: 1.1,
+    decimals: 1,
+    suffix: " ms",
     prefix: "",
-    label: "İşlem / sn",
+    label: "Model skoru p95",
     accent: "signal" as const,
   },
   {
-    icon: Timer,
-    value: 100,
-    suffix: "ms",
-    prefix: "<",
-    label: "Tespit gecikmesi",
+    icon: ListOrdered,
+    value: 5,
+    decimals: 0,
+    suffix: "",
+    prefix: "",
+    label: "Alarm başına katkı",
     accent: "signal" as const,
   },
   {
     icon: Cpu,
     value: 4,
+    decimals: 0,
     suffix: "",
     prefix: "",
     label: "Aktif tespit motoru",
@@ -92,8 +96,9 @@ export function Hero() {
           >
             Kafka üzerinden akan işlemleri; Neo4j graf veritabanıyla dairesel
             aklama zincirleri, Redis geo-spatial ile imkansız seyahat, NLP ile
-            şüpheli kelimeler ve Isolation Forest ile istatistiksel anormallikler
-            için sub-100ms gecikmeyle tarar.
+            şüpheli kelimeler ve SAML-D üzerinde eğitilmiş LightGBM modeliyle
+            dolandırıcılık skoru için tarar. Her ML alarmı en etkili beş
+            özelliğiyle gelir.
           </motion.p>
 
           {/* CTA */}
@@ -149,6 +154,7 @@ export function Hero() {
                     value={s.value}
                     prefix={s.prefix}
                     suffix={s.suffix}
+                    decimals={s.decimals}
                     duration={1.8}
                   />
                 </div>

@@ -48,6 +48,7 @@ pytest tests/ -q
 # Frontend (from sentinelflow-web/)
 npm run lint
 npx tsc --noEmit
+npm run test:e2e   # browser tests: API + database, see e2e/README.md
 ```
 
 Or install the pre-commit hooks once: `pre-commit install`.

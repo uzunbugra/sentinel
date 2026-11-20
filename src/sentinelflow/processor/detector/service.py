@@ -5,7 +5,7 @@
 The core fraud detection service that processes transactions in real-time.
 
 Consumes transactions from Kafka, orchestrates the detection engines from the
-sibling modules (graph, geo, blacklist, ML ensemble) and publishes alerts.
+sibling modules (graph, geo, blacklist, fraud model) and publishes alerts.
 
 Architecture:
     [Kafka: transactions] → [Detector Service] → [Kafka: alerts]
@@ -15,19 +15,12 @@ Architecture:
 
 from __future__ import annotations
 
-from collections import deque
-
 from confluent_kafka import Consumer, Producer
 from loguru import logger
 from rich.console import Console
 
 from sentinelflow.config import get_settings
-from sentinelflow.ml.ensemble import EnsembleVoter
-from sentinelflow.ml.explainer import FraudExplainer
-
-# ML Pipeline imports
-from sentinelflow.ml.feature_engine import TransactionFeatureEngine
-from sentinelflow.ml.models import AutoEncoderModel, IsolationForestModel, XGBoostFraudModel
+from sentinelflow.ml.serving import TransactionScorer, build_scorer
 from sentinelflow.processor.graph_engine import GraphEngine
 from sentinelflow.processor.redis_geo import RedisGeoClient
 
@@ -48,7 +41,7 @@ class FraudDetectorService(RuntimeMixin, AlertPublishingMixin, DetectionChecksMi
     1. Graph Analysis (Neo4j) - Circular transaction rings
     2. Geo Analysis (Redis) - Impossible travel detection
     3. NLP Analysis - Blacklisted keyword detection
-    4. ML Ensemble (IsolationForest + XGBoost + AutoEncoder)
+    4. Fraud model (the same LightGBM artifact and fs-1 history as the API)
 
     Example:
         detector = FraudDetectorService()
@@ -61,6 +54,7 @@ class FraudDetectorService(RuntimeMixin, AlertPublishingMixin, DetectionChecksMi
         kafka_topic_in: str = "transactions",
         kafka_topic_out: str = "alerts",
         consumer_group: str = "sentinelflow-detectors",
+        scorer: TransactionScorer | None = None,
     ) -> None:
         """
         Initialize the fraud detector service.
@@ -70,6 +64,7 @@ class FraudDetectorService(RuntimeMixin, AlertPublishingMixin, DetectionChecksMi
             kafka_topic_in: Topic to consume transactions from
             kafka_topic_out: Topic to publish alerts to
             consumer_group: Kafka consumer group ID
+            scorer: Fraud model scorer (default: ``build_scorer()``)
         """
         self.settings = get_settings()
 
@@ -91,44 +86,10 @@ class FraudDetectorService(RuntimeMixin, AlertPublishingMixin, DetectionChecksMi
         self._graph_engine: GraphEngine | None = None
         self._redis_client: RedisGeoClient | None = None
 
-        # ================================================================
-        # ML Ensemble Pipeline (Upgraded from single IsolationForest)
-        # ================================================================
-        self._feature_engine = TransactionFeatureEngine(history_window_size=500)
-
-        # Initialize models
-        self._isolation_forest_model = IsolationForestModel(
-            contamination=0.05,
-            n_estimators=200,
-            min_samples_to_train=100,
-            retrain_interval=500,
-        )
-        self._xgboost_model = XGBoostFraudModel(
-            model_path="models/xgboost_fraud.json",
-            n_estimators=300,
-            max_depth=6,
-        )
-        self._autoencoder_model = AutoEncoderModel(
-            input_dim=21,
-            encoding_dim=8,
-            model_path="models/autoencoder.pt",
-        )
-
-        # Ensemble voter
-        self._ensemble = EnsembleVoter(threshold=0.65)
-        self._ensemble.add_model(self._isolation_forest_model, weight=0.3)
-        self._ensemble.add_model(self._xgboost_model, weight=0.5)
-        self._ensemble.add_model(self._autoencoder_model, weight=0.2)
-
-        # Explainability
-        self._explainer = FraudExplainer(
-            feature_names=TransactionFeatureEngine.get_feature_names(),
-            top_n=5,
-        )
-
-        # Legacy compatibility: keep amount buffer for basic check
-        self._amount_buffer: deque[float] = deque(maxlen=1000)
-        self._anomaly_amount_threshold: float = 50000.0
+        # Fraud model (ADR 0003 §8): same artifact and feature set as the API.
+        # In a Kafka deployment the detector is the only ingestion path, so it
+        # records the account history (§4).
+        self._scorer: TransactionScorer = scorer if scorer is not None else build_scorer()
 
         # Console for rich output
         self.console = Console()
@@ -137,7 +98,7 @@ class FraudDetectorService(RuntimeMixin, AlertPublishingMixin, DetectionChecksMi
         self._alert_writer = None
         self._enable_postgres = True
 
-        logger.info("FraudDetectorService initialized with ML Ensemble Pipeline")
+        logger.info("FraudDetectorService initialized")
 
     # =========================================================================
     # Connection Management
@@ -172,6 +133,18 @@ class FraudDetectorService(RuntimeMixin, AlertPublishingMixin, DetectionChecksMi
 
         self._producer = Producer(config)
         logger.info(f"Kafka producer ready for: {self.topic_out}")
+
+    def _init_fraud_model(self) -> None:
+        """Load the fraud model; without it the other engines keep running."""
+        service = self._scorer.service
+        service.load()
+        if service.is_loaded and service.metadata is not None:
+            logger.info(f"Fraud model loaded: {service.metadata.model_version}")
+        else:
+            logger.warning(
+                f"Fraud model not loaded ({service.status.value}): {service.error}. "
+                "ML detection is disabled; no score is produced without a valid model."
+            )
 
     def _init_graph_engine(self) -> None:
         """Initialize Neo4j graph engine."""

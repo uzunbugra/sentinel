@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "model_version": "fraud-lgbm-20261105-a1b2c3d",
+  "model_family": "lightgbm",
+  "objective": "binary",
+  "feature_set_version": "fs-1",
+  "feature_names": [
+    "log_amount",
+    "hour",
+    "day_of_week",
+    "payment_type_code",
+    "currency_mismatch",
+    "cross_border",
+    "sender_country_code",
+    "receiver_country_code",
+    "sender_tx_count_24h",
+    "sender_amount_sum_24h",
+    "sender_unique_receivers_7d",
+    "receiver_tx_count_24h",
+    "receiver_unique_senders_7d",
+    "pair_tx_count_7d",
+    "sender_seconds_since_prev"
+  ],
+  "categorical_features": ["payment_type_code", "sender_country_code", "receiver_country_code"],
+  "threshold": 0.37,
+  "calibration": null,
+  "dataset_id": "samld-example-not-a-real-dataset",
+  "metrics": {
+    "split": "test",
+    "pr_auc": null,
+    "roc_auc": null,
+    "precision": null,
+    "recall": null,
+    "f1": null,
+    "support_positive": null,
+    "support_total": null,
+    "baseline_pr_auc": null
+  },
+  "trained_at": "2026-11-05T12:00:00+00:00",
+  "git_sha": "a1b2c3d000000000000000000000000000000000",
+  "library_versions": {"python": "3.11.9", "lightgbm": "4.5.0", "numpy": "1.26.4"},
+  "model_sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+}

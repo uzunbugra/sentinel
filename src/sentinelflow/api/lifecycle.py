@@ -1,7 +1,7 @@
 # =============================================================================
 # SentinelFlow API - Lifecycle
 # =============================================================================
-"""Startup/shutdown: fail-fast secret check, database and optional ML init."""
+"""Startup/shutdown: fail-fast secret check, database and fraud model load."""
 
 from __future__ import annotations
 
@@ -27,8 +27,8 @@ async def lifespan(app: FastAPI):
     # Initialize database
     state.init_database()
 
-    # Try to load ML components (optional)
-    state.load_ml_components()
+    # Load the fraud model; without it the API runs degraded (ADR 0003 §9)
+    state.load_fraud_model()
 
     yield
 

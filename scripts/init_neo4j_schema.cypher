@@ -1,8 +1,8 @@
 // =============================================================================
 // Neo4j Schema Initialization - SentinelFlow
 // =============================================================================
-// Run this after Neo4j is up to create indexes and constraints
-// Execute via: cat init_neo4j_schema.cypher | cypher-shell -u neo4j -p "$NEO4J_PASSWORD"
+// Docker Compose runs this via neo4j-init after Neo4j is healthy (safe to rerun).
+// Manual rerun: docker compose run --rm neo4j-init
 
 // -----------------------------------------------------------------------------
 // Constraints - Ensure data integrity

@@ -130,6 +130,17 @@ class GeneratorSettings(BaseSettings):
     seed: Optional[int] = Field(default=None, description="Random seed for reproducibility")
 
 
+class ModelServingSettings(BaseSettings):
+    """Fraud model serving (ADR 0003 §9)."""
+
+    model_config = SettingsConfigDict(env_prefix="SENTINELFLOW_MODEL_", **_ENV_FILE_CONFIG)
+
+    dir: str = Field(
+        default="models/fraud/current",
+        description="Artifact directory (model.txt, metadata.json, SHA256SUMS)",
+    )
+
+
 class Settings(BaseSettings):
     """
     Master settings aggregating all configuration sections.
@@ -153,6 +164,7 @@ class Settings(BaseSettings):
     redis: RedisSettings = Field(default_factory=RedisSettings)
     fraud: FraudDetectionSettings = Field(default_factory=FraudDetectionSettings)
     generator: GeneratorSettings = Field(default_factory=GeneratorSettings)
+    serving: ModelServingSettings = Field(default_factory=ModelServingSettings)
 
 
 @lru_cache

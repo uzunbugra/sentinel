@@ -16,6 +16,10 @@ engines:
 3. **NLP Blacklist**: Detects suspicious keywords in transaction descriptions
    Example: "bahis", "kumar", "crypto" in the description field
 
+4. **Fraud model**: the LightGBM artifact the API also serves (ADR 0003),
+   scored on fs-1 account history features; alerts carry the contract §4.5
+   evidence (model version, threshold, top contributions)
+
 Architecture:
     [Kafka: transactions] → [Detector Service] → [Kafka: alerts]
                                     ↓

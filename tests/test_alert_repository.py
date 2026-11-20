@@ -104,36 +104,43 @@ class TestLegacyRows:
 class TestTransactionEndpointPersistsMlAlerts:
     """End-to-end impact from the issue: an ML-flagged transaction must be saved."""
 
-    def test_flagged_transaction_creates_and_broadcasts_alert(self, session, monkeypatch):
+    def test_flagged_transaction_creates_and_broadcasts_alert(self, session, monkeypatch, tmp_path):
+        pytest.importorskip("lightgbm")
         from fastapi.testclient import TestClient
+        from ml_artifacts import (
+            FS1_FEATURE_NAMES,
+            FS1_VERSION,
+            metadata_for,
+            train_booster,
+            write_artifact,
+        )
 
         import sentinelflow.api.deps as deps
         import sentinelflow.api.routes.transactions as tx_routes
         from sentinelflow.api.app import app
         from sentinelflow.api.state import state
+        from sentinelflow.ml.serving import FraudModelService, TransactionScorer
 
-        class FakePrediction:
-            final_score = 0.93
-            is_fraud = True
-
-        class FakeEnsemble:
-            def predict(self, features):
-                return FakePrediction()
-
-        class FakeFeatures:
-            def extract(self, tx):
-                from sentinelflow.ml.feature_engine import FEATURE_NAMES
-
-                return dict.fromkeys(FEATURE_NAMES, 0.0)
+        # Near-zero threshold and critical cut-off: every score is a critical alert.
+        model_text = train_booster().model_to_string()
+        write_artifact(
+            tmp_path / "model",
+            model_text=model_text,
+            metadata=metadata_for(model_text, threshold=1e-6),
+        )
+        service = FraudModelService(
+            tmp_path / "model", feature_set_version=FS1_VERSION, feature_names=FS1_FEATURE_NAMES
+        )
+        service.load()
+        assert service.is_loaded
+        monkeypatch.setattr(tx_routes, "CRITICAL_SCORE", 0.0)
 
         broadcasts = []
 
         async def fake_broadcast(payload):
             broadcasts.append(payload)
 
-        monkeypatch.setattr(state, "_ml_loaded", True)
-        monkeypatch.setattr(state, "_ensemble", FakeEnsemble())
-        monkeypatch.setattr(state, "_feature_engine", FakeFeatures())
+        monkeypatch.setattr(state, "scorer", TransactionScorer(service))
         monkeypatch.setattr(state, "broadcast_alert", fake_broadcast)
 
         def _session():
@@ -164,8 +171,14 @@ class TestTransactionEndpointPersistsMlAlerts:
         body = res.json()
         assert body["is_fraud"] is True
         assert body["alerts"] and body["alerts"][0]["transaction_id"] == "TX-E2E"
+        assert body["model_version"] == service.metadata.model_version
         saved = session.query(AlertModel).filter_by(transaction_id="TX-E2E").one()
         assert saved.severity == "critical"
+        assert saved.fraud_type == "ml_model"
+        evidence = body["alerts"][0]["evidence"][0]
+        assert evidence["detector_type"] == "ml_model"
+        assert evidence["details"]["contribution_unit"] == "log_odds"
+        assert evidence["details"]["history_cold_start"] is True
         assert broadcasts and broadcasts[0]["alert_id"] == saved.alert_id
 
 
