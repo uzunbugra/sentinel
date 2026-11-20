@@ -5,34 +5,49 @@ işleminden üretilen ML alarmını bir vakaya bağlar.
 
 ## 1. Modeli yükle ve servisleri başlat
 
+Komutlar PowerShell içindir. macOS ve Linux'ta PowerShell 7 (`pwsh`) kurup
+komutları onunla çalıştırın.
+
 Docker Desktop çalışırken, temiz bir demo ortamında [Sprint 3 kurulum
 adımlarını](SPRINT3_DEMO.md#başlangıç) izleyin. Sprint 3 fixture alarmı ekleme
 adımını atlayın.
 
-Gerçek `fraud-lgbm-20261030-0e0c647` ML-05 paketinin dört dosyasını
-(`model.txt`, `metadata.json`, `model_card.md`, `SHA256SUMS`)
-`models/fraud/current/` dizinine yerleştirin. Bu paket ekipten alınabilir
-veya dondurulmuş ML-04 çıktılarından `python -m sentinelflow.ml.training package`
-ile oluşturulabilir. Model dosyalarını Git'e eklemeyin.
-
-API'nin model klasörünü salt okunur bağlaması gerekir. Compose dosyanızda
-bağlama henüz yoksa repo kökünde yerel bir `compose.sf403.yml` oluşturun:
-
-```yaml
-services:
-  api:
-    environment:
-      SENTINELFLOW_MODEL_DIR: /app/models/fraud/current
-    volumes:
-      - ./models:/app/models:ro
-```
+Gerçek `fraud-lgbm-20261030-0e0c647` ML-05 paketi
+[`model-fraud-lgbm-20261030-0e0c647`](https://github.com/uzunbugra/sentinel/releases/tag/model-fraud-lgbm-20261030-0e0c647)
+Release'inde. Dört dosyasını (`model.txt`, `metadata.json`, `model_card.md`,
+`SHA256SUMS`) repo kökünden `models/fraud/current/` dizinine indirin ve
+checksum'ları doğrulayın:
 
 ```powershell
-docker compose -f docker-compose.yml -f compose.sf403.yml --profile frontend up -d --build
-docker compose -f docker-compose.yml -f compose.sf403.yml ps -a
+$modelDir = 'models/fraud/current'
+New-Item -ItemType Directory -Force $modelDir | Out-Null
+$release = 'https://github.com/uzunbugra/sentinel/releases/download/model-fraud-lgbm-20261030-0e0c647'
+foreach ($file in 'model.txt', 'metadata.json', 'model_card.md', 'SHA256SUMS') {
+    Invoke-WebRequest "$release/$file" -OutFile (Join-Path $modelDir $file) -UseBasicParsing
+}
+Get-Content (Join-Path $modelDir 'SHA256SUMS') | ForEach-Object {
+    $hash, $name = $_ -split '\s+', 2
+    if ((Get-FileHash (Join-Path $modelDir $name) -Algorithm SHA256).Hash -ne $hash) {
+        throw "Checksum uyuşmuyor: $name"
+    }
+}
 ```
 
-Bağlama ana Compose dosyasında varsa ek dosya ve `-f` seçenekleri gerekmez.
+GitHub CLI varsa indirme tek komuttur:
+`gh release download model-fraud-lgbm-20261030-0e0c647 -R uzunbugra/sentinel -D models/fraud/current`.
+`models/` git-ignore'dadır, model dosyalarını Git'e eklemeyin. Paket
+`python -m sentinelflow.ml.training package` ile de üretilebilir, ama bu komut
+repoda olmayan ML-04 çıktısını (`data/ml04/model.txt`) ister.
+
+`docker-compose.yml`, `./models` dizinini API konteynerine salt okunur bağlar ve
+`SENTINELFLOW_MODEL_DIR` varsayılanı `models/fraud/current`'tır; ek Compose
+dosyası gerekmez.
+
+```powershell
+docker compose --profile frontend up -d --build
+docker compose ps -a
+```
+
 Yönetici hesabını Sprint 3 belgesindeki seed adımıyla oluşturun.
 
 ## 2. İşlemden ML alarmı üret
@@ -103,12 +118,11 @@ kontrol edin.
 
 ## 4. Aynı modeli Kafka detector ile doğrula
 
-Repo kökünde şu PowerShell komutlarını çalıştırın. Model bağlantısı için ek
-Compose dosyası kullandıysanız `$composeFiles` tanımındaki iki dosyayı da verin.
+Repo kökünde şu PowerShell komutlarını çalıştırın. Önceki bir denemeden kalan
+`sf403-detector` konteyneri varsa önce `docker rm -f sf403-detector` ile silin.
 
 ```powershell
 $composeFiles = @('-f', 'docker-compose.yml')
-if (Test-Path compose.sf403.yml) { $composeFiles += @('-f', 'compose.sf403.yml') }
 docker compose @composeFiles ps -a kafka neo4j neo4j-init
 docker compose @composeFiles exec -T kafka kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic transactions --partitions 1 --replication-factor 1
 docker compose @composeFiles run -d --no-deps --name sf403-detector api python -m sentinelflow.processor.detector --no-dashboard
@@ -141,6 +155,12 @@ if ($kafkaEvidence.details.model_version -ne $active.model.model_version -or
     throw 'Detector alarmındaki model kanıtı uyuşmuyor.'
 }
 $kafkaEvidence.details | ConvertTo-Json -Depth 5
+```
+
+Demo bitince detector konteynerini silin:
+
+```powershell
+docker rm -f sf403-detector
 ```
 
 ## 5. Docker smoke sonucu (6 Kasım 2026)
