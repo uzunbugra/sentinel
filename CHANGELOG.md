@@ -6,6 +6,8 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-11-20
+
 ### Added
 - **Sprint 4 — ML pipeline v2 decision (ML-01).** ADR `docs/adr/0003-ml-pipeline-v2.md` (SAML-D source, time split with a locked test set, LightGBM + logistic baseline, threshold policy, numeric targets, budgets, artifact format, no-model behaviour) and the data/feature/artifact/API contract `docs/contracts/sprint4-ml-api.md`.
 - **ML-02 — SAML-D canonical dataset.** `python -m sentinelflow.ml.samld_dataset --source archive.zip` writes `data/samld/<dataset_id>/transactions.parquet` + `manifest.json`: contract §1 fields (labelled UK↔Turkey / GBP↔TRY swap, ×50 amount), deterministic ids and display-only IBAN/name, chronological 70/15/15 split that never cuts a timestamp. Data card `docs/ml/samld-data-card.md` (source hash, CC BY-NC-SA 4.0 licence, column mapping) and full-data manifest `docs/ml/samld-manifest.json`. Raw and transformed data stay out of the repo.
