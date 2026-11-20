@@ -38,6 +38,7 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - `build_features_batch` compares transaction ids as strings when masking duplicates, like the streaming path (`5` and `"5"` are one id).
 - Ingesting the same transaction again returns its existing `ml_model` alert without broadcasting it or counting it again; an id the account history accepts as new is always scored against the current history, even if the duplicate-vector cache still holds it.
 - Test artifacts are written with `\n` line endings so their checksums also match on Windows.
+- `sentinelflow-detect` no longer crashes on start with its terminal dashboard (the default): the detector's start time is now UTC-aware like the uptime it is compared with.
 
 ## [2.2.0] - 2026-10-29
 

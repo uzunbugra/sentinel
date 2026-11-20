@@ -120,7 +120,7 @@ class DetectorStats:
     blacklist_hits: int = 0
     ml_model_hits: int = 0
     errors: int = 0
-    start_time: datetime = field(default_factory=datetime.utcnow)
+    start_time: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
     @property
     def uptime_seconds(self) -> float:
