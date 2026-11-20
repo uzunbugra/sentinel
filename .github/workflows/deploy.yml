@@ -1,0 +1,75 @@
+name: Deploy production
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 45
+    env:
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_HEALTH_URL: ${{ vars.DEPLOY_HEALTH_URL }}
+    steps:
+      - name: Deploy the selected main commit over SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          for setting in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS DEPLOY_HEALTH_URL; do
+            if [[ -z ${!setting-} ]]; then
+              echo "::error::Missing production setting: $setting"
+              exit 1
+            fi
+          done
+          [[ $DEPLOY_HOST =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          [[ $DEPLOY_USER =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ $DEPLOY_PATH =~ ^/[a-zA-Z0-9_./-]+$ ]]
+          [[ $GITHUB_SHA =~ ^[a-f0-9]{40}$ ]]
+          [[ $DEPLOY_HEALTH_URL == https://*/api/v1/system/health ]]
+
+          ssh_dir=$(mktemp -d)
+          trap 'rm -rf "$ssh_dir"' EXIT
+          umask 077
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$ssh_dir/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          unset DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS
+
+          ssh -i "$ssh_dir/key" -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$ssh_dir/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+            "$DEPLOY_USER@$DEPLOY_HOST" "bash -se -- $DEPLOY_PATH $GITHUB_SHA" <<'REMOTE'
+          set -euo pipefail
+          cd "$1"
+          revision=$2
+          if [[ -n $(git status --porcelain -uno) ]]; then
+            echo "Production checkout has tracked local changes." >&2
+            exit 1
+          fi
+          git fetch --no-tags origin refs/heads/main
+          if [[ $(git rev-parse FETCH_HEAD) != "$revision" ]]; then
+            echo "Dispatch the workflow from the current main commit." >&2
+            exit 1
+          fi
+          git cat-file -e "$revision:deploy/compose.prod.yml"
+          test -r .env
+          git switch --detach "$revision"
+          compose=(docker compose -f docker-compose.yml -f deploy/compose.prod.yml --profile frontend)
+          "${compose[@]}" config --quiet
+          "${compose[@]}" up -d --build postgres redis api frontend caddy
+          REMOTE
+
+          curl --fail --silent --show-error --retry 12 --retry-delay 5 \
+            --retry-all-errors --max-time 10 --retry-max-time 90 "$DEPLOY_HEALTH_URL" \
+            | jq -e '.components.api.status == "healthy" and .components.database.status == "healthy"' >/dev/null
