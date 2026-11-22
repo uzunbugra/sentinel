@@ -49,10 +49,28 @@ import DashboardPage from "./page"
 
 const mockApi = vi.mocked(apiRequest)
 
-// Aktif model karti /ml/models'i ayri ister; istatistik cevaplari sirayla verilir.
-function routeApi(...statsResults: (typeof STATS | Error)[]) {
+const REST_ALERT = {
+  alert_id: "ALERT-REST00000001",
+  fraud_type: "ml_model",
+  severity: "critical",
+  description: "Fraud model flagged the transaction",
+  amount: 25000,
+  currency: "TRY",
+  detected_at: "2026-11-22T11:54:02Z",
+}
+
+// Aktif model karti /ml/models'i, alarm konsolu /alerts'i ayri ister;
+// istatistik cevaplari sirayla verilir.
+type StatsResult =
+  | (typeof STATS & { alerts_created?: number; by_severity?: Record<string, number> })
+  | Error
+
+function routeApi(...statsResults: StatsResult[]) {
   mockApi.mockImplementation(async (endpoint: string) => {
     if (endpoint === config.endpoints.modelInfo) return loadedModelResponse
+    if (endpoint.startsWith(`${config.endpoints.alerts}?`)) {
+      return { alerts: alertsResult }
+    }
     const next = statsResults.shift()
     if (next instanceof Error) throw next
     return next ?? new Promise(() => {})
@@ -67,21 +85,13 @@ const STATS = {
   uptime_seconds: 125,
 }
 
+let alertsResult: unknown[] = []
+
 beforeEach(() => {
-  // Demo hook'u window.matchMedia cagirir; prefers-reduced-motion acik
-  // gibi dondurerek demo interval'in kurulmasini engelleriz.
-  vi.stubGlobal(
-    "matchMedia",
-    vi.fn().mockReturnValue({
-      matches: true,
-      addEventListener: vi.fn(),
-      removeEventListener: vi.fn(),
-    }),
-  )
+  alertsResult = []
 })
 
 afterEach(() => {
-  vi.unstubAllGlobals()
   vi.useRealTimers()
 })
 
@@ -125,6 +135,42 @@ describe("DashboardPage stats", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Sunucuya ulaşılamıyor. Bağlantınızı kontrol edin.",
     )
+  })
+})
+
+describe("DashboardPage gercek veri", () => {
+  it("backend'e ulasilamazken uydurma sayi veya alarm gostermez", async () => {
+    routeApi(new ApiError(0, "Network error"))
+
+    render(<DashboardPage />)
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument()
+    expect(screen.getAllByText("---")).toHaveLength(4)
+    expect(screen.queryByText(/^ALERT-/)).not.toBeInTheDocument()
+    expect(screen.queryByText("99.4%")).not.toBeInTheDocument()
+    expect(screen.getByText("offline")).toBeInTheDocument()
+  })
+
+  it("son alarmlari REST'ten listeler ve kayitli alarm sayisini gosterir", async () => {
+    alertsResult = [REST_ALERT]
+    routeApi({ ...STATS, alerts_created: 3, by_severity: { critical: 2, low: 1 } })
+
+    render(<DashboardPage />)
+
+    expect(await screen.findByText("ALERT-REST00000001")).toBeInTheDocument()
+    expect(screen.getByText("3")).toBeInTheDocument()
+    expect(screen.getByText("kayitli alarm")).toBeInTheDocument()
+    expect(mockApi).toHaveBeenCalledWith(
+      `${config.endpoints.alerts}?page=1&page_size=12`,
+    )
+  })
+
+  it("alarm yoksa bos durum gosterir", async () => {
+    routeApi({ ...STATS, alerts_created: 0 })
+
+    render(<DashboardPage />)
+
+    expect(await screen.findByText("Henuz alarm yok")).toBeInTheDocument()
   })
 })
 
