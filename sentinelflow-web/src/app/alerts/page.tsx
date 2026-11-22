@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils"
 import { apiRequest, canWrite } from "@/lib/auth"
 import type { AlertEvidence } from "@/lib/ml"
 import { useAuth } from "@/contexts/auth-context"
+import { fraudTypeLabel, fraudTypeLabels } from "@/lib/fraud-types"
 import {
   LoadingState,
   ErrorState,
@@ -66,18 +67,6 @@ const severityColors: Record<string, string> = {
   medium: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
   high: "bg-orange-500/10 text-orange-400 border-orange-500/20",
   critical: "bg-red-500/10 text-red-400 border-red-500/20",
-}
-
-const fraudTypeLabels: Record<string, string> = {
-  circular_ring: "Döngüsel Transfer",
-  impossible_travel: "İmkansız Seyahat",
-  blacklist_keyword: "Kara Liste",
-  mule_account: "Mule Hesap",
-  structuring: "Yapılandırma",
-  velocity_anomaly: "Hız Anomalisi",
-  ml_model: "ML Model",
-  ml_ensemble: "ML Tespit",
-  compliance_violation: "Uyum İhlali",
 }
 
 export default function AlertsPage() {
@@ -283,7 +272,7 @@ export default function AlertsPage() {
                                 {alert.severity.toUpperCase()}
                               </span>
                               <span className="text-xs text-zinc-500">
-                                {fraudTypeLabels[alert.fraud_type] || alert.fraud_type}
+                                {fraudTypeLabel(alert.fraud_type)}
                               </span>
                               {alert.is_dismissed && (
                                 <span className="text-xs text-zinc-600">
@@ -368,7 +357,7 @@ export default function AlertsPage() {
                     <dl>
                       <dt className="text-xs text-zinc-500 block">Tip</dt>
                       <dd className="text-sm text-white">
-                        {fraudTypeLabels[selectedAlert.fraud_type] || selectedAlert.fraud_type}
+                        {fraudTypeLabel(selectedAlert.fraud_type)}
                       </dd>
                     </dl>
                     
@@ -491,7 +480,7 @@ export default function AlertsPage() {
       {caseAlert && <LinkCaseDialog
         key={caseAlert.alert_id}
         alertId={caseAlert.alert_id}
-        suggestedTitle={`${fraudTypeLabels[caseAlert.fraud_type] || caseAlert.fraud_type} — ${caseAlert.sender_name || caseAlert.alert_id}`}
+        suggestedTitle={`${fraudTypeLabel(caseAlert.fraud_type)} — ${caseAlert.sender_name || caseAlert.alert_id}`}
         onLinked={(caseId) => handleCaseLinked(caseAlert.alert_id, caseId)}
         onSuccess={() => setCaseAlert(null)}
         onClose={() => setCaseAlert(null)}
