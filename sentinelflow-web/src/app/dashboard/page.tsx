@@ -367,6 +367,14 @@ function DashboardHeader({
             Skorlama
           </Link>
         )}
+        {canWrite(user) && (
+          <Link
+            href="/kyc"
+            className="text-[12px] text-muted hover:text-ink transition-colors"
+          >
+            Müşteri taraması
+          </Link>
+        )}
         {user && (
           <ChangePasswordButton className="p-1 text-muted hover:text-ink transition-colors" />
         )}

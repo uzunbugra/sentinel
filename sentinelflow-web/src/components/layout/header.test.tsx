@@ -20,16 +20,18 @@ describe("Header erişilebilirliği", () => {
     expect(screen.getByText("Test Analisti")).toBeInTheDocument()
   })
 
-  it("skorlama bağlantısını analiste gösterir, viewer'a göstermez", () => {
+  it("skorlama ve tarama bağlantılarını analiste gösterir, viewer'a göstermez", () => {
     mocks.role = "analyst"
     const { unmount } = render(<Header />)
     const nav = screen.getByRole("navigation", { name: "Ana gezinme" })
     expect(within(nav).getByRole("link", { name: "Skorlama" })).toHaveAttribute("href", "/score")
+    expect(within(nav).getByRole("link", { name: "Müşteri taraması" })).toHaveAttribute("href", "/kyc")
     unmount()
 
     mocks.role = "viewer"
     render(<Header />)
     expect(screen.queryByRole("link", { name: "Skorlama" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "Müşteri taraması" })).not.toBeInTheDocument()
     mocks.role = "analyst"
   })
 
