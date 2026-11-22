@@ -1,156 +1,177 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
-import { Bot, Send, ChevronUp, ChevronDown, Sparkles } from "lucide-react"
+import { Fragment, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react"
+import { Bot, Info, Send } from "lucide-react"
+
 import { config } from "@/lib/config"
 import { apiRequest } from "@/lib/auth"
 import { describeError } from "@/components/ui/request-state"
+import { cn } from "@/lib/utils"
+
+// SF-525: the backend assistant (src/sentinelflow/api/routes/chat.py) matches
+// keywords against a fixed knowledge base. It is not an LLM and does not look
+// at transactions or alerts, so the panel says so and sends no context.
+
+interface ChatReply {
+  response: string
+  suggestions?: string[]
+}
 
 interface Message {
   role: "user" | "assistant"
   content: string
+  error?: boolean
+}
+
+export const MAX_CHAT_MESSAGE = 1000
+
+/** Render the backend's `**bold**` markers; everything else stays plain text. */
+export function renderChatText(text: string): ReactNode {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    part.startsWith("**") && part.endsWith("**") && part.length > 4 ? (
+      <strong key={i} className="font-semibold text-ink">
+        {part.slice(2, -2)}
+      </strong>
+    ) : (
+      <Fragment key={i}>{part}</Fragment>
+    ),
+  )
 }
 
 export function AiChat() {
-  const [isExpanded, setIsExpanded] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
+  const [suggestions, setSuggestions] = useState<string[]>([])
   const [input, setInput] = useState("")
   const [isTyping, setIsTyping] = useState(false)
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const logRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    let active = true
+    apiRequest<string[]>(config.endpoints.chatSuggestions)
+      .then((list) => {
+        if (active) setSuggestions(list)
+      })
+      // Suggestions are optional; the panel still works without them.
+      .catch(() => {})
+    return () => {
+      active = false
     }
-  }, [messages])
+  }, [])
 
-  const handleSend = async () => {
-    if (!input.trim()) return
+  useEffect(() => {
+    if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight
+  }, [messages, isTyping])
 
-    const userMsg = input
-    setMessages(prev => [...prev, { role: "user", content: userMsg }])
+  const send = async (text: string) => {
+    const message = text.trim()
+    if (!message || isTyping) return
+    setMessages((prev) => [...prev, { role: "user", content: message }])
     setInput("")
     setIsTyping(true)
-    setIsExpanded(true)
-
     try {
-      const data = await apiRequest<{ response: string }>(config.endpoints.chat, {
+      const data = await apiRequest<ChatReply>(config.endpoints.chat, {
         method: "POST",
-        body: JSON.stringify({
-          message: userMsg,
-          context: { amount: 150000, fraud_type: "whale_anomaly" },
-        }),
+        body: JSON.stringify({ message }),
       })
-
-      setMessages(prev => [...prev, { role: "assistant", content: data.response }])
+      setMessages((prev) => [...prev, { role: "assistant", content: data.response }])
+      if (data.suggestions?.length) setSuggestions(data.suggestions)
     } catch (err) {
-      setMessages(prev => [...prev, { role: "assistant", content: describeError(err) }])
+      setMessages((prev) => [...prev, { role: "assistant", content: describeError(err), error: true }])
     } finally {
       setIsTyping(false)
     }
   }
 
-  return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden transition-all duration-300">
-      {/* Expanded Chat */}
-      {isExpanded && (
-        <div className="h-[300px] flex flex-col border-b border-zinc-800">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-900/50">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
-                <Sparkles className="w-3 h-3 text-indigo-400" />
-              </div>
-              <span className="text-sm font-medium text-zinc-200">SentinelAI</span>
-            </div>
-            <button 
-              onClick={() => setIsExpanded(false)}
-              className="p-1 hover:bg-zinc-800 rounded transition-colors"
-            >
-              <ChevronDown className="w-4 h-4 text-zinc-500" />
-            </button>
-          </div>
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    void send(input)
+  }
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3" ref={scrollRef}>
-            {messages.length === 0 && (
-              <div className="flex flex-col items-center justify-center h-full text-center">
-                <Bot className="w-8 h-8 text-zinc-600 mb-2" />
-                <p className="text-sm text-zinc-500">Ask about suspicious activities</p>
-                <p className="text-xs text-zinc-600 mt-1">I can help analyze patterns and anomalies</p>
-              </div>
-            )}
-            
-            {messages.map((msg, i) => (
-              <div 
-                key={i} 
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                <div className={`
-                  max-w-[80%] px-3 py-2 rounded-lg text-sm
-                  ${msg.role === "user" 
-                    ? "bg-indigo-500 text-white" 
-                    : "bg-zinc-800 text-zinc-200 border border-zinc-700"
-                  }
-                `}>
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-            
-            {isTyping && (
-              <div className="flex justify-start">
-                <div className="bg-zinc-800 border border-zinc-700 px-3 py-2 rounded-lg flex gap-1">
-                  <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                  <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                  <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" />
-                </div>
-              </div>
-            )}
+  return (
+    <section aria-labelledby="ai-chat-title" className="m-4 space-y-3 rounded-lg border border-line bg-base-2/60 p-4">
+      <div>
+        <h2 id="ai-chat-title" className="flex items-center gap-2 text-[13px] font-semibold text-ink">
+          <Bot className="h-3.5 w-3.5 text-signal" />
+          Yardım asistanı
+        </h2>
+        <p role="note" className="mt-1 flex items-start gap-1.5 text-[11px] text-muted">
+          <Info className="mt-0.5 h-3 w-3 shrink-0" />
+          Kural tabanlı asistan: sorudaki anahtar kelimelere göre hazır bilgi tabanından yanıt verir.
+          Yapay zekâ dil modeli (LLM) kullanmaz, işlemlere ve alarmlara bakmaz.
+        </p>
+      </div>
+
+      <div
+        ref={logRef}
+        role="log"
+        aria-label="Sohbet"
+        aria-live="polite"
+        className="h-56 space-y-2 overflow-y-auto rounded-md border border-line bg-base p-3"
+      >
+        {messages.length === 0 && !isTyping && (
+          <p className="text-[12px] text-muted">
+            Dolandırıcılık türleri, MASAK eşikleri veya tespit kuralları hakkında soru sorun.
+          </p>
+        )}
+        {messages.map((msg, i) => (
+          <div key={i} className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}>
+            <div
+              data-role={msg.role}
+              className={cn(
+                "max-w-[85%] whitespace-pre-line rounded-md px-3 py-2 text-[12px]",
+                msg.role === "user"
+                  ? "border border-signal/40 bg-signal/20 text-ink"
+                  : msg.error
+                    ? "border border-alarm/40 text-alarm"
+                    : "border border-line bg-base-2 text-ink",
+              )}
+            >
+              {msg.role === "assistant" && !msg.error ? renderChatText(msg.content) : msg.content}
+            </div>
           </div>
+        ))}
+        {isTyping && (
+          <p role="status" className="text-[11px] text-muted">
+            Yanıt hazırlanıyor...
+          </p>
+        )}
+      </div>
+
+      {suggestions.length > 0 && (
+        <div className="flex flex-wrap gap-1.5" aria-label="Önerilen sorular" role="group">
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              type="button"
+              disabled={isTyping}
+              onClick={() => void send(s)}
+              className="rounded-md border border-line px-2 py-1 text-[11px] text-muted hover:text-ink disabled:opacity-50"
+            >
+              {s}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* Input Bar */}
-      <div className="p-3">
-        <form
-          onSubmit={(e) => { e.preventDefault(); handleSend() }}
-          className="flex items-center gap-3"
+      <form onSubmit={submit} className="flex items-center gap-2">
+        <input
+          type="text"
+          aria-label="Mesaj"
+          placeholder="Bir soru yazın..."
+          maxLength={MAX_CHAT_MESSAGE}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          className="flex-1 rounded-md border border-line bg-base px-2 py-1.5 text-[12px] text-ink placeholder:text-muted"
+        />
+        <button
+          type="submit"
+          aria-label="Gönder"
+          disabled={!input.trim() || isTyping}
+          className="rounded-md border border-signal/40 bg-signal/20 p-2 text-ink hover:bg-signal/30 disabled:opacity-50"
         >
-          <div className="flex items-center gap-2 text-zinc-500">
-            <Bot className="w-4 h-4" />
-          </div>
-          
-          <input
-            type="text"
-            placeholder="Ask SentinelAI..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onFocus={() => setIsExpanded(true)}
-            className="flex-1 bg-transparent text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none"
-          />
-          
-          <div className="flex items-center gap-2">
-            {!isExpanded && messages.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setIsExpanded(true)}
-                className="p-1.5 hover:bg-zinc-800 rounded transition-colors"
-              >
-                <ChevronUp className="w-4 h-4 text-zinc-500" />
-              </button>
-            )}
-            
-            <button
-              type="submit"
-              disabled={!input.trim()}
-              className="p-1.5 bg-indigo-500 hover:bg-indigo-400 disabled:bg-zinc-700 disabled:cursor-not-allowed rounded transition-colors"
-            >
-              <Send className="w-3.5 h-3.5 text-white" />
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          <Send className="h-3.5 w-3.5" />
+        </button>
+      </form>
+    </section>
   )
 }

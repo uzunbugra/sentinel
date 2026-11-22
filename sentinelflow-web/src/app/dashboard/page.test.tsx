@@ -34,6 +34,8 @@ vi.mock("next/dynamic", () => ({
 vi.mock("@/components/landing/NetworkGraph", () => ({
   NetworkGraph: () => <div data-testid="network-graph-stub" />,
 }))
+// The chat panel calls its own endpoints and has its own tests.
+vi.mock("@/components/dashboard/ai-chat", () => ({ AiChat: () => <section aria-label="Yardım asistanı" /> }))
 vi.mock("motion/react", () => ({
   AnimatePresence: ({ children }: { children: ReactNode }) => <>{children}</>,
   motion: {
