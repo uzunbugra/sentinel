@@ -1,0 +1,11 @@
+# SF-508: daily PostgreSQL dump. Install: see deploy/README.md "Yedekleme".
+[Unit]
+Description=SentinelFlow PostgreSQL backup
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+# Optional settings (OCI_BUCKET, KEEP_DAILY, ...); the file holds no secrets.
+EnvironmentFile=-/etc/sentinelflow/backup.env
+ExecStart=/opt/sentinelflow/deploy/backup/pg_backup.sh
