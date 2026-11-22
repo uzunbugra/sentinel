@@ -54,6 +54,9 @@ services:
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DEBUG: "false"
+      # SF-507: no self-registration in production (API answers 403; the
+      # proxy blocks it too). Accounts come from scripts/seed_admin.py.
+      SENTINELFLOW_REGISTRATION_ENABLED: "false"
 
   frontend:
     profiles: !reset []      # base file hides it behind `frontend`; always on here
