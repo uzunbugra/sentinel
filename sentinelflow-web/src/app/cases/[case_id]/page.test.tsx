@@ -40,7 +40,8 @@ beforeEach(() => {
     if (endpoint.includes("/alerts/")) {
       const id = endpoint.split("/").pop()
       if (id === failedAlert) throw new ApiError(404, "Not found")
-      return { alert_id: id, title: `Alarm ${id}`, severity: "high", amount: 2500, currency: "TRY" }
+      const fraud_type = id === "ALT-1" ? "ml_model" : "impossible_travel"
+      return { alert_id: id, fraud_type, title: `Alarm ${id}`, severity: "high", amount: 2500, currency: "TRY" }
     }
     return currentCase
   })
@@ -72,8 +73,10 @@ describe("Vaka detayı", () => {
     expect(summary).toHaveTextContent("SLA İhlali")
     expect(summary).toHaveTextContent("16.10.2026 00:30")
     expect(summary).toHaveTextContent("13.10.2026 00:30")
-    expect(await screen.findByText("Alarm ALT-1")).toBeInTheDocument()
-    expect(screen.getByText("Alarm ALT-2")).toBeInTheDocument()
+    const alerts = screen.getByRole("region", { name: "Bağlı alarmlar" })
+    expect(await within(alerts).findByText("ML Model")).toBeInTheDocument()
+    expect(within(alerts).getByText("İmkansız Seyahat")).toBeInTheDocument()
+    expect(within(alerts).queryByText("Alarm ALT-1")).toBeNull()
     const timeline = screen.getByRole("region", { name: "İşlem geçmişi" })
     expect(timeline).toHaveTextContent("analyst1")
     expect(timeline).toHaveTextContent("new → investigating")
@@ -100,9 +103,10 @@ describe("Vaka detayı", () => {
   it("bir alarm yüklenemezse kimliğini korur, diğer bölümler çalışır", async () => {
     failedAlert = "ALT-2"
     await openPage()
-    expect(await screen.findByText("Alarm ALT-1")).toBeInTheDocument()
-    expect(screen.getByText("ALT-2")).toBeInTheDocument()
-    expect(screen.queryByText("Alarm ALT-2")).toBeNull()
+    const alerts = screen.getByRole("region", { name: "Bağlı alarmlar" })
+    expect(await within(alerts).findByText("ML Model")).toBeInTheDocument()
+    expect(within(alerts).getByText("ALT-2")).toBeInTheDocument()
+    expect(within(alerts).queryByText("İmkansız Seyahat")).toBeNull()
     expect(screen.queryByRole("alert")).toBeNull()
   })
 
