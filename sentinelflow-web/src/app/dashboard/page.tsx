@@ -38,6 +38,7 @@ import {
 import { NetworkGraph } from "@/components/landing/NetworkGraph"
 import { ActiveModelCard } from "@/components/dashboard/active-model-card"
 import { DemoTransactionForm } from "@/components/dashboard/demo-transaction-form"
+import { ChangePasswordButton } from "@/components/layout/change-password-dialog"
 
 const GlobeScene = dynamic(() => import("@/components/3d/GlobeScene"), {
   ssr: false,
@@ -365,6 +366,9 @@ function DashboardHeader({
           >
             Skorlama
           </Link>
+        )}
+        {user && (
+          <ChangePasswordButton className="p-1 text-muted hover:text-ink transition-colors" />
         )}
       </div>
     </header>

@@ -9,6 +9,7 @@ Playwright testleri gerçek API'ye ve web'in production build'ine karşı koşar
 | `model-state.spec.ts` | Model yüklü değilken panodaki aktif model kartı "Yüklü model yok" der. `/ml/models` 500 döndüğünde kart hata ve "Tekrar dene" gösterir (bu hata Playwright route ile üretilir) |
 | `score.spec.ts` | Analist dashboard başlığından Skorlama'ya gider. Modelsiz API 503 döndüğü için sayfa "Model yüklü değil" der. Route ile verilen skor cevabında karar, skor, eşik ve ilk 5 katkı görünür. Viewer bağlantıyı ve formu görmez, API de viewer'ın `POST /risk/score`'unu 403 ile reddeder (SF-521) |
 | `demo-transaction.spec.ts` | Analist dashboard'daki "Demo işlem gönder" formuyla sentetik bir işlem gönderir. Modelsiz API işlemi kaydeder ama skorlamaz ve form bunu söyler. Route ile verilen dolandırıcılık cevabında alarm kimliği ve "Alarmlara git" bağlantısı görünür. Viewer formu görmez (SF-523) |
+| `change-password.spec.ts` | Viewer başlıktaki menüden parolasını değiştirir. Yanlış mevcut parola "Mevcut parola yanlış." der. Değişiklikten sonra eski parola 401 alır, yenisiyle giriş yapılır. Test sonunda seed parolası API ile geri yüklenir (SF-524) |
 
 ## Test verisi
 
