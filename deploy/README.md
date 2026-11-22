@@ -115,13 +115,15 @@ açılır; açılırsa sonraki her `dc` komutuna aynı `--profile` bayrakları e
 
 ### 2.5 Hesaplar (SF-506)
 
-Kayıt uç noktası canlıda kapalıdır; hesaplar yalnız seed betiğiyle açılır. Parolalar kasadan,
+Kayıt uç noktası canlıda kapalıdır (#93); hesaplar yalnız seed betiğiyle açılır.
+Kullanıcı adları varsayılan olarak rolün adıdır (`admin`, `analyst`, `viewer`);
+`SEED_ADMIN_USERNAME` ile değiştirilebilir. Parolalar kasadan,
 komut satırına değil ortam değişkenine verilir (`read -s` geçmişe yazmaz):
 
 ```bash
 read -rs SEED_ADMIN_PASSWORD && export SEED_ADMIN_PASSWORD
 dc exec -T -e SEED_ADMIN_PASSWORD api python scripts/seed_admin.py --no-generate
-# demo_analyst ve demo_viewer için her birinde parolayı yeniden okuyun:
+# analyst ve viewer demo hesapları (#94); her birinde parolayı yeniden okuyun:
 dc exec -T -e SEED_ADMIN_PASSWORD api python scripts/seed_admin.py --role analyst --no-generate
 dc exec -T -e SEED_ADMIN_PASSWORD api python scripts/seed_admin.py --role viewer --no-generate
 unset SEED_ADMIN_PASSWORD
