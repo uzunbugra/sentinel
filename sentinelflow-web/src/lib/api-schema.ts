@@ -113,7 +113,7 @@ export const apiSchema = {
           "Authentication"
         ],
         "summary": "Register new user",
-        "description": "Create a new user account. Default role is 'viewer'. Returns 403 when SENTINELFLOW_REGISTRATION_ENABLED is false.",
+        "description": "Create a new user account. The account is always a 'viewer'; a 'role' in the body is ignored. Returns 403 when SENTINELFLOW_REGISTRATION_ENABLED is false.",
         "operationId": "register_api_v1_auth_register_post",
         "requestBody": {
           "content": {

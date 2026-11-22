@@ -251,6 +251,22 @@ class TestRegistrationToggle:
         assert resp.status_code == 403
         assert resp.json()["detail"] == "registration_disabled"
 
+    @pytest.mark.parametrize("role", ["admin", "analyst", "api"])
+    def test_register_ignores_requested_role(self, auth_client, monkeypatch, role):
+        monkeypatch.delenv("SENTINELFLOW_REGISTRATION_ENABLED", raising=False)
+        client, _, _ = auth_client
+        resp = client.post("/api/v1/auth/register", json={**_NEW_USER, "role": role})
+        assert resp.status_code == 200
+        assert resp.json()["role"] == "viewer"
+        # The stored account is a viewer too: it cannot use analyst actions.
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"username": _NEW_USER["username"], "password": _NEW_USER["password"]},
+        )
+        token = login.json()["access_token"]
+        me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
+        assert me.json()["role"] == "viewer"
+
     def test_disabled_registration_creates_no_user(self, auth_client, monkeypatch):
         monkeypatch.setenv("SENTINELFLOW_REGISTRATION_ENABLED", "false")
         client, _, _ = auth_client

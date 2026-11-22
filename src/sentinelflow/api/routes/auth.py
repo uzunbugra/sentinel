@@ -21,6 +21,7 @@ from sentinelflow.contracts import (
     User,
     UserCreate,
     UserPublic,
+    UserRole,
 )
 from sentinelflow.contracts.user import PasswordChangeRequest, RefreshRequest
 
@@ -99,8 +100,9 @@ def registration_enabled() -> bool:
     response_model=UserPublic,
     summary="Register new user",
     description=(
-        "Create a new user account. Default role is 'viewer'. "
-        "Returns 403 when SENTINELFLOW_REGISTRATION_ENABLED is false."
+        "Create a new user account. The account is always a 'viewer'; a "
+        "'role' in the body is ignored. Returns 403 when "
+        "SENTINELFLOW_REGISTRATION_ENABLED is false."
     ),
 )
 async def register(
@@ -110,6 +112,11 @@ async def register(
     """Register a new user."""
     if not registration_enabled():
         raise HTTPException(status_code=403, detail="registration_disabled")
+
+    # Self-service accounts are always viewers: `role` comes from the client,
+    # and honouring it let anyone open an admin account. Other roles are
+    # created with scripts/seed_admin.py.
+    user_data = user_data.model_copy(update={"role": UserRole.VIEWER})
 
     auth_service = AuthService(session)
 
