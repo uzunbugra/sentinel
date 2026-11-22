@@ -8,6 +8,14 @@ vi.mock("@/lib/auth", async (orig) => ({
   ...(await orig()),
   apiRequest: vi.fn(),
 }))
+const authMock = vi.hoisted(() => ({ role: "analyst" as "analyst" | "viewer" }))
+vi.mock("@/contexts/auth-context", () => ({
+  useAuth: () => ({
+    user: { full_name: "Demo", role: authMock.role },
+    isAuthenticated: true,
+    logout: vi.fn(),
+  }),
+}))
 vi.mock("@/hooks/use-websocket", () => ({
   useWebSocket: () => ({
     status: "disconnected",
@@ -136,5 +144,22 @@ describe("DashboardPage aktif model", () => {
 
     expect(await screen.findByText("fraud-lgbm-20261105-a1b2c3d")).toBeInTheDocument()
     expect(mockApi).toHaveBeenCalledWith(config.endpoints.modelInfo)
+  })
+})
+
+describe("DashboardPage gezinme", () => {
+  it("skorlama baglantisini analiste gosterir, viewer'a gostermez", async () => {
+    routeApi(STATS)
+    authMock.role = "analyst"
+    const { unmount } = render(<DashboardPage />)
+    expect(await screen.findByRole("link", { name: "Skorlama" })).toHaveAttribute("href", "/score")
+    unmount()
+
+    routeApi(STATS)
+    authMock.role = "viewer"
+    render(<DashboardPage />)
+    expect(await screen.findByText("42")).toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "Skorlama" })).not.toBeInTheDocument()
+    authMock.role = "analyst"
   })
 })

@@ -24,7 +24,8 @@ import { AnimatePresence, motion } from "motion/react"
 import { useWebSocket } from "@/hooks/use-websocket"
 import { formatTime } from "@/lib/datetime"
 import { config } from "@/lib/config"
-import { apiRequest } from "@/lib/auth"
+import { apiRequest, canWrite } from "@/lib/auth"
+import { useAuth } from "@/contexts/auth-context"
 import { describeError } from "@/components/ui/request-state"
 import { cn } from "@/lib/utils"
 import { fraudLabel, type Alert3D } from "@/components/3d/types"
@@ -300,6 +301,7 @@ function DashboardHeader({
   backendUp: boolean
   statsError: unknown
 }) {
+  const { user } = useAuth()
   return (
     <header className="sticky top-0 z-40 h-14 border-b border-line bg-base/80 backdrop-blur-md flex items-center justify-between px-5">
       <div className="flex items-center gap-4">
@@ -355,6 +357,14 @@ function DashboardHeader({
         >
           Vakalar
         </Link>
+        {canWrite(user) && (
+          <Link
+            href="/score"
+            className="text-[12px] text-muted hover:text-ink transition-colors"
+          >
+            Skorlama
+          </Link>
+        )}
       </div>
     </header>
   )

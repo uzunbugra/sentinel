@@ -7,6 +7,7 @@ Playwright testleri gerçek API'ye ve web'in production build'ine karşı koşar
 | `analyst-flow.spec.ts` | Analist girişi → alarm → "Vaka Oluştur" → vaka detayı → durum değişikliği → işlem geçmişinde `case_created`, `alert_linked_to_case`, `case_status_changed` |
 | `viewer-permissions.spec.ts` | Viewer alarmı ve vakayı okur; "Vaka Oluştur", "Reddet" ve vaka işlemleri görünmez. API de viewer'ın `PATCH /cases`'ini 403 ile reddeder |
 | `model-state.spec.ts` | Model yüklü değilken panodaki aktif model kartı "Yüklü model yok" der. `/ml/models` 500 döndüğünde kart hata ve "Tekrar dene" gösterir (bu hata Playwright route ile üretilir) |
+| `score.spec.ts` | Analist dashboard başlığından Skorlama'ya gider. Modelsiz API 503 döndüğü için sayfa "Model yüklü değil" der. Route ile verilen skor cevabında karar, skor, eşik ve ilk 5 katkı görünür. Viewer bağlantıyı ve formu görmez, API de viewer'ın `POST /risk/score`'unu 403 ile reddeder (SF-521) |
 
 ## Test verisi
 
