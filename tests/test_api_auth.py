@@ -225,3 +225,38 @@ class TestCORS:
         origins, allow_credentials = _cors_settings()
         assert origins == ["*"]
         assert allow_credentials is False
+
+
+_NEW_USER = {
+    "username": "newuser1",
+    "email": "newuser@example.com",
+    "password": "NewUser123",
+    "full_name": "New User",
+}
+
+
+class TestRegistrationToggle:
+    def test_register_open_by_default(self, auth_client, monkeypatch):
+        monkeypatch.delenv("SENTINELFLOW_REGISTRATION_ENABLED", raising=False)
+        client, _, _ = auth_client
+        resp = client.post("/api/v1/auth/register", json=_NEW_USER)
+        assert resp.status_code == 200
+        assert resp.json()["role"] == "viewer"
+
+    @pytest.mark.parametrize("value", ["false", "0", "no", "OFF", " False "])
+    def test_register_disabled(self, auth_client, monkeypatch, value):
+        monkeypatch.setenv("SENTINELFLOW_REGISTRATION_ENABLED", value)
+        client, _, _ = auth_client
+        resp = client.post("/api/v1/auth/register", json=_NEW_USER)
+        assert resp.status_code == 403
+        assert resp.json()["detail"] == "registration_disabled"
+
+    def test_disabled_registration_creates_no_user(self, auth_client, monkeypatch):
+        monkeypatch.setenv("SENTINELFLOW_REGISTRATION_ENABLED", "false")
+        client, _, _ = auth_client
+        client.post("/api/v1/auth/register", json=_NEW_USER)
+        resp = client.post(
+            "/api/v1/auth/login",
+            json={"username": _NEW_USER["username"], "password": _NEW_USER["password"]},
+        )
+        assert resp.status_code == 401
