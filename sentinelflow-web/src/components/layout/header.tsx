@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { config } from "@/lib/config"
 import { Shield, LogOut, User, ShieldAlert, FolderKanban, LayoutDashboard, Calculator, UserSearch, Network } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { canWrite } from "@/lib/auth"
@@ -63,13 +64,15 @@ export function Header({ isConnected = false }: { isConnected?: boolean }) {
               <FolderKanban className="w-4 h-4" />
               Vakalar
             </Link>
-            <Link
-              href="/graph"
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
-            >
-              <Network className="w-4 h-4" />
-              Ağ grafiği
-            </Link>
+            {config.features.enableNetworkGraph && (
+              <Link
+                href="/graph"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+              >
+                <Network className="w-4 h-4" />
+                Ağ grafiği
+              </Link>
+            )}
             {canWrite(user) && (
               <Link
                 href="/score"
