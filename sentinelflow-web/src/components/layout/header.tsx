@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Shield, LogOut, User, ShieldAlert, FolderKanban, LayoutDashboard, Calculator, UserSearch } from "lucide-react"
+import { Shield, LogOut, User, ShieldAlert, FolderKanban, LayoutDashboard, Calculator, UserSearch, Network } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { canWrite } from "@/lib/auth"
 import { ChangePasswordButton } from "./change-password-dialog"
@@ -62,6 +62,13 @@ export function Header({ isConnected = false }: { isConnected?: boolean }) {
             >
               <FolderKanban className="w-4 h-4" />
               Vakalar
+            </Link>
+            <Link
+              href="/graph"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+            >
+              <Network className="w-4 h-4" />
+              Ağ grafiği
             </Link>
             {canWrite(user) && (
               <Link

@@ -359,6 +359,12 @@ function DashboardHeader({
         >
           Vakalar
         </Link>
+        <Link
+          href="/graph"
+          className="text-[12px] text-muted hover:text-ink transition-colors"
+        >
+          Ağ grafiği
+        </Link>
         {canWrite(user) && (
           <Link
             href="/score"
