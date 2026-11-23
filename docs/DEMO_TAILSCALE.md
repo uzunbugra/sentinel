@@ -48,7 +48,12 @@ güçlü, rastgele değerler kullanın:
 python -c "import secrets; print(secrets.token_urlsafe(48))"
 ```
 
-`.env` git'e girmez; değerleri sohbete, issue'ya veya ekran görüntüsüne yazmayın.
+> **Demo dönemi kararı:** Şu anki her şey demo olduğu için ekip, demo bilgisayarının `.env`
+> dosyasını ve demo hesap parolalarını (`demo-accounts.txt`) repoya ekledi. Repo herkese açık
+> olduğundan bu değerler **herkes tarafından okunabilir**: Funnel açıkken adresi bilen herkes
+> bu hesaplarla giriş yapabilir ve `JWT_SECRET_KEY` ile token üretebilir. Bu yüzden Funnel
+> yalnız demo süresince açılır. Gerçek bir ortama geçilmeden önce bütün değerler yenilenir ve
+> `.env` repodan çıkarılır.
 `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_WS_URL` ve `CORS_ORIGINS` bu kurulumda **gerekmez**:
 web, açıldığı adresin `/api` ve `/ws` yollarını kullanır.
 
@@ -85,7 +90,9 @@ docker compose -f docker-compose.yml -f deploy/funnel/compose.funnel.yml exec -T
 Remove-Item Env:SEED_ADMIN_PASSWORD
 ```
 
-Aynısını `--role viewer` (ve gerekirse `--role admin`) için tekrarlayın. Betik var olan
+Aynısını `--role viewer` (ve gerekirse `--role admin`) için tekrarlayın. Demo bilgisayarındaki
+`admin`, `analyst` ve `viewer` hesaplarının şu anki parolaları repodaki `demo-accounts.txt`
+dosyasındadır. Betik var olan
 kullanıcıyı değiştirmez. Hocalara adres ve hesap bilgisini özel bir kanaldan iletin;
 demodan sonra parolaları uygulamadaki **Parola değiştir** menüsünden değiştirin.
 

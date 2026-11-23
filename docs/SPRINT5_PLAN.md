@@ -213,6 +213,9 @@ Her aşamanın sonucu Sprint 5 milestone'undaki ilgili issue'ya kısa bir not ol
 
 ## 9. Güvenlik kuralları
 
+- *(Güncel durum, §12: demo döneminde demo bilgisayarının `.env` dosyası ve demo hesap
+  parolaları (`demo-accounts.txt`) bilerek repoya eklendi; gerçek ortama geçmeden önce
+  hepsi yenilenip repodan çıkarılır. Aşağıdaki kural sunucu içindir.)*
 - `.env` yalnız sunucuda, `chmod 600`, repoya girmez. Canlı `JWT_SECRET_KEY`,
   `POSTGRES_PASSWORD`, `NEO4J_PASSWORD` yerel değerlerden farklı ve güçlü olur
   (`python -c "import secrets; print(secrets.token_urlsafe(48))"`).
