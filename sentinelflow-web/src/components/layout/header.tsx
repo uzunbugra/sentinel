@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Shield, LogOut, User, ShieldAlert, FolderKanban, LayoutDashboard, Calculator } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { canWrite } from "@/lib/auth"
+import { ChangePasswordButton } from "./change-password-dialog"
 
 export function Header({ isConnected = false }: { isConnected?: boolean }) {
   const { user, logout, isAuthenticated } = useAuth()
@@ -102,6 +103,7 @@ export function Header({ isConnected = false }: { isConnected?: boolean }) {
                 <p className="text-zinc-600">{user.role}</p>
               </div>
             </div>
+            <ChangePasswordButton />
             <button
               onClick={logout}
               className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-lg transition-colors"
