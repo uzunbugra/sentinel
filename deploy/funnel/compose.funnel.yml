@@ -1,0 +1,77 @@
+# =============================================================================
+# SentinelFlow — local demo shared through Tailscale Funnel
+# =============================================================================
+# Runs the normal Docker Compose stack on your own computer and puts one local
+# reverse proxy (Caddy, http://127.0.0.1:8088) in front of it. Tailscale Funnel
+# forwards a temporary public HTTPS address (https://<machine>.<tailnet>.ts.net)
+# to that single port. See docs/DEMO_TAILSCALE.md; scripts/funnel.ps1 does it
+# all in one command.
+#
+# Usage (repository root):
+#   docker compose -f docker-compose.yml -f deploy/funnel/compose.funnel.yml up -d --build
+#
+# What this override changes:
+#   * Every published port binds to 127.0.0.1 only. The development ports stay
+#     usable on this computer (psql, kafka-ui, ...) but are not reachable from
+#     the Wi-Fi/LAN. Funnel only ever exposes the proxy port.
+#   * The web is built in same-origin mode: the browser calls /api and /ws on
+#     the address it was opened from, so the same image works on localhost and
+#     on the Funnel address without a rebuild and without CORS.
+#   * Self-registration is off: the address is public while Funnel is on.
+#     Accounts come from scripts/seed_admin.py.
+# =============================================================================
+
+services:
+  postgres:
+    ports: !override ["127.0.0.1:5432:5432"]
+
+  zookeeper:
+    ports: !override ["127.0.0.1:2181:2181"]
+
+  kafka:
+    ports: !override ["127.0.0.1:9092:9092", "127.0.0.1:29092:29092"]
+
+  kafka-ui:
+    ports: !override ["127.0.0.1:8080:8080"]
+
+  neo4j:
+    ports: !override ["127.0.0.1:7474:7474", "127.0.0.1:7687:7687"]
+
+  redis:
+    ports: !override ["127.0.0.1:6379:6379"]
+
+  redis-commander:
+    ports: !override ["127.0.0.1:8081:8081"]
+
+  prometheus:
+    ports: !override ["127.0.0.1:9090:9090"]
+
+  api:
+    ports: !override ["127.0.0.1:8000:8000"]
+    environment:
+      SENTINELFLOW_REGISTRATION_ENABLED: "false"
+
+  frontend:
+    profiles: !reset []      # base file hides it behind `frontend`; always on here
+    ports: !override ["127.0.0.1:3000:3000"]
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: same-origin
+        NEXT_PUBLIC_WS_URL: ""
+
+  # The one port Tailscale Funnel forwards to.
+  caddy:
+    image: caddy:2.8.4
+    container_name: sentinelflow-funnel-proxy
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    ports:
+      - "127.0.0.1:8088:8088"
+    volumes:
+      - ./deploy/funnel/Caddyfile:/etc/caddy/Caddyfile:ro
+    networks:
+      - sentinelflow-network
+    restart: unless-stopped

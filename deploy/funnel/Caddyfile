@@ -1,0 +1,44 @@
+# =============================================================================
+# SentinelFlow — local proxy for the Tailscale Funnel demo
+# =============================================================================
+# Started by deploy/funnel/compose.funnel.yml. Plain HTTP on :8088; Tailscale
+# Funnel terminates HTTPS and forwards here, so Caddy issues no certificate.
+#
+# Routing:  /api/*  and  /ws/*  -> api:8000      everything else -> frontend:3000
+# =============================================================================
+
+{
+	auto_https off
+	admin localhost:2019
+}
+
+:8088 {
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	@internal path /metrics /metrics/* /docs /docs/* /redoc /redoc/* /openapi.json
+	@register {
+		method POST
+		path /api/v1/auth/register
+	}
+
+	route {
+		# Not for the public address: metrics and interactive API docs. On this
+		# computer they stay available at http://localhost:8000/docs.
+		respond @internal 404
+
+		# Registration is also off in the API (compose.funnel.yml).
+		respond @register "Registration is disabled" 403
+
+		reverse_proxy /api/* api:8000
+		reverse_proxy /ws/* api:8000
+
+		reverse_proxy frontend:3000
+	}
+}
