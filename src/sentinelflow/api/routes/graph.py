@@ -125,7 +125,7 @@ async def get_graph_data(
 
         query = """
         MATCH (s:User)-[t:SENT]->(r:User)
-        WHERE t.timestamp > $since
+        WHERE t.timestamp > datetime($since)
         RETURN s.iban AS sender, r.iban AS receiver,
                s.name AS sender_name, r.name AS receiver_name,
                s.city AS sender_city, r.city AS receiver_city,

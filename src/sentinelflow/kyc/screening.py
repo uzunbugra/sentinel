@@ -20,12 +20,38 @@ In production, these would integrate with external providers like:
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
 from loguru import logger
+
+# Country names and ISO codes that mean the same country. The demo lists store
+# names ("Türkiye"), while transactions and the API use ISO codes ("TR").
+_COUNTRY_ALIASES: dict[str, str] = {
+    alias: code
+    for code, aliases in {
+        "TR": ("tr", "tur", "turkiye", "turkey"),
+        "US": ("us", "usa", "united states", "united states of america"),
+        "SY": ("sy", "syr", "syria"),
+    }.items()
+    for alias in aliases
+}
+
+
+def _country_key(value: str) -> str:
+    """Comparable form of a country name or code ("Türkiye", "TR" -> "TR")."""
+    folded = unicodedata.normalize("NFKD", value.strip().casefold())
+    plain = "".join(ch for ch in folded if not unicodedata.combining(ch))
+    plain = plain.replace("ı", "i")
+    return _COUNTRY_ALIASES.get(plain, plain)
+
+
+def same_country(a: str, b: str) -> bool:
+    """True when two country names or ISO codes name the same country."""
+    return _country_key(a) == _country_key(b)
 
 # =============================================================================
 # Enums
@@ -284,7 +310,7 @@ class PEPScreener:
                 continue
 
             # Country filter
-            if country and pep_info.get("country", "").lower() != country.lower():
+            if country and not same_country(pep_info.get("country", ""), country):
                 continue
 
             # Check for matches

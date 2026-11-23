@@ -149,6 +149,15 @@ class TestTransactionsAuth:
         )
         assert resp.status_code != 401
 
+    def test_submit_rejects_viewer(self, auth_client):
+        client, viewer_token, _ = auth_client
+        resp = client.post(
+            "/api/v1/transactions",
+            json=_TX,
+            headers={"Authorization": f"Bearer {viewer_token}"},
+        )
+        assert resp.status_code == 403
+
     def test_submit_with_api_key(self, auth_client, monkeypatch):
         import sentinelflow.api.routes.transactions as ingest_module
 

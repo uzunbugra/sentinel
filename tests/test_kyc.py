@@ -192,6 +192,44 @@ class TestPEPScreener:
         assert not result.has_matches
         assert result.risk_score == 0.0
 
+    def test_country_filter_accepts_iso_codes(self):
+        """The list stores "Türkiye"; "TR" and other spellings must still match."""
+        from sentinelflow.kyc import PEPScreener
+
+        screener = PEPScreener()
+
+        for country in ("TR", "tur", "Türkiye", "TÜRKİYE", "Turkey"):
+            assert screener.screen("Ahmet Politikacı", country=country).has_matches, country
+        assert not screener.screen("Ahmet Politikacı", country="US").has_matches
+
+    def test_same_country(self):
+        from sentinelflow.kyc.screening import same_country
+
+        assert same_country("Türkiye", "TR")
+        assert same_country("USA", "us")
+        assert not same_country("Syria", "TR")
+
+
+class TestRingQueries:
+    """Each cycle is found once per member; the queries keep one copy."""
+
+    def test_ring_queries_keep_one_rotation(self):
+        from sentinelflow.processor.graph_engine.cypher import (
+            all_rings_query,
+            rings_without_apoc_query,
+        )
+
+        for query in (all_rings_query(3, 5), rings_without_apoc_query(3, 5)):
+            assert "ALL(n IN nodes(path) WHERE a.iban <= n.iban)" in query
+
+    def test_ring_id_is_stable(self):
+        from sentinelflow.processor.graph_engine.engine import ring_id_for
+
+        ibans = ["TR01", "TR02", "TR03", "TR01"]
+        assert ring_id_for(ibans) == ring_id_for(list(ibans))
+        assert ring_id_for(ibans).startswith("RING-")
+        assert ring_id_for(ibans) != ring_id_for(["TR01", "TR03", "TR02", "TR01"])
+
 
 class TestSanctionsChecker:
     """Tests for sanctions checking."""

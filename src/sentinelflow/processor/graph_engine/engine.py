@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -43,6 +44,16 @@ from .cypher import (
     rings_without_apoc_query,
 )
 from .types import FraudRing, TransactionData
+
+
+def ring_id_for(ibans: list[str]) -> str:
+    """Stable ring id: the same accounts give the same id in every process.
+
+    (Python's ``hash`` of strings changes between processes, so the id used
+    to change whenever the API restarted.)
+    """
+    digest = hashlib.sha1("|".join(ibans).encode("utf-8")).hexdigest()
+    return f"RING-{int(digest[:8], 16) % 100000:05d}"
 
 
 class GraphEngine:
@@ -358,7 +369,7 @@ class GraphEngine:
 
             for record in result:
                 ibans = record["ibans"]
-                ring_id = f"RING-{abs(hash(tuple(ibans))) % 100000:05d}"
+                ring_id = ring_id_for(ibans)
 
                 fraud_ring: FraudRing = {
                     "ring_id": ring_id,
@@ -412,7 +423,7 @@ class GraphEngine:
 
                 for record in result:
                     ibans = record["ibans"]
-                    ring_id = f"RING-{abs(hash(tuple(ibans))) % 100000:05d}"
+                    ring_id = ring_id_for(ibans)
 
                     fraud_ring: FraudRing = {
                         "ring_id": ring_id,
@@ -449,7 +460,7 @@ class GraphEngine:
 
             for record in result:
                 ibans = record["ibans"]
-                ring_id = f"RING-{abs(hash(tuple(ibans))) % 100000:05d}"
+                ring_id = ring_id_for(ibans)
 
                 fraud_ring: FraudRing = {
                     "ring_id": ring_id,

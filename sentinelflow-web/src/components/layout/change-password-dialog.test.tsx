@@ -29,6 +29,17 @@ async function openAndFill(current: string, next: string, confirm = next) {
 }
 
 describe("ChangePasswordDialog", () => {
+  it("renders outside the header so a blurred header cannot clip it", async () => {
+    render(
+      <header data-testid="header" className="backdrop-blur-sm">
+        <ChangePasswordButton />
+      </header>,
+    )
+    await userEvent.click(screen.getByRole("button", { name: "Parola değiştir" }))
+    const dialog = screen.getByRole("dialog", { name: "Parola değiştir" })
+    expect(screen.getByTestId("header")).not.toContainElement(dialog)
+  })
+
   it("changes the password and asks the user to sign in again", async () => {
     mockApi.mockResolvedValueOnce({ message: "Password changed successfully" })
     await openAndFill("Eskisifre1", "Yenisifre1")

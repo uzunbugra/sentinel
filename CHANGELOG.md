@@ -13,7 +13,15 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - **Tailscale Funnel demo.** `scripts/funnel.ps1` starts the stack with `deploy/funnel/compose.funnel.yml` (every container port bound to `127.0.0.1`, registration closed, Caddy on `127.0.0.1:8088` routing `/api` and `/ws` to the API and blocking `/metrics`, `/docs` and registration), waits for health, turns Funnel on and prints the address; `-Stop` / `-Down` turn it off.
 - **Web same-origin mode.** `NEXT_PUBLIC_API_URL=same-origin` makes the web call `/api` on the page's own host and open the WebSocket from `window.location`, so one bundle works on `localhost` and on the Funnel address.
 
+### Fixed
+- **Graph page main view was always empty (SF-510).** `GET /api/v1/graph/data` compared the stored Neo4j `DATE_TIME` with an ISO string, which never matches; the query now uses `datetime($since)`.
+- **Change-password dialog was clipped (SF-510).** The dialog rendered inside the blurred header, which became the containing block of its fixed overlay; it now renders in a portal on `document.body`.
+- **Rings were listed once per member (SF-510).** A cycle is matched from each of its accounts; the ring queries now keep only the copy that starts at the smallest IBAN, so `GET /api/v1/graph/rings` lists each ring once. Ring ids come from SHA-1 instead of Python's per-process `hash`, so they no longer change when the API restarts.
+- **KYC country filter missed ISO codes (SF-510).** The PEP list stores country names ("Türkiye") while requests send codes ("TR"); `same_country` now treats names, ISO codes and case/diacritic variants of the same country as equal.
+- **Demo doc: the graph needs the detector (SF-510).** `docs/DEMO_TAILSCALE.md` §5 now says the graph page fills only while the Kafka detector writes to Neo4j, and gives the commands to start it with the generator.
+
 ### Security
+- **Viewers can no longer submit transactions (SF-510).** `POST /api/v1/transactions` creates alerts, so a JWT for a `viewer` now gets `403`; analysts, admins and the `X-API-Key` service path are unchanged.
 - **SF-507 — self-registration.** `POST /api/v1/auth/register` always creates a `viewer`; a `role` in the request body is ignored (it previously let an unauthenticated client open an admin account). `SENTINELFLOW_REGISTRATION_ENABLED=false` closes the endpoint with `403 registration_disabled`; production sets it, and other roles are created with `scripts/seed_admin.py`.
 
 ## [2.3.0] - 2026-11-20

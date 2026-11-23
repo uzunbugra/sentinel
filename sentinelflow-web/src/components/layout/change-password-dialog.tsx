@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react"
+import { createPortal } from "react-dom"
 import { KeyRound } from "lucide-react"
 
 import { keyboardFocusWithin } from "@/components/ui/keyboard-focus"
@@ -33,7 +34,9 @@ export function ChangePasswordButton({ className }: { className?: string }) {
       >
         <KeyRound className="w-4 h-4" />
       </button>
-      {open && <ChangePasswordDialog onClose={() => setOpen(false)} />}
+      {/* Portal: the header uses backdrop-blur, which would make it the
+          containing block of this fixed overlay and clip the dialog. */}
+      {open && createPortal(<ChangePasswordDialog onClose={() => setOpen(false)} />, document.body)}
     </>
   )
 }
