@@ -57,7 +57,13 @@ function Find-Tailscale {
 
 function Invoke-Native {
     param([string]$Exe, [string[]]$Arguments)
-    & $Exe @Arguments
+    # Docker and Tailscale write progress to stderr. Windows PowerShell 5.1
+    # turns that into an error record, which 'Stop' would make fatal when the
+    # output is redirected; success is decided by the exit code instead.
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { & $Exe @Arguments 2>&1 | ForEach-Object { Write-Host $_ } }
+    finally { $ErrorActionPreference = $previous }
     if ($LASTEXITCODE -ne 0) { throw "$Exe $($Arguments -join ' ') başarısız (çıkış kodu $LASTEXITCODE)" }
 }
 
@@ -92,7 +98,14 @@ try {
 
     $up = $ComposeArgs + @('up', '-d')
     if (-not $NoBuild) { $up += '--build' }
-    Invoke-Native docker $up
+    try {
+        Invoke-Native docker $up
+    } catch {
+        # One unhealthy optional service (e.g. Neo4j) makes `up` fail although
+        # the web and API run. The API health check below decides.
+        Write-Warning "docker compose up hata verdi: $($_.Exception.Message)"
+        Write-Warning "Servislerin durumu: docker compose -f docker-compose.yml -f deploy/funnel/compose.funnel.yml ps -a"
+    }
 
     $health = "http://127.0.0.1:$ProxyPort/api/v1/system/health"
     Write-Host "API bekleniyor: $health"
