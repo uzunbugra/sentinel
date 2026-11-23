@@ -3,9 +3,9 @@
 // =============================================================================
 // SentinelFlow — SOC Dashboard (canli izleme ekrani)
 // =============================================================================
-// Landing sayfasinin tasarim diliyle tutarli. Backend kapaliyken "demo mode"
-// ile sahte verilerle dolu, canli hissi veren bir ekran. Backend acildiginda
-// gercek WebSocket/REST verisine gecer.
+// Landing sayfasinin tasarim diliyle tutarli. Sayilar ve alarm akisi yalniz
+// API'den (REST + WebSocket) gelir; backend'e ulasilamazsa uydurma deger
+// gosterilmez. Graf ve kure animasyonlari temsili olarak etiketlenir.
 // =============================================================================
 
 import { useEffect, useMemo, useState } from "react"
@@ -14,7 +14,7 @@ import {
   Activity,
   ShieldAlert,
   CreditCard,
-  Gauge,
+  Bell,
   ArrowLeft,
   CircleDot,
 } from "lucide-react"
@@ -29,12 +29,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { describeError } from "@/components/ui/request-state"
 import { cn } from "@/lib/utils"
 import { fraudLabel, type Alert3D } from "@/components/3d/types"
-import {
-  FAUX_ALERTS,
-  FAUX_ALERTS_EXTRA,
-  SEVERITY_META,
-  type FauxAlert,
-} from "@/lib/landing-data"
+import { SEVERITY_META } from "@/lib/landing-data"
 import { NetworkGraph } from "@/components/landing/NetworkGraph"
 import { ActiveModelCard } from "@/components/dashboard/active-model-card"
 import { DemoTransactionForm } from "@/components/dashboard/demo-transaction-form"
@@ -65,45 +60,66 @@ interface Stats {
   fraud_detected: number
   fraud_rate: number
   uptime_seconds: number
+  alerts_created?: number
+  by_severity?: Record<string, number>
 }
 
-// --- Demo veri ureteci (backend yoksa) ---------------------------------------
-function useDemoData(live: boolean) {
-  const [alerts, setAlerts] = useState<FauxAlert[]>(FAUX_ALERTS.slice(0, 8))
-  const [stats, setStats] = useState({
-    transactions_processed: 8421,
-    fraud_detected: 23,
-    uptime_seconds: 1274,
-  })
+// --- Alarm akisi (REST ilk yukleme + WebSocket) -------------------------------
+type Severity = "critical" | "high" | "medium" | "low"
 
-  useEffect(() => {
-    if (live) return
-    const prefersReduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches
-    if (prefersReduced) return
+const SEVERITIES: Severity[] = ["critical", "high", "medium", "low"]
 
-    const tick = () => {
-      const pool = [...FAUX_ALERTS, ...FAUX_ALERTS_EXTRA]
-      const next = pool[Math.floor(Math.random() * pool.length)]
-      const stamped: FauxAlert = {
-        ...next,
-        id: `ALERT-${Math.random().toString(16).slice(2, 8)}`,
-        ts: new Date().toLocaleTimeString("en-GB", { hour12: false }),
-      }
-      setAlerts((prev) => [stamped, ...prev].slice(0, 12))
-      setStats((s) => ({
-        transactions_processed:
-          s.transactions_processed + Math.floor(Math.random() * 40 + 10),
-        fraud_detected: s.fraud_detected + (Math.random() > 0.7 ? 1 : 0),
-        uptime_seconds: s.uptime_seconds + 2,
-      }))
-    }
-    const iv = setInterval(tick, 2400)
-    return () => clearInterval(iv)
-  }, [live])
+const SEV_META: Record<Severity, { label: string; color: string }> = {
+  ...SEVERITY_META,
+  low: { label: "Low", color: "#7d8ba1" },
+}
 
-  return { alerts, stats }
+interface AlertRowData {
+  id: string
+  ts: string
+  engine: string
+  severity: Severity
+  detail: string
+  amount: string
+}
+
+interface AlertsResponse {
+  alerts: Alert3D[]
+}
+
+const ALERT_LIMIT = 12
+
+function toSeverity(value: unknown): Severity {
+  const s = String(value).toLowerCase()
+  return (SEVERITIES as string[]).includes(s) ? (s as Severity) : "medium"
+}
+
+function toRow(a: Alert3D): AlertRowData {
+  return {
+    id: a.alert_id,
+    ts: formatTime(a.detected_at),
+    engine: a.fraud_type,
+    severity: toSeverity(a.severity),
+    detail: a.description || fraudLabel(a.fraud_type),
+    amount: new Intl.NumberFormat("tr-TR", {
+      style: "currency",
+      currency: a.currency || "TRY",
+      maximumFractionDigits: 0,
+    }).format(a.amount ?? 0),
+  }
+}
+
+/** WebSocket alarmlari once; ayni alarm REST'ten de geldiyse bir kez gosterilir. */
+function mergeAlerts(live: Alert3D[], recent: Alert3D[]): AlertRowData[] {
+  const seen = new Set<string>()
+  const rows: AlertRowData[] = []
+  for (const a of [...live, ...recent]) {
+    if (!a?.alert_id || seen.has(a.alert_id)) continue
+    seen.add(a.alert_id)
+    rows.push(toRow(a))
+    if (rows.length === ALERT_LIMIT) break
+  }
+  return rows
 }
 
 // --- Stat karti (landing temasiyla uyumlu) ----------------------------------
@@ -152,8 +168,8 @@ function StatCard({
 }
 
 // --- Alert satiri -----------------------------------------------------------
-function AlertRow({ a }: { a: FauxAlert }) {
-  const sev = SEVERITY_META[a.severity]
+function AlertRow({ a }: { a: AlertRowData }) {
+  const sev = SEV_META[a.severity]
   return (
     <motion.div
       layout
@@ -205,14 +221,15 @@ const MOTORS = [
 export default function DashboardPage() {
   const { isConnected, alerts: wsAlerts } = useWebSocket()
   const isLive = isConnected
-  const demo = useDemoData(isLive)
 
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<Stats>({
     transactions_processed: 0,
     fraud_detected: 0,
     fraud_rate: 0,
     uptime_seconds: 0,
   })
+  const [recentAlerts, setRecentAlerts] = useState<Alert3D[]>([])
+  const [alertsLoaded, setAlertsLoaded] = useState(false)
   const [backendUp, setBackendUp] = useState(false)
   const [statsError, setStatsError] = useState<unknown>(null)
 
@@ -238,43 +255,44 @@ export default function DashboardPage() {
     }
   }, [])
 
+  // Son alarmlar acilista ve kayitli alarm sayisi degistikce REST'ten okunur;
+  // WebSocket bagli degilken de liste guncel kalir.
+  const alertsCreated = stats.alerts_created
+  useEffect(() => {
+    let alive = true
+    apiRequest<AlertsResponse>(
+      `${config.endpoints.alerts}?page=1&page_size=${ALERT_LIMIT}`,
+    )
+      .then((data) => {
+        if (!alive) return
+        setRecentAlerts(data.alerts ?? [])
+        setAlertsLoaded(true)
+      })
+      .catch(() => {
+        // Hata basliktaki istatistik gostergesinde zaten gorunur.
+      })
+    return () => {
+      alive = false
+    }
+  }, [alertsCreated])
+
+  const placeholder = "---"
   const txValue = backendUp
     ? stats.transactions_processed.toLocaleString()
-    : demo.stats.transactions_processed.toLocaleString()
-  const fraudValue = backendUp
-    ? stats.fraud_detected.toLocaleString()
-    : demo.stats.fraud_detected.toLocaleString()
+    : placeholder
+  const fraudValue = backendUp ? stats.fraud_detected.toLocaleString() : placeholder
+  const alertsValue =
+    backendUp && stats.alerts_created !== undefined
+      ? stats.alerts_created.toLocaleString()
+      : placeholder
   const uptimeValue = backendUp
     ? `${Math.floor(stats.uptime_seconds / 60)}m`
-    : `${Math.floor(demo.stats.uptime_seconds / 60)}m`
+    : placeholder
 
-  const alertList: FauxAlert[] = useMemo(() => {
-    if (isLive && wsAlerts.length > 0) {
-      return wsAlerts.slice(0, 12).map((a: Alert3D) => {
-        const sev = String(a.severity).toLowerCase()
-        const valid: "critical" | "high" | "medium" = [
-          "critical",
-          "high",
-          "medium",
-        ].includes(sev)
-          ? (sev as "critical" | "high" | "medium")
-          : "medium"
-        return {
-          id: a.alert_id,
-          ts: formatTime(a.detected_at),
-          engine: a.fraud_type,
-          severity: valid,
-          detail: a.description || fraudLabel(a.fraud_type),
-          amount: new Intl.NumberFormat("tr-TR", {
-            style: "currency",
-            currency: a.currency || "TRY",
-            maximumFractionDigits: 0,
-          }).format(a.amount ?? 0),
-        }
-      })
-    }
-    return demo.alerts
-  }, [isLive, wsAlerts, demo.alerts])
+  const alertList = useMemo(
+    () => mergeAlerts(wsAlerts as Alert3D[], recentAlerts),
+    [wsAlerts, recentAlerts],
+  )
 
   return (
     <div className="min-h-screen flex flex-col bg-base text-ink">
@@ -286,9 +304,12 @@ export default function DashboardPage() {
       <DashboardBody
         txValue={txValue}
         fraudValue={fraudValue}
+        alertsValue={alertsValue}
         uptimeValue={uptimeValue}
         backendUp={backendUp}
         alertList={alertList}
+        alertsLoaded={alertsLoaded}
+        bySeverity={backendUp ? stats.by_severity : undefined}
         motors={MOTORS}
       />
     </div>
@@ -345,7 +366,7 @@ function DashboardHeader({
             )}
           />
           <span className="text-[10px] font-mono uppercase tracking-wider text-muted">
-            {isLive ? "live" : backendUp ? "rest" : "demo"}
+            {isLive ? "live" : backendUp ? "rest" : "offline"}
           </span>
         </div>
         <Link
@@ -395,16 +416,22 @@ function DashboardHeader({
 function DashboardBody({
   txValue,
   fraudValue,
+  alertsValue,
   uptimeValue,
   backendUp,
   alertList,
+  alertsLoaded,
+  bySeverity,
   motors,
 }: {
   txValue: string
   fraudValue: string
+  alertsValue: string
   uptimeValue: string
   backendUp: boolean
-  alertList: FauxAlert[]
+  alertList: AlertRowData[]
+  alertsLoaded: boolean
+  bySeverity?: Record<string, number>
   motors: { n: string; t: string }[]
 }) {
   return (
@@ -412,13 +439,18 @@ function DashboardBody({
       <GraphStatsSection
         txValue={txValue}
         fraudValue={fraudValue}
+        alertsValue={alertsValue}
         uptimeValue={uptimeValue}
         backendUp={backendUp}
         motors={motors}
       />
       <DemoTransactionForm />
       {config.features.enableAiChat && <AiChat />}
-      <AlertConsoleSection alertList={alertList} />
+      <AlertConsoleSection
+        alertList={alertList}
+        alertsLoaded={alertsLoaded}
+        bySeverity={bySeverity}
+      />
     </main>
   )
 }
@@ -426,12 +458,14 @@ function DashboardBody({
 function GraphStatsSection({
   txValue,
   fraudValue,
+  alertsValue,
   uptimeValue,
   backendUp,
   motors,
 }: {
   txValue: string
   fraudValue: string
+  alertsValue: string
   uptimeValue: string
   backendUp: boolean
   motors: { n: string; t: string }[]
@@ -448,7 +482,7 @@ function GraphStatsSection({
         <div className="absolute top-4 left-4 flex items-center gap-2">
           <CircleDot className="w-3.5 h-3.5 text-signal" />
           <span className="text-[11px] font-mono uppercase tracking-wider text-signal">
-            transaction graph {"// ring detection live"}
+            transaction graph {"// temsili gorsel"}
           </span>
         </div>
         <div className="absolute top-4 right-4 px-2.5 py-1 rounded-md border border-line bg-base/70 backdrop-blur-sm">
@@ -456,23 +490,10 @@ function GraphStatsSection({
             kirmizi = aklama halkasi
           </span>
         </div>
-        <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
-          <div>
-            <div className="text-[10px] font-mono text-muted/70 uppercase tracking-wider mb-1">
-              aktif dugum / kenar
-            </div>
-            <div className="font-mono tabular-nums text-2xl text-ink">
-              <span className="text-signal">128</span>
-              <span className="text-muted/50 mx-1.5">/</span>
-              <span className="text-ink/80">342</span>
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="text-[10px] font-mono text-muted/70 uppercase tracking-wider mb-1">
-              ring tespiti
-            </div>
-            <div className="font-mono tabular-nums text-2xl text-alarm">3</div>
-          </div>
+        <div className="absolute bottom-4 left-4 right-4">
+          <p className="text-[10px] font-mono text-muted/70 uppercase tracking-wider">
+            animasyon gercek islem verisini gostermez
+          </p>
         </div>
       </div>
 
@@ -482,21 +503,21 @@ function GraphStatsSection({
           value={txValue}
           icon={CreditCard}
           accent="signal"
-          sub={backendUp ? "islendi" : "demo akisi"}
+          sub={backendUp ? "api acilisindan beri" : "veri yok"}
         />
         <StatCard
           title="Dolandiricilik"
           value={fraudValue}
           icon={ShieldAlert}
           accent="alarm"
-          sub={backendUp ? "engellendi" : "tespit edildi"}
+          sub={backendUp ? "tespit edildi" : "veri yok"}
         />
         <StatCard
-          title="Dogruluk"
-          value="99.4%"
-          icon={Gauge}
+          title="Alarm"
+          value={alertsValue}
+          icon={Bell}
           accent="signal"
-          sub="model guveni"
+          sub={backendUp ? "kayitli alarm" : "veri yok"}
         />
         <StatCard
           title="Calisma"
@@ -532,7 +553,26 @@ function GraphStatsSection({
   )
 }
 
-function AlertConsoleSection({ alertList }: { alertList: FauxAlert[] }) {
+function AlertConsoleSection({
+  alertList,
+  alertsLoaded,
+  bySeverity,
+}: {
+  alertList: AlertRowData[]
+  alertsLoaded: boolean
+  bySeverity?: Record<string, number>
+}) {
+  // Dagilim tum kayitli alarmlardan (system/stats) hesaplanir; stats yoksa
+  // listedeki son alarmlardan.
+  const counts = Object.fromEntries(
+    SEVERITIES.map((s) => [
+      s,
+      bySeverity
+        ? (bySeverity[s] ?? 0)
+        : alertList.filter((a) => a.severity === s).length,
+    ]),
+  ) as Record<Severity, number>
+  const total = SEVERITIES.reduce((sum, s) => sum + counts[s], 0)
   return (
     <section className="grid grid-cols-1 lg:grid-cols-5 gap-px bg-line border-b border-line">
       <div className="lg:col-span-3 bg-base-2/30 p-4">
@@ -545,15 +585,21 @@ function AlertConsoleSection({ alertList }: { alertList: FauxAlert[] }) {
               </span>
             </div>
             <span className="text-[10px] font-mono text-signal">
-              {alertList.length} aktif
+              son {alertList.length}
             </span>
           </div>
           <div className="px-2 py-2 h-[420px] overflow-y-auto">
-            <AnimatePresence initial={false}>
-              {alertList.map((a) => (
-                <AlertRow key={a.id} a={a} />
-              ))}
-            </AnimatePresence>
+            {alertList.length === 0 ? (
+              <p className="px-3 py-6 text-center text-[11px] font-mono text-muted">
+                {alertsLoaded ? "Henuz alarm yok" : "Alarmlar yukleniyor..."}
+              </p>
+            ) : (
+              <AnimatePresence initial={false}>
+                {alertList.map((a) => (
+                  <AlertRow key={a.id} a={a} />
+                ))}
+              </AnimatePresence>
+            )}
           </div>
         </div>
       </div>
@@ -562,12 +608,9 @@ function AlertConsoleSection({ alertList }: { alertList: FauxAlert[] }) {
         <div className="rounded-lg border border-line bg-base/60 overflow-hidden flex-1 min-h-[260px] relative">
           <div className="flex items-center justify-between px-4 h-9 border-b border-line">
             <span className="text-[10px] font-mono uppercase tracking-wider text-muted">
-              cografri aktivite {"// kaydir + zoomla"}
+              cografi aktivite {"// kaydir + zoomla"}
             </span>
-            <div className="flex items-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-signal animate-subtle-pulse" />
-              <span className="text-[10px] font-mono text-signal">live</span>
-            </div>
+            <span className="text-[10px] font-mono text-muted">temsili</span>
           </div>
           <div className="h-[calc(100%-36px)] relative">
             <GlobeScene />
@@ -594,14 +637,10 @@ function AlertConsoleSection({ alertList }: { alertList: FauxAlert[] }) {
             siddet dagilimi
           </div>
           <div className="space-y-2">
-            {(["critical", "high", "medium"] as const).map((s) => {
-              const sev = SEVERITY_META[s]
-              const count = alertList.filter(
-                (a) => a.severity === s,
-              ).length
-              const pct = alertList.length
-                ? Math.round((count / alertList.length) * 100)
-                : 0
+            {SEVERITIES.map((s) => {
+              const sev = SEV_META[s]
+              const count = counts[s]
+              const pct = total ? Math.round((count / total) * 100) : 0
               return (
                 <div key={s}>
                   <div className="flex items-center justify-between text-[11px] mb-1">
