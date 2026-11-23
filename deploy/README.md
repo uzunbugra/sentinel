@@ -1,5 +1,15 @@
 # SentinelFlow canlı ortam runbook'u
 
+> **Güncel durum (23 Kasım 2026): Bu runbook şu an kullanılmıyor.** Sprint 5'te demo ortamı
+> için Oracle Cloud sunucusu yerine SentinelFlow geliştiricinin bilgisayarında Docker Compose
+> ile çalıştırılıp Tailscale Funnel ile paylaşılıyor; bkz.
+> [`docs/DEMO_TAILSCALE.md`](../docs/DEMO_TAILSCALE.md) ve `docs/SPRINT5_PLAN.md` §12.
+> Funnel kurulumunun dosyaları `deploy/funnel/` altındadır. Bu belge ve `deploy/`
+> altındaki diğer dosyalar (üretim compose override'ı, Caddy, yedekleme, sağlık kontrolü)
+> ileride bir sunucuya geçilirse kullanılmak üzere korunuyor; içindeki Oracle'a özgü
+> adımlar (Ampere A1, VCN, Oracle Monitoring, Object Storage) o zaman yeniden
+> değerlendirilir.
+
 Sprint 5 (`docs/SPRINT5_PLAN.md`) canlı ortamının kurulum, güncelleme, geri alma, yedekten
 dönme ve izleme adımları. Hedef: ekipten ikinci bir kişi yalnız bu belgeyle makineyi sıfırdan
 kurabilsin. Sunucuda elle yapılan her değişiklik aynı gün buraya yazılır (plan §3).
