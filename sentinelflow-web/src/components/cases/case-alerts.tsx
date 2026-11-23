@@ -4,10 +4,11 @@ import { useEffect, useState } from "react"
 import { apiRequest } from "@/lib/auth"
 import { config } from "@/lib/config"
 import { EmptyState, LoadingState } from "@/components/ui/request-state"
+import { fraudTypeLabel } from "@/lib/fraud-types"
 
 interface LinkedAlert {
   alert_id: string
-  title: string
+  fraud_type: string
   severity: string
   amount: number
   currency: string
@@ -45,7 +46,7 @@ export function CaseAlerts({ alertIds }: { alertIds: string[] }) {
             <li key={id} className="break-words py-3 text-sm">
               <p className="break-all font-mono text-zinc-400">{id}</p>
               {items[index] && <>
-                <p>{items[index].title}</p>
+                <p>{fraudTypeLabel(items[index].fraud_type)}</p>
                 <p>{items[index].severity.toUpperCase()} · {items[index].amount.toLocaleString("tr-TR")} {items[index].currency}</p>
               </>}
             </li>
