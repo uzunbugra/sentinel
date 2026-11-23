@@ -57,9 +57,17 @@ services:
       # SF-507: no self-registration in production (API answers 403; the
       # proxy blocks it too). Accounts come from scripts/seed_admin.py.
       SENTINELFLOW_REGISTRATION_ENABLED: "false"
+      # SF-505: the browser only talks to the public HTTPS origin.
+      CORS_ORIGINS: https://${SENTINELFLOW_DOMAIN:?Set SENTINELFLOW_DOMAIN in .env (see deploy/README.md)}
 
   frontend:
     profiles: !reset []      # base file hides it behind `frontend`; always on here
+    build:
+      args:
+        # SF-505: the bundle is built against the public origin, never
+        # localhost. Caddy serves web, /api and /ws on the same host.
+        NEXT_PUBLIC_API_URL: https://${SENTINELFLOW_DOMAIN:?Set SENTINELFLOW_DOMAIN in .env (see deploy/README.md)}
+        NEXT_PUBLIC_WS_URL: wss://${SENTINELFLOW_DOMAIN:?Set SENTINELFLOW_DOMAIN in .env (see deploy/README.md)}
     ports: !reset []
     mem_limit: 384m
     logging: *logging

@@ -78,10 +78,12 @@ git checkout v2.3.0        # her zaman bir sürüm etiketi; main değil
 | `SENTINELFLOW_DOMAIN` | Alan adı, ör. `sentinel.example.org` (plan §4 kararı) |
 | `ACME_EMAIL` | Ortak ekip adresi (sertifika uyarıları) |
 | `ACME_CA` | İlk denemede `https://acme-staging-v02.api.letsencrypt.org/directory`; sonra satırı silin |
-| `CORS_ORIGINS` | `https://<alan>` |
-| `NEXT_PUBLIC_API_URL` | `https://<alan>` (web imajına derleme anında gömülür) |
-| `NEXT_PUBLIC_WS_URL` | `wss://<alan>` |
 
+`CORS_ORIGINS`, `NEXT_PUBLIC_API_URL` ve `NEXT_PUBLIC_WS_URL` `.env`'e yazılmaz:
+`deploy/compose.prod.yml` bunları `SENTINELFLOW_DOMAIN`'den türetir (`https://<alan>`,
+`wss://<alan>`; SF-505). Web adresleri imaja derleme anında gömüldüğü için alan adı
+değişirse `dc up -d --build frontend api` gerekir. `deploy/check_ports.py` yerel adresle
+derlenen bir web imajını ve alan adıyla eşleşmeyen CORS ayarını da reddeder.
 `NEXT_PUBLIC_ENABLE_AUTH` tanımlanmaz (varsayılan açık); canlıda asla `false` yapılmaz.
 `SENTINELFLOW_REGISTRATION_ENABLED=false` override dosyasında sabittir, `.env`'e gerekmez.
 
@@ -107,7 +109,7 @@ Dört dosyanın hepsi `OK` olmalı.
 
 ```bash
 dc --profile streaming --profile graph config --format json | python3 deploy/check_ports.py
-# beklenen: "OK: no published ports except the reverse proxy (80/443)"
+# beklenen: "OK: no published ports except the reverse proxy (80/443); web uses the public origin"
 
 dc up -d --build
 dc ps
@@ -300,8 +302,8 @@ dc up -d
 | Belirti | Bakılacak yer |
 |---|---|
 | Sertifika alınamıyor | `dc logs caddy`; DNS kaydı sunucu IP'sini gösteriyor mu; 80 VCN'de ve iptables'ta açık mı |
-| Web açılıyor, giriş başarısız / CORS hatası | `.env`'deki `CORS_ORIGINS` ve `NEXT_PUBLIC_*`; adres değiştiyse `dc up -d --build frontend` |
-| Canlı alarm akışı bağlanmıyor | Tarayıcı konsolunda `wss://<alan>/ws/alerts`; `NEXT_PUBLIC_WS_URL` `wss://` ile mi |
+| Web açılıyor, giriş başarısız / CORS hatası | `.env`'deki `SENTINELFLOW_DOMAIN` tarayıcıdaki adresle aynı mı; adres değiştiyse `dc up -d --build frontend api` |
+| Canlı alarm akışı bağlanmıyor | Tarayıcı konsolunda `wss://<alan>/ws/alerts`; `dc logs caddy` ve `dc logs api` |
 | `ml_model` degraded | `models/fraud/current` dört dosya ve `sha256sum -c`; `dc logs api` |
 | API başlamıyor: `Set NEO4J_PASSWORD` | `.env`'de `NEO4J_PASSWORD` tanımlı olmalı, Neo4j çalışmasa da |
 | Konteyner `OOMKilled` | `docker inspect <ad> --format '{{.State.OOMKilled}}'`; §3 tablosu ve sınırlar |
