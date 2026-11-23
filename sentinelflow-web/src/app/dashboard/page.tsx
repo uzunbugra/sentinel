@@ -24,13 +24,17 @@ import { AnimatePresence, motion } from "motion/react"
 import { useWebSocket } from "@/hooks/use-websocket"
 import { formatTime } from "@/lib/datetime"
 import { config } from "@/lib/config"
-import { apiRequest } from "@/lib/auth"
+import { apiRequest, canWrite } from "@/lib/auth"
+import { useAuth } from "@/contexts/auth-context"
 import { describeError } from "@/components/ui/request-state"
 import { cn } from "@/lib/utils"
 import { fraudLabel, type Alert3D } from "@/components/3d/types"
 import { SEVERITY_META } from "@/lib/landing-data"
 import { NetworkGraph } from "@/components/landing/NetworkGraph"
 import { ActiveModelCard } from "@/components/dashboard/active-model-card"
+import { DemoTransactionForm } from "@/components/dashboard/demo-transaction-form"
+import { AiChat } from "@/components/dashboard/ai-chat"
+import { ChangePasswordButton } from "@/components/layout/change-password-dialog"
 
 const GlobeScene = dynamic(() => import("@/components/3d/GlobeScene"), {
   ssr: false,
@@ -321,6 +325,7 @@ function DashboardHeader({
   backendUp: boolean
   statsError: unknown
 }) {
+  const { user } = useAuth()
   return (
     <header className="sticky top-0 z-40 h-14 border-b border-line bg-base/80 backdrop-blur-md flex items-center justify-between px-5">
       <div className="flex items-center gap-4">
@@ -376,6 +381,33 @@ function DashboardHeader({
         >
           Vakalar
         </Link>
+        {config.features.enableNetworkGraph && (
+          <Link
+            href="/graph"
+            className="text-[12px] text-muted hover:text-ink transition-colors"
+          >
+            Ağ grafiği
+          </Link>
+        )}
+        {canWrite(user) && (
+          <Link
+            href="/score"
+            className="text-[12px] text-muted hover:text-ink transition-colors"
+          >
+            Skorlama
+          </Link>
+        )}
+        {canWrite(user) && (
+          <Link
+            href="/kyc"
+            className="text-[12px] text-muted hover:text-ink transition-colors"
+          >
+            Müşteri taraması
+          </Link>
+        )}
+        {user && (
+          <ChangePasswordButton className="p-1 text-muted hover:text-ink transition-colors" />
+        )}
       </div>
     </header>
   )
@@ -412,6 +444,8 @@ function DashboardBody({
         backendUp={backendUp}
         motors={motors}
       />
+      <DemoTransactionForm />
+      {config.features.enableAiChat && <AiChat />}
       <AlertConsoleSection
         alertList={alertList}
         alertsLoaded={alertsLoaded}

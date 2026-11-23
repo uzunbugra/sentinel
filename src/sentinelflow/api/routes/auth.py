@@ -7,6 +7,8 @@ Authentication endpoints: login, logout, register, token refresh.
 
 from __future__ import annotations
 
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer
 
@@ -19,6 +21,7 @@ from sentinelflow.contracts import (
     User,
     UserCreate,
     UserPublic,
+    UserRole,
 )
 from sentinelflow.contracts.user import PasswordChangeRequest, RefreshRequest
 
@@ -78,17 +81,43 @@ async def logout(
     return {"message": "Logged out successfully"}
 
 
+_FALSE_VALUES = {"0", "false", "no", "off"}
+
+
+def registration_enabled() -> bool:
+    """Whether self-service registration is open.
+
+    SENTINELFLOW_REGISTRATION_ENABLED is read on every request so an operator
+    can close it with an environment change. Defaults to open for local
+    development; production deployments set it to false (SF-507).
+    """
+    raw = os.getenv("SENTINELFLOW_REGISTRATION_ENABLED", "true")
+    return raw.strip().lower() not in _FALSE_VALUES
+
+
 @router.post(
     "/register",
     response_model=UserPublic,
     summary="Register new user",
-    description="Create a new user account. Default role is 'viewer'.",
+    description=(
+        "Create a new user account. The account is always a 'viewer'; a "
+        "'role' in the body is ignored. Returns 403 when "
+        "SENTINELFLOW_REGISTRATION_ENABLED is false."
+    ),
 )
 async def register(
     user_data: UserCreate,
     session=Depends(get_db_session),
 ):
     """Register a new user."""
+    if not registration_enabled():
+        raise HTTPException(status_code=403, detail="registration_disabled")
+
+    # Self-service accounts are always viewers: `role` comes from the client,
+    # and honouring it let anyone open an admin account. Other roles are
+    # created with scripts/seed_admin.py.
+    user_data = user_data.model_copy(update={"role": UserRole.VIEWER})
+
     auth_service = AuthService(session)
 
     try:

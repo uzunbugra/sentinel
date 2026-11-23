@@ -8,6 +8,14 @@ vi.mock("@/lib/auth", async (orig) => ({
   ...(await orig()),
   apiRequest: vi.fn(),
 }))
+const authMock = vi.hoisted(() => ({ role: "analyst" as "analyst" | "viewer" }))
+vi.mock("@/contexts/auth-context", () => ({
+  useAuth: () => ({
+    user: { full_name: "Demo", role: authMock.role },
+    isAuthenticated: true,
+    logout: vi.fn(),
+  }),
+}))
 vi.mock("@/hooks/use-websocket", () => ({
   useWebSocket: () => ({
     status: "disconnected",
@@ -26,6 +34,8 @@ vi.mock("next/dynamic", () => ({
 vi.mock("@/components/landing/NetworkGraph", () => ({
   NetworkGraph: () => <div data-testid="network-graph-stub" />,
 }))
+// The chat panel calls its own endpoints and has its own tests.
+vi.mock("@/components/dashboard/ai-chat", () => ({ AiChat: () => <section aria-label="Yardım asistanı" /> }))
 vi.mock("motion/react", () => ({
   AnimatePresence: ({ children }: { children: ReactNode }) => <>{children}</>,
   motion: {
@@ -182,5 +192,46 @@ describe("DashboardPage aktif model", () => {
 
     expect(await screen.findByText("fraud-lgbm-20261105-a1b2c3d")).toBeInTheDocument()
     expect(mockApi).toHaveBeenCalledWith(config.endpoints.modelInfo)
+  })
+})
+
+describe("DashboardPage gezinme", () => {
+  it("skorlama baglantisini analiste gosterir, viewer'a gostermez", async () => {
+    routeApi(STATS)
+    authMock.role = "analyst"
+    const { unmount } = render(<DashboardPage />)
+    expect(await screen.findByRole("link", { name: "Skorlama" })).toHaveAttribute("href", "/score")
+    unmount()
+
+    routeApi(STATS)
+    authMock.role = "viewer"
+    render(<DashboardPage />)
+    expect(await screen.findByText("42")).toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "Skorlama" })).not.toBeInTheDocument()
+    authMock.role = "analyst"
+  })
+})
+
+describe("DashboardPage bayraklar", () => {
+  const features = config.features as { enableAiChat: boolean; enableNetworkGraph: boolean }
+  afterEach(() => {
+    features.enableAiChat = true
+    features.enableNetworkGraph = true
+  })
+
+  it("yardim asistanini ve ag grafigi baglantisini bayraga gore gosterir", async () => {
+    routeApi(STATS)
+    const { unmount } = render(<DashboardPage />)
+    expect(await screen.findByRole("region", { name: "Yardım asistanı" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Ağ grafiği" })).toHaveAttribute("href", "/graph")
+    unmount()
+
+    features.enableAiChat = false
+    features.enableNetworkGraph = false
+    routeApi(STATS)
+    render(<DashboardPage />)
+    expect(await screen.findByText("42")).toBeInTheDocument()
+    expect(screen.queryByRole("region", { name: "Yardım asistanı" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "Ağ grafiği" })).not.toBeInTheDocument()
   })
 })

@@ -57,6 +57,7 @@ export const config = {
 
     // Chat
     chat: "/api/v1/chat",
+    chatSuggestions: "/api/v1/chat/suggestions",
 
     // Graph (single source; see backend routes/graph.py)
     graphData: "/api/v1/graph/data",

@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { Shield, LogOut, User, ShieldAlert, FolderKanban, LayoutDashboard } from "lucide-react"
+import { config } from "@/lib/config"
+import { Shield, LogOut, User, ShieldAlert, FolderKanban, LayoutDashboard, Calculator, UserSearch, Network } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
+import { canWrite } from "@/lib/auth"
+import { ChangePasswordButton } from "./change-password-dialog"
 
 export function Header({ isConnected = false }: { isConnected?: boolean }) {
   const { user, logout, isAuthenticated } = useAuth()
@@ -61,6 +64,33 @@ export function Header({ isConnected = false }: { isConnected?: boolean }) {
               <FolderKanban className="w-4 h-4" />
               Vakalar
             </Link>
+            {config.features.enableNetworkGraph && (
+              <Link
+                href="/graph"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+              >
+                <Network className="w-4 h-4" />
+                Ağ grafiği
+              </Link>
+            )}
+            {canWrite(user) && (
+              <Link
+                href="/score"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+              >
+                <Calculator className="w-4 h-4" />
+                Skorlama
+              </Link>
+            )}
+            {canWrite(user) && (
+              <Link
+                href="/kyc"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+              >
+                <UserSearch className="w-4 h-4" />
+                Müşteri taraması
+              </Link>
+            )}
           </nav>
         )}
       </div>
@@ -92,6 +122,7 @@ export function Header({ isConnected = false }: { isConnected?: boolean }) {
                 <p className="text-zinc-600">{user.role}</p>
               </div>
             </div>
+            <ChangePasswordButton />
             <button
               onClick={logout}
               className="p-1.5 text-zinc-500 hover:text-red-400 hover:bg-zinc-800 rounded-lg transition-colors"

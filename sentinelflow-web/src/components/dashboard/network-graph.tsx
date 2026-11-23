@@ -44,12 +44,18 @@ interface NetworkGraphProps {
     data?: GraphData
     autoFetch?: boolean
     showFraudOnly?: boolean
+    /** Panel title (default "İşlem Ağı"). */
+    title?: string
+    /** With `data`, the parent owns fetching; the refresh button calls this. */
+    onRefresh?: () => void
 }
 
 export function NetworkGraph({ 
     data: externalData, 
     autoFetch = true,
-    showFraudOnly = false 
+    showFraudOnly = false,
+    title = "İşlem Ağı",
+    onRefresh,
 }: NetworkGraphProps) {
     const fgRef = useRef<any>(null)
     const containerRef = useRef<HTMLDivElement>(null)
@@ -129,7 +135,7 @@ export function NetworkGraph({
             <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
                 <div className="flex items-center gap-3">
                     <Network className="w-5 h-5 text-blue-400" />
-                    <h3 className="text-white font-semibold">İşlem Ağı</h3>
+                    <h3 className="text-white font-semibold">{title}</h3>
                     <span className="text-[10px] text-zinc-500 px-2 py-0.5 rounded-full bg-zinc-800 border border-zinc-700">
                         {displayData.nodes.length} düğüm
                     </span>
@@ -143,14 +149,20 @@ export function NetworkGraph({
 
                 <div className="flex items-center gap-2">
                     <button 
-                        onClick={fetchGraphData}
-                        disabled={loading}
+                        type="button"
+                        onClick={externalData ? onRefresh : fetchGraphData}
+                        disabled={loading || (!!externalData && !onRefresh)}
+                        aria-label="Yenile"
+                        title="Yenile"
                         className="p-1.5 rounded-md bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors disabled:opacity-50"
                     >
                         <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
                     </button>
                     <button 
+                        type="button"
                         onClick={() => fgRef.current?.zoomToFit(400)}
+                        aria-label="Sığdır"
+                        title="Sığdır"
                         className="p-1.5 rounded-md bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700 transition-colors"
                     >
                         <Maximize2 className="h-4 w-4" />

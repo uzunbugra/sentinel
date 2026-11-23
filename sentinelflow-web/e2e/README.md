@@ -7,6 +7,12 @@ Playwright testleri gerçek API'ye ve web'in production build'ine karşı koşar
 | `analyst-flow.spec.ts` | Analist girişi → alarm → "Vaka Oluştur" → vaka detayı → durum değişikliği → işlem geçmişinde `case_created`, `alert_linked_to_case`, `case_status_changed` |
 | `viewer-permissions.spec.ts` | Viewer alarmı ve vakayı okur; "Vaka Oluştur", "Reddet" ve vaka işlemleri görünmez. API de viewer'ın `PATCH /cases`'ini 403 ile reddeder |
 | `model-state.spec.ts` | Model yüklü değilken panodaki aktif model kartı "Yüklü model yok" der. `/ml/models` 500 döndüğünde kart hata ve "Tekrar dene" gösterir (bu hata Playwright route ile üretilir) |
+| `score.spec.ts` | Analist dashboard başlığından Skorlama'ya gider. Modelsiz API 503 döndüğü için sayfa "Model yüklü değil" der. Route ile verilen skor cevabında karar, skor, eşik ve ilk 5 katkı görünür. Viewer bağlantıyı ve formu görmez, API de viewer'ın `POST /risk/score`'unu 403 ile reddeder (SF-521) |
+| `demo-transaction.spec.ts` | Analist dashboard'daki "Demo işlem gönder" formuyla sentetik bir işlem gönderir. Modelsiz API işlemi kaydeder ama skorlamaz ve form bunu söyler. Route ile verilen dolandırıcılık cevabında alarm kimliği ve "Alarmlara git" bağlantısı görünür. Viewer formu görmez (SF-523) |
+| `change-password.spec.ts` | Viewer başlıktaki menüden parolasını değiştirir. Yanlış mevcut parola "Mevcut parola yanlış." der. Değişiklikten sonra eski parola 401 alır, yenisiyle giriş yapılır. Test sonunda seed parolası API ile geri yüklenir (SF-524) |
+| `kyc.spec.ts` | Analist başlıktan Müşteri taraması'na gider; örnek listeler uyarısı görünür. Gerçek API'de "Banned Person" OFAC SDN (örnek) listesinde takma ad eşleşmesi verir, "Ayşe Temiz" temiz döner. Viewer bağlantıyı ve formu görmez, API de 403 döner (SF-522) |
+| `graph.spec.ts` | Viewer başlıktan Ağ grafiği'ne gider. Neo4j'siz API örnek veri döndüğü için sayfa grafiği çizmez, "Neo4j bu ortamda çalışmıyor" der; hesap araması da 503'ü açıklar. Route ile verilen grafikte halka listelenir, halkadaki hesaba tıklayınca komşuluğu açılır (SF-520) |
+| `chat.spec.ts` | Viewer dashboard'daki yardım asistanında "kural tabanlı, LLM kullanmaz" notunu görür. Önerilen soruya tıklayınca ve elle yazınca gerçek API'nin kural tabanlı yanıtı sohbette görünür (SF-525) |
 
 ## Test verisi
 

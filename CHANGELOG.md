@@ -6,6 +6,9 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Security
+- **SF-507 — self-registration.** `POST /api/v1/auth/register` always creates a `viewer`; a `role` in the request body is ignored (it previously let an unauthenticated client open an admin account). `SENTINELFLOW_REGISTRATION_ENABLED=false` closes the endpoint with `403 registration_disabled`; production sets it, and other roles are created with `scripts/seed_admin.py`.
+
 ## [2.3.0] - 2026-11-20
 
 ### Added
