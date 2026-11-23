@@ -1,0 +1,6 @@
+SentinelFlow demo hesaplari (yalniz demo; repo herkese acik, parolalar gercek ortamda kullanilmaz)
+Kullanici	Parola
+
+admin	gnyghA78rQXCs0Rb
+analyst	e7ratreSE-yzGbLy
+viewer	vAw7cCrzaNi6TzIu

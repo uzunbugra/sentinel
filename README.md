@@ -228,6 +228,21 @@ streamlit run src/sentinelflow/dashboard/app.py
 
 ---
 
+### 5. Share a Live Demo (Tailscale Funnel)
+
+To let reviewers open the app from their own devices, run the Docker Compose stack on
+your computer and share it through a temporary Tailscale Funnel HTTPS address:
+
+```powershell
+.\scripts\funnel.ps1          # start the stack and print https://<machine>.<tailnet>.ts.net
+.\scripts\funnel.ps1 -Stop    # turn the public address off
+```
+
+All container ports bind to `127.0.0.1`; only the local proxy on port 8088 is shared.
+See [docs/DEMO_TAILSCALE.md](docs/DEMO_TAILSCALE.md).
+
+---
+
 ## 📡 API Reference
 
 Interactive API Swagger documentation is available at `http://localhost:8000/docs`.

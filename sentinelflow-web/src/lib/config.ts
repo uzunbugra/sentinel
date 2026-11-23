@@ -14,11 +14,19 @@ const env = {
   enableAuth: process.env.NEXT_PUBLIC_ENABLE_AUTH,
 }
 
+// NEXT_PUBLIC_API_URL=same-origin: the API is served from the page's own host
+// behind a reverse proxy (/api, /ws), e.g. the local Caddy shared through a
+// Tailscale Funnel. One bundle then works on localhost and on the public
+// address without a rebuild; the WebSocket follows the page (ws:// or wss://).
+export const SAME_ORIGIN = "same-origin"
+const sameOrigin = env.apiUrl === SAME_ORIGIN
+
 export const config = {
   // API Configuration
   api: {
-    baseUrl: env.apiUrl || "http://127.0.0.1:8000",
-    wsUrl: env.wsUrl || "ws://127.0.0.1:8000",
+    sameOrigin,
+    baseUrl: sameOrigin ? "" : env.apiUrl || "http://127.0.0.1:8000",
+    wsUrl: sameOrigin ? "" : env.wsUrl || "ws://127.0.0.1:8000",
   },
 
   // API Endpoints
@@ -92,8 +100,12 @@ export function getApiUrl(endpoint: string): string {
   return `${config.api.baseUrl}${endpoint}`
 }
 
-export function getWsUrl(endpoint: string): string {
-  return `${config.api.wsUrl}${endpoint}`
+export function getWsUrl(endpoint: string, location?: Pick<Location, "protocol" | "host">): string {
+  if (!config.api.sameOrigin) return `${config.api.wsUrl}${endpoint}`
+  const page = location ?? (typeof window === "undefined" ? undefined : window.location)
+  if (!page) return endpoint
+  const scheme = page.protocol === "https:" ? "wss:" : "ws:"
+  return `${scheme}//${page.host}${endpoint}`
 }
 
 // Type exports
