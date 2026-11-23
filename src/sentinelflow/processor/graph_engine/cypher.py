@@ -147,6 +147,9 @@ def all_rings_query(min_hops: int, max_hops: int) -> str:
     return f"""
     // Find all circular paths in the graph
     MATCH path = (a:User)-[rels:SENT*{min_hops}..{max_hops}]->(a)
+    // A cycle is found once per member it starts from; keep only the copy
+    // that starts at the smallest IBAN, so each ring is listed once.
+    WHERE ALL(n IN nodes(path) WHERE a.iban <= n.iban)
 
     // Calculate totals
     WITH path, rels, a,
@@ -175,6 +178,7 @@ def rings_without_apoc_query(min_hops: int, max_hops: int) -> str:
     """Fallback full-graph ring scan for clusters without APOC installed."""
     return f"""
     MATCH path = (a:User)-[rels:SENT*{min_hops}..{max_hops}]->(a)
+    WHERE ALL(n IN nodes(path) WHERE a.iban <= n.iban)
     WITH path, rels, a,
          [node IN nodes(path) | node.iban] AS ibans,
          REDUCE(total = 0.0, r IN rels | total + r.amount) AS total_amount,

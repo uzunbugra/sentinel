@@ -99,8 +99,31 @@ demodan sonra parolaları uygulamadaki **Parola değiştir** menüsünden deği�
 ## 5. Demo akışı
 
 [Sprint 5 demosu §3–4](SPRINT5_DEMO.md#3-analist-senaryosu-tarayıcıda) aynen geçerlidir;
-`<alan>` yerine Funnel adresini kullanın. Kafka ve Neo4j bu kurulumda varsayılan olarak
-çalıştığı için ağ grafiği sayfası da veri gösterir.
+`<alan>` yerine Funnel adresini kullanın.
+
+### Ağ grafiği için detector
+
+Kafka ve Neo4j bu kurulumda çalışır, ama Neo4j'ye işlemleri yazan **detector** (Kafka
+tüketicisi) kendiliğinden başlamaz. Detector yokken ağ grafiği sayfasındaki ana grafik ve
+halka listesi boş kalır. API'ye gönderilen demo işlemler (`POST /transactions`) Neo4j'ye
+yazılmaz. Ana grafik son 24 saatin işlemlerini gösterir, bu yüzden demodan kısa süre önce
+şunları repo kökünde çalıştırın:
+
+```powershell
+$composeFiles = @('-f', 'docker-compose.yml', '-f', 'deploy/funnel/compose.funnel.yml')
+docker compose @composeFiles exec -T kafka kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic transactions --partitions 1 --replication-factor 1
+docker compose @composeFiles run -d --no-deps --name demo-detector api python -m sentinelflow.processor.detector --no-dashboard
+docker compose @composeFiles run --rm --no-deps api python -m sentinelflow.generator.main --no-dashboard -b 20 -m 10 -d 0.5 -f 0.3 -k kafka:29092 -t transactions
+```
+
+Son komut Kafka'ya 200 sentetik işlem gönderir (yaklaşık %30'u dolandırıcılık
+desenli). Birkaç saniye sonra ağ grafiği sayfası düğümleri ve halkaları gösterir.
+Detector bu işlemlerden kural ve model alarmları da üretir; alarmlar listede görünür.
+Demo bitince detector'ı silin:
+
+```powershell
+docker rm -f demo-detector
+```
 
 ## 6. Kapatma
 

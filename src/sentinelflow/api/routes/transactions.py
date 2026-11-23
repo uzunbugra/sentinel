@@ -15,7 +15,7 @@ from loguru import logger
 from sentinelflow.api.schemas import FraudType, TransactionCreate, TransactionResponse
 from sentinelflow.api.state import state
 from sentinelflow.auth.dependencies import get_current_user
-from sentinelflow.contracts import User
+from sentinelflow.contracts import User, UserRole
 from sentinelflow.ml.features import FeatureInputError
 from sentinelflow.ml.serving import (
     CRITICAL_SCORE,
@@ -29,6 +29,7 @@ router = APIRouter()
 # Optional legacy API key for service-to-service transaction ingestion.
 # Set SENTINELFLOW_API_KEY in the environment to enable this fallback.
 _INGEST_API_KEY = os.getenv("SENTINELFLOW_API_KEY", "")
+_INGEST_ROLES = frozenset({UserRole.ADMIN.value, UserRole.ANALYST.value})
 
 
 async def require_ingest_auth(
@@ -39,10 +40,17 @@ async def require_ingest_auth(
     Guard the transaction ingestion endpoint.
 
     Accepts either:
-    - A valid JWT bearer token for an active user, or
+    - A valid JWT bearer token for an active analyst or admin, or
     - A legacy ``X-API-Key`` header matching SENTINELFLOW_API_KEY (when set).
+
+    A viewer only reads; submitting a transaction creates alerts, so it gets 403.
     """
     if user is not None:
+        if user.role not in _INGEST_ROLES:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Access denied. Required roles: {sorted(_INGEST_ROLES)}",
+            )
         return
 
     api_key = request.headers.get("x-api-key")

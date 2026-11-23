@@ -33,7 +33,8 @@ tahminidir.
 5. Başlatma, hesap açma, kapatma ve sorun giderme adımları `docs/DEMO_TAILSCALE.md`'de
    yazılıdır ve ekipten ikinci bir kişi bu belgeyi takip edebilir.
 6. Web uygulamasında işlem skorlama, müşteri taraması, demo işlem gönderme, parola
-   değiştirme ve ağ grafiği ekranları Funnel adresinde çalışır.
+   değiştirme ve ağ grafiği ekranları Funnel adresinde çalışır (ağ grafiği detector
+   çalışırken dolar; `DEMO_TAILSCALE.md` §5).
 
 <details>
 <summary>İlk plan: Oracle Cloud hedefleri (artık geçerli değil)</summary>
@@ -190,8 +191,9 @@ Her aşamanın sonucu Sprint 5 milestone'undaki ilgili issue'ya kısa bir not ol
 > **Güncel durum:** `https://<alan>` yerine Funnel adresi (`https://<makine>.<tailnet>.ts.net`)
 > kullanılır. "Port taramasında yalnız 22/80/443" yerine: Funnel yalnız 8088'deki ters vekili
 > açar ve tüm konteyner portları `127.0.0.1`'e bağlıdır. "Runbook incelemesi" yerine
-> `docs/DEMO_TAILSCALE.md` incelenir. Ağ grafiği Funnel adresinde de çalışır, çünkü Neo4j
-> yerelde açıktır. Diğer maddeler aynen geçerlidir.
+> `docs/DEMO_TAILSCALE.md` incelenir. Ağ grafiği Funnel adresinde de çalışır; ancak Neo4j'ye
+> işlemleri detector yazar, bu yüzden demodan önce detector ve üretici başlatılır
+> (`DEMO_TAILSCALE.md` §5). Diğer maddeler aynen geçerlidir.
 
 - `https://<alan>` geçerli sertifikayla açılıyor; HTTP isteği HTTPS'e yönleniyor.
 - Canlı senaryo: analist hesabıyla giriş → demo işlemi gönderilir → ML alarmı listede
