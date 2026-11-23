@@ -37,8 +37,11 @@ failures=()
 
 health="$(curl -fsS --max-time 10 "$BASE/api/v1/system/health" 2>&1)" \
   || failures+=("health endpoint unreachable: ${health:0:120}")
-if [ ${#failures[@]} -eq 0 ] && ! grep -q '"status":"healthy"' <<<"${health// /}"; then
-  failures+=("health degraded: ${health:0:200}")
+# Read the top-level status only: components (e.g. components.api) carry their
+# own "status": "healthy", so a text search would pass a degraded system.
+if [ ${#failures[@]} -eq 0 ]; then
+  overall="$(python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get("status", ""))' "$health" 2>/dev/null)"
+  [ "$overall" = "healthy" ] || failures+=("health ${overall:-unreadable}: ${health:0:200}")
 fi
 
 code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$BASE/api/v1/ml/models")"

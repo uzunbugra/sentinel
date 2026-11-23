@@ -35,7 +35,7 @@ alias dc='docker compose -f docker-compose.yml -f deploy/compose.prod.yml'
 | `deploy/backup/` | `pg_backup.sh`, `pg_restore.sh` (SF-508) | repo |
 | `deploy/monitor/healthcheck.sh` | Sağlık, disk, bellek kontrolü (SF-509) | repo |
 | `deploy/systemd/` | Yedek ve sağlık kontrolü zamanlayıcıları | repo |
-| `/opt/sentinelflow/.env` | Uygulama sırları ve alan adı; `chmod 600`, sahibi `root` | sunucuda |
+| `/opt/sentinelflow/.env` | Uygulama sırları ve alan adı; `chmod 600`, sahibi deploy kullanıcısı | sunucuda |
 | `/etc/sentinelflow/backup.env` | `OCI_BUCKET` vb. (sır içermez) | sunucuda |
 | `/etc/sentinelflow/healthcheck.env` | `SENTINELFLOW_DOMAIN`, `ALERT_WEBHOOK_URL` | sunucuda |
 | `models/fraud/current/` | Model paketi (Release'den; repoda yok) | sunucuda |
@@ -86,8 +86,13 @@ git checkout v2.3.0        # her zaman bir sürüm etiketi; main değil
 `SENTINELFLOW_REGISTRATION_ENABLED=false` override dosyasında sabittir, `.env`'e gerekmez.
 
 ```bash
-sudo chown root:root .env && sudo chmod 600 .env
+chown "$USER": .env && chmod 600 .env    # sahibi deploy kullanıcısı (#90'daki DEPLOY_USER)
 ```
+
+Compose `.env`'i istemci tarafında, komutu çalıştıran kullanıcıyla okur. Bu yüzden dosya
+`root:root` olamaz: hem bu belgedeki `sudo`'suz `dc` komutları hem #90'daki dağıtım iş akışı
+(`test -r .env`) deploy kullanıcısıyla çalışır. Bu kullanıcı `docker` grubundadır; başka
+kullanıcıların dosyayı okuyamaması `600` ile sağlanır.
 
 ### 2.3 Model paketi
 
@@ -197,7 +202,14 @@ kalınır; ilk hafta Oracle Monitoring'deki üç ölçüm izlenip buraya yazıl�
 1. Sürüm notlarını (`CHANGELOG.md`) okuyun; şema değişikliği var mı bakın.
 2. **Önce yedek:** `sudo systemctl start sentinelflow-backup.service` ve
    `journalctl -u sentinelflow-backup -n 5` ile yeni dosyayı görün.
-3. Geçiş:
+3. Geçiş, **önerilen yol — dağıtım iş akışı (#90):** GitHub'da *Actions → Deploy
+   production → Run workflow* (dal: `main`), `tag` alanına sürüm etiketini yazın
+   (ör. `v2.4.0`). İş akışı etiketin `main` üzerinde olduğunu doğrular, sunucuda o etiketi
+   çeker, P0 servisleri production override'ıyla başlatır ve sağlık uç noktası o sürümü
+   bildirene kadar bekler. Dönüş için çalışan sürümü önceden not edin:
+   `curl -s https://<alan>/api/v1/system/health` içindeki `version`.
+
+   **Elle (iş akışı kullanılamıyorsa), sunucuda:**
 
    ```bash
    git fetch --tags
@@ -217,6 +229,10 @@ gerekir; bu yol henüz netleşmedi (§9). O zamana kadar böyle bir sürüm canl
 önce Buğra'yla konuşulur.
 
 ## 5. Önceki sürüme dönüş
+
+Önerilen yol: dağıtım iş akışını (§4) **önceki sürümün etiketiyle** yeniden çalıştırın.
+
+Elle, sunucuda:
 
 ```bash
 git checkout "$(cat /var/backups/sentinelflow/previous-release)"
@@ -248,7 +264,9 @@ sudo deploy/backup/pg_restore.sh /var/backups/sentinelflow/<dosya>.dump
 ```
 
 Boş `sentinelflow_restore_test` veritabanına yükler, tablo satır sayılarını ve süreyi yazar,
-sonra siler. Yerel deneme (28 KB dump): 3 sn. Canlıdaki ilk deneme sonucu:
+sonra siler. Yedeği incelemek için kalıcı bir kopya gerekiyorsa
+`pg_restore.sh <dosya> --into <yeni-ad>` kullanın: yalnız **henüz var olmayan** bir
+veritabanı oluşturur, hiçbir veritabanını silmez ve üretim veritabanını reddeder. Yerel deneme (28 KB dump): 3 sn. Canlıdaki ilk deneme sonucu:
 
 | Tarih | Dosya boyutu | Süre | users / alerts / cases | Yapan |
 |---|---:|---:|---|---|
