@@ -6,6 +6,13 @@ versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **Sprint 5 — demo environment.** The Oracle Cloud deployment is dropped. SentinelFlow runs on a developer's computer with the existing Docker Compose stack and is shared with reviewers through a temporary Tailscale Funnel HTTPS address (`docs/DEMO_TAILSCALE.md`, `docs/SPRINT5_PLAN.md` §12). SF-501, SF-502, SF-511 and SF-512 are cancelled; the server files under `deploy/` stay for a later move to a server.
+
+### Added
+- **Tailscale Funnel demo.** `scripts/funnel.ps1` starts the stack with `deploy/funnel/compose.funnel.yml` (every container port bound to `127.0.0.1`, registration closed, Caddy on `127.0.0.1:8088` routing `/api` and `/ws` to the API and blocking `/metrics`, `/docs` and registration), waits for health, turns Funnel on and prints the address; `-Stop` / `-Down` turn it off.
+- **Web same-origin mode.** `NEXT_PUBLIC_API_URL=same-origin` makes the web call `/api` on the page's own host and open the WebSocket from `window.location`, so one bundle works on `localhost` and on the Funnel address.
+
 ### Security
 - **SF-507 — self-registration.** `POST /api/v1/auth/register` always creates a `viewer`; a `role` in the request body is ignored (it previously let an unauthenticated client open an admin account). `SENTINELFLOW_REGISTRATION_ENABLED=false` closes the endpoint with `403 registration_disabled`; production sets it, and other roles are created with `scripts/seed_admin.py`.
 

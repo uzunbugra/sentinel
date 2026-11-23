@@ -1,18 +1,42 @@
-# Sprint 5 Planı — Oracle Cloud'da canlı ortam ve web özellikleri
+# Sprint 5 Planı — Yerel demo (Docker Compose + Tailscale Funnel) ve web özellikleri
 
 **Tarih:** 23 Kasım – 11 Aralık 2026 (15 iş günü, öneri)
 **Sorumlu:** Yusuf Eren Bozkurt (GitHub: `YusuffEren`)
 **İnceleme:** Buğra Uzun (@uzunbugra), Alper Tekin (@alper-tekin)
 **Plan tabanı:** `v2.3.0` (`main` @ `6fea58f`, 20 Kasım 2026)
-**Sprint teması:** Sürümü tek bir Oracle Cloud sanal makinesinde HTTPS ile yayına almak ve API'de
-olup web'de arayüzü bulunmayan özellikleri web uygulamasına eklemek
+**Sprint teması:** SentinelFlow'u mevcut Docker Compose kurulumuyla geliştiricinin bilgisayarında
+çalıştırıp gerektiğinde Tailscale Funnel ile geçici bir HTTPS adresinden paylaşmak ve API'de olup
+web'de arayüzü bulunmayan özellikleri web uygulamasına eklemek
+
+> **Güncel durum (23 Kasım 2026):** Demo ortamı için **Oracle Cloud kullanılmıyor.** Ekip,
+> uygulamayı geliştiricinin bilgisayarında Docker Compose ile çalıştırıp hocalarla
+> [Tailscale Funnel](DEMO_TAILSCALE.md) üzerinden paylaşmaya karar verdi. Kararın gerekçesi
+> ve her işin yeni durumu §12'dedir. Aşağıda Oracle'a özgü bölümler (§2'deki makine notları,
+> §4'teki makine ve hesap kararları, SF-501/502/511/512, §10'daki Oracle riskleri) kayıt için
+> korunmuştur ve **artık geçerli değildir**; her birinin başında bu belirtilir.
 
 Bu belge çalışma kapsamını tanımlar; işlerin yapıldığını göstermez. Süreler kişi-gün
 tahminidir.
 
 ## 1. Sprint hedefi
 
-Sprint sonunda:
+**Güncel hedefler (§12, Tailscale Funnel):**
+
+1. `.\scripts\funnel.ps1` tek komutla yığını başlatır ve
+   `https://<makine>.<tailnet>.ts.net` adresi geçerli sertifikayla açılır.
+2. Demo hesabıyla giriş yapılır; alarm listesi, alarm detayındaki model açıklaması, alarmdan
+   vaka oluşturma ve vaka zaman çizelgesi Funnel adresinde çalışır.
+3. `GET /api/v1/ml/models` `status: loaded` ve `fraud-lgbm-20261030-0e0c647` döner.
+4. Dışarıya yalnız Funnel'ın yönlendirdiği yerel ters vekil (127.0.0.1:8088) açılır;
+   veritabanları ve yönetim arayüzleri yalnız `127.0.0.1`'de dinler, `/metrics`, `/docs` ve
+   kayıt dışarıdan reddedilir.
+5. Başlatma, hesap açma, kapatma ve sorun giderme adımları `docs/DEMO_TAILSCALE.md`'de
+   yazılıdır ve ekipten ikinci bir kişi bu belgeyi takip edebilir.
+6. Web uygulamasında işlem skorlama, müşteri taraması, demo işlem gönderme, parola
+   değiştirme ve ağ grafiği ekranları Funnel adresinde çalışır.
+
+<details>
+<summary>İlk plan: Oracle Cloud hedefleri (artık geçerli değil)</summary>
 
 1. `https://<alan-adı>` adresinde geçerli bir sertifikayla web uygulaması açılır.
 2. Demo hesabıyla giriş yapılır; alarm listesi, alarm detayındaki model açıklaması, alarmdan
@@ -25,6 +49,8 @@ Sprint sonunda:
 6. Web uygulamasında işlem skorlama, müşteri taraması, demo işlem gönderme ve parola
    değiştirme ekranları çalışır; ağ grafiği ve para halkaları sayfası en az yerelde,
    Neo4j canlıya alındıysa canlıda çalışır.
+
+</details>
 
 ## 2. Neden bu hedef ve mevcut durum
 
@@ -49,10 +75,10 @@ raporundaki sistem testleri için gerekli. Repoda canlıya almayı etkileyen dur
 - API'nin açılması Kafka ve Neo4j'ye bağlı değildir; ancak compose `NEO4J_PASSWORD` değişkeni boşsa başlamaz, Neo4j çalıştırılmasa da `.env`'de tanımlı olmalıdır.
 - Web'de API'ye bağlanan graf ve sohbet bileşenleri (`components/dashboard/network-graph.tsx`, `ai-chat.tsx`) hiçbir sayfada kullanılmıyor; dashboard'daki grafik yalnız görsel. Neo4j'siz kurulumda web etkilenmez. `NEXT_PUBLIC_ENABLE_AUTH` okunur ve canlıda asla `false` yapılmamalıdır; `NEXT_PUBLIC_ENABLE_AI_CHAT` ve `NEXT_PUBLIC_ENABLE_NETWORK_GRAPH` tanımlı ama hiçbir yerde kullanılmıyor.
 - API'de olup web'de arayüzü olmayan özellikler: ağ grafiği ve para halkaları (`/graph/data`, `/graph/rings`, `/graph/account/{iban}`), tek işlem risk skoru (`/risk/score`), müşteri PEP/yaptırım taraması (`/kyc/screen`), parola değiştirme (`/auth/change-password`), demo işlem gönderme (`/transactions`) ve kural tabanlı sohbet (`/chat`). Gereken paketler (`react-force-graph-2d` dahil) zaten `package.json`'da.
-- API imajı linux/arm64 üzerinde derlenip ölçüldü (`docs/ml/ml08-image-size.md`), bu yüzden
+- *(Oracle'a özgü, artık geçerli değil — §12.)* API imajı linux/arm64 üzerinde derlenip ölçüldü (`docs/ml/ml08-image-size.md`), bu yüzden
   Oracle'ın ARM (Ampere A1) makineleri için temel uyumluluk var. Kafka, ZooKeeper, Neo4j ve
   yönetim arayüzü imajlarının arm64 desteği ayrıca doğrulanmalı.
-- **Oracle Always Free belirsizliği:** Resmî belgelere göre bir Always Free makine 7 gün
+- *(Oracle'a özgü, artık geçerli değil — §12.)* **Oracle Always Free belirsizliği:** Resmî belgelere göre bir Always Free makine 7 gün
   boyunca şu üç koşulu birlikte sağlarsa boşta sayılır ve geri alınabilir: 95. yüzdelik CPU
   kullanımı %20'nin altında, ağ kullanımı %20'nin altında ve (yalnız A1 makinelerde) bellek
   kullanımı %20'nin altında.
@@ -77,6 +103,11 @@ raporundaki sistem testleri için gerekli. Repoda canlıya almayı etkileyen dur
 
 ## 4. Sprint başında verilecek kararlar
 
+> **Güncel durum:** "Makine", "Alan adı", "Ödeme yöntemi riski" ve "Oracle hesabının sahibi"
+> kararları Oracle Cloud içindi ve artık gerekmiyor. Yerine verilen karar: demo
+> geliştiricinin bilgisayarında Docker Compose ile çalışır ve Tailscale Funnel ile paylaşılır;
+> Tailscale hesabı Yusuf'ta (§12).
+
 | Karar | Seçenekler | Öneri | Karar veren |
 |---|---|---|---|
 | Sprint süresi | 3 hafta (canlı ortam + web); 2 hafta canlı ortam, web işleri Sprint 6'ya | 3 hafta | Ekip |
@@ -94,18 +125,18 @@ raporundaki sistem testleri için gerekli. Repoda canlıya almayı etkileyen dur
 | İş | Öncelik | Gün | Teslim / kabul özeti |
 |---|---|---:|---|
 | SF-500 Yerel kurulum ve okuma | P0 | 1 | `SPRINT3_DEMO.md` başlangıcı ve `SPRINT4_DEMO.md` yerelde tekrarlanır; ADR 0002/0003 ve bu plan okunur; sorular issue'ya yazılır. |
-| SF-501 Oracle hesabı ve sanal makine | P0 | 0.5 | Ampere A1 makine, Ubuntu 24.04 aarch64, yalnız SSH anahtarıyla giriş, root girişi kapalı, otomatik güvenlik güncellemeleri açık, Docker Engine + Compose v2 kurulu, bütçe uyarısı tanımlı. Konsoldaki güncel ücretsiz limit kayda geçer. |
-| SF-502 Ağ ve güvenlik duvarı | P0 | 0.5 | Asıl bariyer VCN güvenlik listesidir: içeriye yalnız 22, 80, 443. Oracle'ın Ubuntu imajlarındaki iptables kurallarında 80/443 ayrıca açılır. Docker'ın yayınladığı portlar sunucudaki INPUT kurallarına (ör. ufw) takılmadan dışarı açılır; bu yüzden altyapı portları SF-503'te hiç yayınlanmaz. Dışarıdan port taramasıyla doğrulanır. |
-| SF-503 Üretim compose override'ı | P0 | 1 | `deploy/compose.prod.yml`: Compose, override'daki `ports` listesini ana dosyadakine **ekler**, bu yüzden altyapı servislerinde `ports: !reset []` kullanılır (Compose v2.24 ve üstü). kafka-ui, redis-commander ve prometheus canlıda başlatılmaz; bellek sınırları, log döndürme, Neo4j ve Kafka heap ayarları. Kabul: `docker compose -f docker-compose.yml -f deploy/compose.prod.yml config` çıktısında ters vekil dışında yayınlanan port yok. Servislerin bellek kullanımı ölçülüp tabloya yazılır. |
-| SF-504 Ters vekil ve HTTPS | P0 | 1 | Caddy (önerilen; otomatik Let's Encrypt): `/` → web, `/api/*` ve `/ws/*` → API, HTTP → HTTPS yönlendirme. `/metrics` ve isteğe bağlı `/docs` dışarıya kapalı. Önce Let's Encrypt staging ile denenir. |
-| SF-505 Web'in canlı yapılandırması | P0 | 1 | Web imajı `NEXT_PUBLIC_API_URL=https://<alan>` ve `NEXT_PUBLIC_WS_URL=wss://<alan>` ile derlenir; `CORS_ORIGINS=https://<alan>`. Derlenmiş pakette `localhost`/`127.0.0.1` kalmaz. Giriş, oturum yenileme, çıkış, 401 sonrası giriş sayfasına dönüş, canlı alarm akışı (WebSocket) çalışır. `NEXT_PUBLIC_ENABLE_AUTH` tanımsız bırakılır (varsayılan açık); `false` yapılmaz. Kullanılmayan diğer iki bayrak SF-526'ya kadar eklenmez. |
+| ~~SF-501 Oracle hesabı ve sanal makine~~ **İptal (§12)** | — | 0.5 | Ampere A1 makine, Ubuntu 24.04 aarch64, yalnız SSH anahtarıyla giriş, root girişi kapalı, otomatik güvenlik güncellemeleri açık, Docker Engine + Compose v2 kurulu, bütçe uyarısı tanımlı. Konsoldaki güncel ücretsiz limit kayda geçer. |
+| ~~SF-502 Ağ ve güvenlik duvarı~~ **İptal (§12)** | — | 0.5 | Asıl bariyer VCN güvenlik listesidir: içeriye yalnız 22, 80, 443. Oracle'ın Ubuntu imajlarındaki iptables kurallarında 80/443 ayrıca açılır. Docker'ın yayınladığı portlar sunucudaki INPUT kurallarına (ör. ufw) takılmadan dışarı açılır; bu yüzden altyapı portları SF-503'te hiç yayınlanmaz. Dışarıdan port taramasıyla doğrulanır. |
+| SF-503 Üretim compose override'ı *(sunucu için; kod repoda kalır, bu sprintin kabul şartı değil — §12)* | P2 | 1 | `deploy/compose.prod.yml`: Compose, override'daki `ports` listesini ana dosyadakine **ekler**, bu yüzden altyapı servislerinde `ports: !reset []` kullanılır (Compose v2.24 ve üstü). kafka-ui, redis-commander ve prometheus canlıda başlatılmaz; bellek sınırları, log döndürme, Neo4j ve Kafka heap ayarları. Kabul: `docker compose -f docker-compose.yml -f deploy/compose.prod.yml config` çıktısında ters vekil dışında yayınlanan port yok. Servislerin bellek kullanımı ölçülüp tabloya yazılır. |
+| SF-504 Ters vekil ve HTTPS *(sunucu için; kod repoda kalır, bu sprintin kabul şartı değil — §12)* | P2 | 1 | Caddy (önerilen; otomatik Let's Encrypt): `/` → web, `/api/*` ve `/ws/*` → API, HTTP → HTTPS yönlendirme. `/metrics` ve isteğe bağlı `/docs` dışarıya kapalı. Önce Let's Encrypt staging ile denenir. |
+| SF-505 Web'in canlı yapılandırması *(sunucu için; kod repoda kalır, bu sprintin kabul şartı değil — §12)* | P2 | 1 | Web imajı `NEXT_PUBLIC_API_URL=https://<alan>` ve `NEXT_PUBLIC_WS_URL=wss://<alan>` ile derlenir; `CORS_ORIGINS=https://<alan>`. Derlenmiş pakette `localhost`/`127.0.0.1` kalmaz. Giriş, oturum yenileme, çıkış, 401 sonrası giriş sayfasına dönüş, canlı alarm akışı (WebSocket) çalışır. `NEXT_PUBLIC_ENABLE_AUTH` tanımsız bırakılır (varsayılan açık); `false` yapılmaz. Kullanılmayan diğer iki bayrak SF-526'ya kadar eklenmez. |
 | SF-506 Model, yönetici ve demo verisi | P0 | 1 | Model sunucuda `gh release download model-fraud-lgbm-20261030-0e0c647 -R uzunbugra/sentinel -D models/fraud/current` ve ardından o dizinde `sha256sum -c SHA256SUMS` ile alınır (`SPRINT4_DEMO.md` §1'in Linux karşılığı). Admin `seed_admin.py` ile (`SEED_ADMIN_*` değişkenleri). Analist ve viewer demo hesapları için `seed_admin.py`'ye rol seçeneği eklenir (`scripts/`, Buğra incelemesi) ya da eşdeğer küçük bir betik yazılır; elle SQL ile rol değiştirmek kalıcı çözüm sayılmaz. Yalnız sentetik demo işlemleri. `ml/models` `loaded` döner. |
 | SF-507 Kayıt uç noktasını kapatma | P0 | 0.5 | Geçici: ters vekilde `POST /api/v1/auth/register` engellenir. Kalıcı: API'ye kaydı kapatan bir ortam değişkeni ve testi (backend PR, Buğra incelemesi). Canlıda kayıt denemesi reddedilir. |
-| SF-508 Yedekleme ve geri yükleme | P0 | 0.5 | Günlük `pg_dump` (systemd timer veya cron), son 7 yedek makinede, haftalık kopya makine dışında (ör. Always Free Object Storage). Boş bir veritabanına bir kez geri yükleme denenir ve sonucu runbook'a yazılır. |
-| SF-509 İzleme ve runbook | P0 | 0.5 | Dış sağlık kontrolü (`/api/v1/system/health`); disk ve bellek uyarısı; `deploy/README.md` runbook: sıfırdan kurulum, yeni sürüme geçiş (şema değişikliği varsa önce yedek; migration yolu Buğra ile netleştirilir), önceki sürüme dönüş, yedekten dönme, sırların nerede durduğu (değerleri değil). |
-| SF-510 Canlı kabul testi | P0 | 0.5 | §8'deki senaryo ekip bilgisayarından canlı adrese karşı çalıştırılır (`SPRINT4_DEMO.md` §2–3'teki PowerShell komutları `$api = 'https://<alan>/api/v1'` ile; sunucuda çalıştırılacaksa `pwsh` kurulur); sonuç, ekran görüntüleri (sır içermeyen) ve ölçülen yanıt süreleri issue'ya yazılır. |
-| SF-511 Kafka, Neo4j ve detector'ı canlıya alma | P1 | — (tampondan) | SF-503 ölçümü 12 GB'a sığdığını gösterirse: Kafka/ZooKeeper/Neo4j/detector dahili ağda; arm64 imajları doğrulanmış; `SPRINT4_DEMO.md` §4 canlıda tekrarlanır. |
-| SF-512 Elle tetiklenen dağıtım workflow'u | P2 | — | `workflow_dispatch` ile SSH üzerinden dağıtım. Repo sırları (SSH anahtarı) yalnız repo yöneticisi (Buğra) tarafından eklenir. Bu sprintin kabul şartı değildir. |
+| SF-508 Yedekleme ve geri yükleme *(sunucu için; kod repoda kalır, bu sprintin kabul şartı değil — §12)* | P2 | 0.5 | Günlük `pg_dump` (systemd timer veya cron), son 7 yedek makinede, haftalık kopya makine dışında (ör. Always Free Object Storage). Boş bir veritabanına bir kez geri yükleme denenir ve sonucu runbook'a yazılır. |
+| SF-509 İzleme ve runbook *(sunucu için; kod repoda kalır, bu sprintin kabul şartı değil — §12)* | P2 | 0.5 | Dış sağlık kontrolü (`/api/v1/system/health`); disk ve bellek uyarısı; `deploy/README.md` runbook: sıfırdan kurulum, yeni sürüme geçiş (şema değişikliği varsa önce yedek; migration yolu Buğra ile netleştirilir), önceki sürüme dönüş, yedekten dönme, sırların nerede durduğu (değerleri değil). |
+| SF-510 Canlı kabul testi *(Funnel adresine karşı — §12)* | P0 | 0.5 | §8'deki senaryo ekip bilgisayarından canlı adrese karşı çalıştırılır (`SPRINT4_DEMO.md` §2–3'teki PowerShell komutları `$api = 'https://<alan>/api/v1'` ile; sunucuda çalıştırılacaksa `pwsh` kurulur); sonuç, ekran görüntüleri (sır içermeyen) ve ölçülen yanıt süreleri issue'ya yazılır. |
+| ~~SF-511 Kafka, Neo4j ve detector'ı canlıya alma~~ **Gerekmiyor (§12): yerelde zaten çalışıyor** | — | — (tampondan) | SF-503 ölçümü 12 GB'a sığdığını gösterirse: Kafka/ZooKeeper/Neo4j/detector dahili ağda; arm64 imajları doğrulanmış; `SPRINT4_DEMO.md` §4 canlıda tekrarlanır. |
+| ~~SF-512 Elle tetiklenen dağıtım workflow'u~~ **Gerekmiyor (§12)** | — | — | `workflow_dispatch` ile SSH üzerinden dağıtım. Repo sırları (SSH anahtarı) yalnız repo yöneticisi (Buğra) tarafından eklenir. Bu sprintin kabul şartı değildir. |
 | SF-520 Ağ grafiği ve para halkaları sayfası | P1 | 1.5 | Yeni `/graph` sayfası (viewer): hazır `components/dashboard/network-graph.tsx` bileşeni `GET /graph/data` ile; `GET /graph/rings` ile tespit edilen halkaların listesi; IBAN'a tıklayınca `GET /graph/account/{iban}` komşuluğu. Neo4j yokken veya boş grafikte anlaşılır boş/hata durumu. Canlıda görünmesi SF-511'e bağlı; geliştirme yerelde yapılır. |
 | SF-521 İşlem skorlama aracı | P1 | 1 | Yeni `/score` sayfası (analyst): işlem alanları formu → `POST /risk/score`; skor, eşik, karar ve ilk 5 katkı mevcut `alerts/model-evaluation.tsx` görünümüyle. Hesap geçmişini değiştirmediği ekranda yazılır. Model yüklü değilse (503) açık mesaj. |
 | SF-522 Müşteri taraması (KYC) sayfası | P1 | 1 | Yeni `/kyc` sayfası (analyst): ad ve ülke → `POST /kyc/screen`; eşleşme türü (tam, kısmi, bulanık, takma ad), liste ve skor. Listelerin örnek veri olduğu ve resmî listelere bağlı olmadığı ekranda açıkça yazılır. |
@@ -119,6 +150,10 @@ Canlı ortam P0 toplamı 8, web P1 toplamı 4.5 kişi-gün; tampon 2.5 kişi-gü
 Web işlerinin ortak kabulü: rol kontrolü (viewer analist eylemlerini görmez; API 403 dönerse anlaşılır mesaj), yükleniyor/boş/hata durumları mevcut `ui/request-state.tsx` ile, Vitest birim testleri ve en az skorlama ile demo işlem gönderme için birer Playwright senaryosu; `npm run lint`, `tsc`, `vitest` ve `next build` temiz; yeni sayfalar başlıktaki menüden erişilebilir.
 
 ## 6. Aşamalar ve geçiş kapıları
+
+> **Güncel sıra (§12):** Hazırlık (SF-500) → web özellikleri (SF-520–526) → Funnel kurulumu
+> (`deploy/funnel/`, `scripts/funnel.ps1`, SF-506/507) → kabul (SF-510, Funnel adresinde).
+> Aşağıdaki 2–5. aşamalar Oracle sunucusu içindi ve artık uygulanmıyor.
 
 1. **Hazırlık (SF-500).** Yerel kurulum çalışmadan sunucuya geçilmez.
 2. **Makine ve ağ (SF-501, SF-502).** Kapı: SSH yalnız anahtarla; dışarıdan yalnız 22/80/443.
@@ -152,6 +187,12 @@ Her aşamanın sonucu Sprint 5 milestone'undaki ilgili issue'ya kısa bir not ol
 
 ## 8. Sprint bitiş kapıları
 
+> **Güncel durum:** `https://<alan>` yerine Funnel adresi (`https://<makine>.<tailnet>.ts.net`)
+> kullanılır. "Port taramasında yalnız 22/80/443" yerine: Funnel yalnız 8088'deki ters vekili
+> açar ve tüm konteyner portları `127.0.0.1`'e bağlıdır. "Runbook incelemesi" yerine
+> `docs/DEMO_TAILSCALE.md` incelenir. Ağ grafiği Funnel adresinde de çalışır, çünkü Neo4j
+> yerelde açıktır. Diğer maddeler aynen geçerlidir.
+
 - `https://<alan>` geçerli sertifikayla açılıyor; HTTP isteği HTTPS'e yönleniyor.
 - Canlı senaryo: analist hesabıyla giriş → demo işlemi gönderilir → ML alarmı listede
   görünür → alarm detayında model sürümü, skor, eşik ve ilk 5 katkı → alarmdan vaka →
@@ -182,6 +223,10 @@ Her aşamanın sonucu Sprint 5 milestone'undaki ilgili issue'ya kısa bir not ol
 - Alan adı, sertifika ve Oracle bildirimleri §4'te seçilen ortak e-postaya gelir, tek kişiye bağlı kalmaz.
 
 ## 10. Riskler
+
+> **Güncel durum:** Ampere A1 kapasitesi, ücretsiz kota, boşta makinenin geri alınması, ARM
+> imajları ve beklenmeyen ücret riskleri Oracle içindi ve artık geçerli değil. Funnel ile
+> gelen riskler §12'dedir.
 
 | Risk | Etki | Önlem / Plan B |
 |---|---|---|
@@ -232,6 +277,15 @@ gerektiğinde Tailscale Funnel ile geçici bir HTTPS adresi paylaşılır
   | SF-511 | Gerekmiyor; Kafka ve Neo4j yerel kurulumda zaten çalışıyor, ağ grafiği de veri gösterir. |
   | SF-512 | Gerekmiyor. |
   | SF-520–526 | Değişmedi. |
+
+- **Funnel ile gelen riskler:**
+
+  | Risk | Etki | Önlem |
+  |---|---|---|
+  | Demo sırasında bilgisayar uykuya geçer, kapanır veya ağ değişir | Adres açılmaz | Demo süresince uyku kapalı, şarj takılı; demodan önce `funnel.ps1` ile prova |
+  | Funnel açıkken adres internette herkese açık | İzinsiz giriş denemesi | Funnel yalnız demo süresince açık; kayıt kapalı; `/metrics` ve `/docs` kapalı; demodan sonra `funnel.ps1 -Stop` |
+  | Tailscale hesabı tek kişide | Yusuf yoksa demo açılamaz | Başka bir ekip üyesi kendi Tailscale hesabıyla aynı belgeyi izleyebilir |
+  | Funnel bant genişliği sınırlı | Sayfalar yavaş açılır | Demo verisi küçük; ilk açılıştan önce prova |
 
 - **Bitiş kapıları (§8) yerine:** Funnel adresi geçerli sertifikayla açılır; §8'deki analist
   ve viewer senaryosu bu adreste çalışır; `ml/models` `loaded` döner; `/metrics` ve kayıt
