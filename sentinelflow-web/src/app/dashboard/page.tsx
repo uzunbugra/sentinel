@@ -37,6 +37,7 @@ import {
 } from "@/lib/landing-data"
 import { NetworkGraph } from "@/components/landing/NetworkGraph"
 import { ActiveModelCard } from "@/components/dashboard/active-model-card"
+import { DemoTransactionForm } from "@/components/dashboard/demo-transaction-form"
 
 const GlobeScene = dynamic(() => import("@/components/3d/GlobeScene"), {
   ssr: false,
@@ -394,6 +395,7 @@ function DashboardBody({
         backendUp={backendUp}
         motors={motors}
       />
+      <DemoTransactionForm />
       <AlertConsoleSection alertList={alertList} />
     </main>
   )
