@@ -1,0 +1,107 @@
+name: Deploy production
+
+# Deploys a released version tag (vX.Y.Z) to the production server over SSH.
+# Run it from main (Actions -> Deploy production -> Run workflow) and type the
+# tag. The tag must point at a commit on main; the server checks this itself.
+# On the server, .env belongs to DEPLOY_USER with mode 600 (deploy/README.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to deploy, e.g. v2.4.0"
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 45
+    env:
+      DEPLOY_TAG: ${{ inputs.tag }}
+      DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_HEALTH_URL: ${{ vars.DEPLOY_HEALTH_URL }}
+    steps:
+      - name: Deploy the release tag over SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          for setting in DEPLOY_TAG DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS DEPLOY_HEALTH_URL; do
+            if [[ -z ${!setting-} ]]; then
+              echo "::error::Missing production setting: $setting"
+              exit 1
+            fi
+          done
+          if [[ ! $DEPLOY_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::The tag must look like v2.4.0"
+            exit 1
+          fi
+          [[ $DEPLOY_HOST =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]]
+          [[ $DEPLOY_USER =~ ^[a-z_][a-z0-9_-]*$ ]]
+          [[ $DEPLOY_PATH =~ ^/[a-zA-Z0-9_./-]+$ ]]
+          [[ $DEPLOY_HEALTH_URL == https://*/api/v1/system/health ]]
+
+          ssh_dir=$(mktemp -d)
+          trap 'rm -rf "$ssh_dir"' EXIT
+          umask 077
+          printf '%s\n' "$DEPLOY_SSH_KEY" > "$ssh_dir/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          unset DEPLOY_SSH_KEY DEPLOY_KNOWN_HOSTS
+
+          ssh -i "$ssh_dir/key" -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$ssh_dir/known_hosts" \
+            -o ConnectTimeout=15 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 \
+            "$DEPLOY_USER@$DEPLOY_HOST" "bash -se -- $DEPLOY_PATH $DEPLOY_TAG" <<'REMOTE'
+          set -euo pipefail
+          cd "$1"
+          tag=$2
+          if [[ -n $(git status --porcelain -uno) ]]; then
+            echo "Production checkout has tracked local changes." >&2
+            exit 1
+          fi
+          # No '+': a tag that moved on the remote is refused instead of replaced.
+          git fetch --no-tags origin "refs/tags/$tag:refs/tags/$tag" "+refs/heads/main:refs/remotes/origin/main"
+          main=$(git rev-parse refs/remotes/origin/main)
+          revision=$(git rev-parse --verify "refs/tags/$tag^{commit}")
+          if ! git merge-base --is-ancestor "$revision" "$main"; then
+            echo "$tag is not on main; only released tags are deployed." >&2
+            exit 1
+          fi
+          git cat-file -e "$revision:deploy/compose.prod.yml"
+          test -r .env
+          git switch --detach "$revision"
+          compose=(docker compose -f docker-compose.yml -f deploy/compose.prod.yml --profile frontend)
+          "${compose[@]}" config --quiet
+          "${compose[@]}" up -d --build postgres redis api frontend caddy
+          echo "Deployed $tag ($revision)"
+          REMOTE
+
+      - name: Wait for the new version to be healthy
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=${DEPLOY_TAG#v}
+          for attempt in $(seq 1 18); do
+            if curl --fail --silent --show-error --max-time 10 "$DEPLOY_HEALTH_URL" \
+              | jq -e --arg version "$version" \
+                '.version == $version and .components.api.status == "healthy" and .components.database.status == "healthy"' \
+                >/dev/null; then
+              echo "Production serves $version and is healthy."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::Production did not report version $version as healthy within 90 seconds."
+          exit 1
