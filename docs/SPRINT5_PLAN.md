@@ -206,3 +206,34 @@ Her aşamanın sonucu Sprint 5 milestone'undaki ilgili issue'ya kısa bir not ol
 - Model yeniden eğitimi veya yeni model sürümü.
 - Final raporu için performans ölçümleri (uçtan uca gecikme, Kafka verimi) bu ortamda
   yapılabilir, fakat ölçüm planı ayrı bir işte tanımlanır.
+
+## 12. Karar değişikliği: yerel demo ve Tailscale Funnel (23 Kasım 2026)
+
+Demo ortamı için Oracle Cloud yerine şu yol seçildi: SentinelFlow mevcut Docker Compose
+kurulumuyla geliştiricinin bilgisayarında çalışır; hocaların kendi cihazlarından açması
+gerektiğinde Tailscale Funnel ile geçici bir HTTPS adresi paylaşılır
+([`DEMO_TAILSCALE.md`](DEMO_TAILSCALE.md)).
+
+- **Neden:** Sunucu, alan adı, sertifika, ödeme yöntemi ve Oracle Always Free'nin boşta
+  makine geri alma riski (§10) ortadan kalkar; demo yalnız gerektiğinde açılır.
+- **Yeni teslimler:** `deploy/funnel/compose.funnel.yml` (tüm portlar yalnız `127.0.0.1`,
+  kayıt kapalı, tek giriş noktası Caddy `127.0.0.1:8088`), `deploy/funnel/Caddyfile`,
+  `scripts/funnel.ps1` (başlat/durdur) ve web'in aynı-köken modu
+  (`NEXT_PUBLIC_API_URL=same-origin`): aynı paket hem `localhost`'ta hem Funnel adresinde
+  yeniden derlenmeden çalışır.
+- **İşlerin durumu:**
+
+  | İş | Yeni durum |
+  |---|---|
+  | SF-501, SF-502 (Oracle makinesi, güvenlik duvarı) | Gerekmiyor; Funnel yalnız tek bir yerel portu açar. |
+  | SF-503, SF-504, SF-505, SF-508, SF-509 | Kod repoda kalır; ileride sunucuya geçilirse kullanılır. Bu sprintin kabul şartı değil. |
+  | SF-506, SF-507 | Aynen geçerli: hesaplar seed betiğiyle açılır, kayıt Funnel kurulumunda da kapalı. |
+  | SF-510 | Kabul testi Funnel adresine karşı yapılır (`SPRINT5_DEMO.md`, `<alan>` yerine Funnel adresi). |
+  | SF-511 | Gerekmiyor; Kafka ve Neo4j yerel kurulumda zaten çalışıyor, ağ grafiği de veri gösterir. |
+  | SF-512 | Gerekmiyor. |
+  | SF-520–526 | Değişmedi. |
+
+- **Bitiş kapıları (§8) yerine:** Funnel adresi geçerli sertifikayla açılır; §8'deki analist
+  ve viewer senaryosu bu adreste çalışır; `ml/models` `loaded` döner; `/metrics` ve kayıt
+  dışarıdan reddedilir; aynı ağdaki başka bir cihazdan veritabanı ve yönetim portlarına
+  erişilemez; demodan sonra `funnel.ps1 -Stop` ile adres kapanır.
