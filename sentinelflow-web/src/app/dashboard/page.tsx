@@ -38,6 +38,7 @@ import {
 import { NetworkGraph } from "@/components/landing/NetworkGraph"
 import { ActiveModelCard } from "@/components/dashboard/active-model-card"
 import { DemoTransactionForm } from "@/components/dashboard/demo-transaction-form"
+import { AiChat } from "@/components/dashboard/ai-chat"
 import { ChangePasswordButton } from "@/components/layout/change-password-dialog"
 
 const GlobeScene = dynamic(() => import("@/components/3d/GlobeScene"), {
@@ -414,6 +415,7 @@ function DashboardBody({
         motors={motors}
       />
       <DemoTransactionForm />
+      {config.features.enableAiChat && <AiChat />}
       <AlertConsoleSection alertList={alertList} />
     </main>
   )
