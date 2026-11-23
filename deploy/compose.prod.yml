@@ -12,7 +12,7 @@
 #     base file's list, so each service resets it with `!reset []` (Compose
 #     v2.24+). Docker-published ports bypass the host's INPUT rules (ufw), so
 #     the only safe infra port is one that is never published. The reverse
-#     proxy (SF-504) is the single service that publishes 80/443.
+#     proxy (`caddy`, SF-504) is the single service that publishes 80/443.
 #   * kafka-ui, redis-commander and prometheus never start in production: they
 #     are moved to the `dev-tools` profile, which is never enabled on the server.
 #   * P0 services (postgres, redis, api, frontend) start by default. P1 services
@@ -54,12 +54,42 @@ services:
     environment:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       DEBUG: "false"
+      # SF-507: no self-registration in production (API answers 403; the
+      # proxy blocks it too). Accounts come from scripts/seed_admin.py.
+      SENTINELFLOW_REGISTRATION_ENABLED: "false"
 
   frontend:
     profiles: !reset []      # base file hides it behind `frontend`; always on here
     ports: !reset []
     mem_limit: 384m
     logging: *logging
+
+  # Reverse proxy and HTTPS (SF-504): the only published ports.
+  caddy:
+    image: caddy:2.8.4
+    container_name: sentinelflow-caddy
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"        # HTTP/3
+    environment:
+      SENTINELFLOW_DOMAIN: ${SENTINELFLOW_DOMAIN:?Set SENTINELFLOW_DOMAIN in .env (see deploy/README.md)}
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL in .env (see deploy/README.md)}
+      ACME_CA: ${ACME_CA:-https://acme-v02.api.letsencrypt.org/directory}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data       # certificates and ACME account; keep across upgrades
+      - caddy_config:/config
+    networks:
+      - sentinelflow-network
+    mem_limit: 256m
+    logging: *logging
+    restart: unless-stopped
 
   # ---------------------------------------------------------------------------
   # P1 — opt-in (SF-511), internal network only
@@ -111,3 +141,9 @@ services:
   prometheus:
     profiles: !override ["dev-tools"]
     ports: !reset []
+
+volumes:
+  caddy_data:
+    name: sentinelflow-caddy-data
+  caddy_config:
+    name: sentinelflow-caddy-config

@@ -1,0 +1,63 @@
+# =============================================================================
+# SentinelFlow — reverse proxy and HTTPS (SF-504, SF-507 temporary block)
+# =============================================================================
+# Started by deploy/compose.prod.yml (service `caddy`). Values come from the
+# server's .env, never from this file:
+#   SENTINELFLOW_DOMAIN  public host name, e.g. sentinel.example.org
+#   ACME_EMAIL           shared team address for certificate notices (plan §9)
+#   ACME_CA              optional; compose defaults it to Let's Encrypt
+#                        production. For the first try set it to staging,
+#                        then remove it to get a trusted certificate:
+#                        https://acme-staging-v02.api.letsencrypt.org/directory
+#
+# Routing:  /api/*  and  /ws/*  -> api:8000      everything else -> frontend:3000
+# HTTP -> HTTPS redirection is automatic for a named site.
+# =============================================================================
+
+{
+	email {$ACME_EMAIL}
+	acme_ca {$ACME_CA}
+	# Caddy's admin API stays inside the container.
+	admin localhost:2019
+}
+
+{$SENTINELFLOW_DOMAIN} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	@internal path /metrics /metrics/* /docs /docs/* /redoc /redoc/* /openapi.json
+	@register {
+		method POST
+		path /api/v1/auth/register
+	}
+
+	# `route` keeps these in the written order (Caddy would otherwise sort
+	# `respond` after the proxies and the blocks below would never match).
+	route {
+		# Never exposed: Prometheus metrics and the interactive API docs.
+		respond @internal 404
+
+		# SF-507 (temporary): self-registration is closed in production. The
+		# API setting SENTINELFLOW_REGISTRATION_ENABLED=false rejects it as
+		# well; this block stays as a second layer.
+		respond @register "Registration is disabled" 403
+
+		# API and the WebSocket alert stream (upgrades are proxied as-is).
+		reverse_proxy /api/* api:8000
+		reverse_proxy /ws/* api:8000
+
+		reverse_proxy frontend:3000
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
