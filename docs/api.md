@@ -42,7 +42,7 @@ Aşağıdaki tabloda **Auth** sütunu gereken asgari rolü gösterir.
 | Method | Path | Açıklama | Auth |
 | --- | --- | --- | --- |
 | POST | `/api/v1/auth/login` | Kullanıcı girişi, JWT verir | — |
-| POST | `/api/v1/auth/register` | Yeni kullanıcı kaydı (bootstrap amaçlı; üretimde kapatılmalıdır) | — |
+| POST | `/api/v1/auth/register` | Yeni kullanıcı kaydı (bootstrap amaçlı). `SENTINELFLOW_REGISTRATION_ENABLED=false` iken `403 registration_disabled`; üretimde kapalı tutulur | — |
 | POST | `/api/v1/auth/refresh` | Refresh token ile yeni erişim token'ı | — (refresh token gövdede) |
 | GET | `/api/v1/auth/me` | Oturumdaki kullanıcı | JWT |
 | POST | `/api/v1/auth/logout` | Oturumu kapatır (refresh token iptal) | JWT |
