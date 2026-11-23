@@ -1,27 +1,27 @@
 # Sprint 5 canlı demo ve kabul testi (SF-510)
 
-Bu senaryo `docs/SPRINT5_PLAN.md` §8'deki bitiş kapılarını canlı adrese karşı sırayla
-doğrular. Sunucunun kurulumu bu belgenin konusu değildir; kurulum, güncelleme ve yedekten
-dönme için [`deploy/README.md`](../deploy/README.md) runbook'unu izleyin.
+Bu senaryo `docs/SPRINT5_PLAN.md` §8 ve §12'deki bitiş kapılarını demo adresine karşı sırayla
+doğrular. Demo ortamı **Oracle Cloud değil**: SentinelFlow geliştiricinin bilgisayarında Docker
+Compose ile çalışır ve Tailscale Funnel ile paylaşılır (plan §12). Başlatma, hesaplar ve
+kapatma için [`DEMO_TAILSCALE.md`](DEMO_TAILSCALE.md) belgesini izleyin.
 
-Aşağıda `<alan>` canlı alan adıdır (plan §4 kararı). Parolalar ekibin parola kasasındadır;
-bu belgeye, issue'lara ve ekran görüntülerine yazılmaz. Ekran görüntüsü alırken adres
-çubuğunda token, tarayıcıda parola yöneticisi açılır penceresi görünmemelidir.
+Aşağıda `<adres>`, `.\scripts\funnel.ps1` komutunun yazdığı Funnel adresidir
+(`<makine>.<tailnet>.ts.net`). Demo hesapları için `DEMO_TAILSCALE.md` §4'e bakın. Ekran
+görüntüsü alırken adres çubuğunda token, tarayıcıda parola yöneticisi açılır penceresi
+görünmemelidir.
 
 Komutlar PowerShell içindir (Windows PowerShell 5.1 veya `pwsh`). Yerelde provası yapmak için
-`$base = 'http://localhost:3000'` ve `$api = 'http://localhost:8000/api/v1'` kullanın.
+Funnel'ı açmadan, aynı ters vekil üzerinden `$base = 'http://localhost:8088'` kullanın
+(`funnel.ps1 -LocalOnly`).
 
 ```powershell
-$base = 'https://<alan>'
+$base = 'https://<adres>'
 $api  = "$base/api/v1"
 ```
 
 ## 1. Altyapı kapıları
 
 ```powershell
-# HTTP -> HTTPS yönlendirmesi (beklenen: 308 ve Location: https://...)
-(Invoke-WebRequest "http://<alan>/" -MaximumRedirection 0 -ErrorAction SilentlyContinue -UseBasicParsing).StatusCode
-
 # Sağlık (beklenen: healthy)
 (Invoke-RestMethod "$api/system/health").status
 
@@ -30,15 +30,16 @@ try { Invoke-WebRequest "$base/metrics" -UseBasicParsing } catch { $_.Exception.
 try { Invoke-WebRequest "$api/auth/register" -Method Post -ContentType 'application/json' -Body '{}' -UseBasicParsing } catch { $_.Exception.Response.StatusCode.value__ }
 ```
 
-Port taraması ekip bilgisayarından (sunucunun içinden değil) yapılır; yalnız 22, 80 ve 443
-açık görünmelidir:
+Konteyner portlarının yalnız bu bilgisayara açık olduğunu doğrulayın; `PORTS` sütununda her
+satır `127.0.0.1:` ile başlamalıdır (Funnel yalnız 8088'i dışarıya açar):
 
 ```powershell
-nmap -Pn -p 1-65535 <sunucu-ip>
+docker compose -f docker-compose.yml -f deploy/funnel/compose.funnel.yml ps --format "table {{.Name}}\t{{.Ports}}"
+tailscale funnel status
 ```
 
-Sertifikanın geçerli olduğunu tarayıcının adres çubuğundan doğrulayın (staging sertifikası
-"güvenli değil" uyarısı verir; kabul testi gerçek sertifikayla yapılır).
+Sertifikanın geçerli olduğunu, Tailscale'e bağlı olmayan bir cihazdan (ör. mobil veriye bağlı
+bir telefon) adresi açarak doğrulayın.
 
 ## 2. Model
 
@@ -55,12 +56,12 @@ Beklenen: `status: loaded` ve model sürümü `fraud-lgbm-20261030-0e0c647`.
 
 ## 3. Analist senaryosu (tarayıcıda)
 
-1. `https://<alan>/login` → analist hesabıyla giriş.
+1. `https://<adres>/login` → analist hesabıyla giriş.
 2. Dashboard: üst menüde **Ağ grafiği**, **Skorlama**, **Müşteri taraması** bağlantıları ve
    parola değiştirme düğmesi görünür; "Aktif model" kartında model sürümü yazar.
 3. **Demo işlem gönder** (SF-523): örneklerden şüpheli olanı seçip **Gönder**. Sonuçta
    "Şüpheli: model alarm üretti." yazar ve alarm, sayfa yenilenmeden canlı akışta görünür
-   (WebSocket `wss://<alan>/ws/alerts`).
+   (WebSocket `wss://<adres>/ws/alerts`).
 4. Alarma tıklayın: alarm detayında model sürümü, skor, eşik ve ilk 5 katkı görünür.
 5. Alarmdan vaka oluşturun. Vaka sayfasındaki zaman çizelgesinde `case_created` ve
    `alert_linked_to_case` olayları görünür.
@@ -70,8 +71,8 @@ Beklenen: `status: loaded` ve model sürümü `fraud-lgbm-20261030-0e0c647`.
    ve skor görünür. Ekranda listelerin örnek veri olduğu yazar.
 8. **Parola değiştir** (SF-524): mevcut ve yeni parola girilir; başarı mesajı görünür. Çıkış
    yapıp yeni parolayla tekrar giriş yapılır. Yeni parola aynı gün kasaya yazılır.
-9. **Ağ grafiği** (`/graph`, SF-520): Neo4j canlıda çalışmıyorsa (SF-511 kararı) sayfa
-   "Graf veritabanı (Neo4j) bu ortamda çalışmıyor." der; bu beklenen durumdur. Neo4j açıksa
+9. **Ağ grafiği** (`/graph`, SF-520): Neo4j yerel kurulumda varsayılan olarak çalışır.
+   Çalışmıyorsa sayfa "Graf veritabanı (Neo4j) bu ortamda çalışmıyor." der. Neo4j açıksa
    halka listesi görünür ve bir IBAN'a tıklayınca hesap komşuluğu açılır.
 10. Yardım asistanı paneli (SF-525) dashboard'da bir öneriye cevap verir; panelde kural tabanlı
     olduğu ve LLM kullanmadığı yazar.
@@ -90,7 +91,7 @@ Viewer hesabıyla giriş yapın:
 
 ## 5. Ağ grafiği yerel kabulü
 
-Canlıda Neo4j yoksa plan §8 yerel kabulü yeterli sayar. Yerelde:
+Funnel kurulumunda Neo4j zaten çalıştığı için bu bölüm yalnız Funnel'sız prova içindir:
 
 ```powershell
 docker compose --profile frontend up -d --build
@@ -109,7 +110,7 @@ Testi yapan kişi bu tabloyu doldurur ve sonucu Sprint 5 milestone'undaki SF-510
 | HTTPS geçerli sertifika, HTTP → HTTPS | | |
 | `system/health` healthy | | |
 | `ml/models` loaded, `fraud-lgbm-20261030-0e0c647` | | |
-| Port taraması: yalnız 22/80/443 | | |
+| Konteyner portları yalnız `127.0.0.1`; Funnel yalnız 8088 | | |
 | `/metrics` 404, `register` 403 | | |
 | Demo işlem → ML alarmı canlı akışta | | |
 | Alarm detayı: sürüm, skor, eşik, ilk 5 katkı | | |
