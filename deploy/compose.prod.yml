@@ -1,0 +1,113 @@
+# =============================================================================
+# SentinelFlow — production override (SF-503, docs/SPRINT5_PLAN.md §5)
+# =============================================================================
+# Usage (on the server, from the repository root):
+#   docker compose -f docker-compose.yml -f deploy/compose.prod.yml up -d --build
+#
+# docker-compose.yml stays the development file; every production difference
+# lives here (plan §7).
+#
+# Rules this file enforces:
+#   * No service publishes a port. Compose *appends* an override's `ports` to the
+#     base file's list, so each service resets it with `!reset []` (Compose
+#     v2.24+). Docker-published ports bypass the host's INPUT rules (ufw), so
+#     the only safe infra port is one that is never published. The reverse
+#     proxy (SF-504) is the single service that publishes 80/443.
+#   * kafka-ui, redis-commander and prometheus never start in production: they
+#     are moved to the `dev-tools` profile, which is never enabled on the server.
+#   * P0 services (postgres, redis, api, frontend) start by default. P1 services
+#     (SF-511) are opt-in through profiles so the machine fits in 12 GB:
+#       --profile streaming   zookeeper + kafka
+#       --profile graph       neo4j + neo4j-init
+#   * Every container has a memory limit and rotated json-file logs.
+#
+# Check before deploying (acceptance of SF-503):
+#   docker compose -f docker-compose.yml -f deploy/compose.prod.yml \
+#     --profile streaming --profile graph config --format json \
+#     | python deploy/check_ports.py
+# =============================================================================
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # ---------------------------------------------------------------------------
+  # P0 — always on
+  # ---------------------------------------------------------------------------
+  postgres:
+    ports: !reset []
+    mem_limit: 512m
+    logging: *logging
+
+  redis:
+    ports: !reset []
+    mem_limit: 384m          # redis maxmemory is 256mb (base file) + overhead
+    logging: *logging
+
+  api:
+    ports: !reset []
+    mem_limit: 1g            # LightGBM model + FastAPI workers
+    logging: *logging
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DEBUG: "false"
+
+  frontend:
+    profiles: !reset []      # base file hides it behind `frontend`; always on here
+    ports: !reset []
+    mem_limit: 384m
+    logging: *logging
+
+  # ---------------------------------------------------------------------------
+  # P1 — opt-in (SF-511), internal network only
+  # ---------------------------------------------------------------------------
+  zookeeper:
+    profiles: !override ["streaming"]
+    ports: !reset []
+    mem_limit: 512m
+    logging: *logging
+    environment:
+      KAFKA_HEAP_OPTS: "-Xms128m -Xmx256m"
+
+  kafka:
+    profiles: !override ["streaming"]
+    ports: !reset []
+    mem_limit: 1g
+    logging: *logging
+    environment:
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
+      # Nothing outside the compose network talks to Kafka in production.
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://kafka:9092
+
+  neo4j:
+    profiles: !override ["graph"]
+    ports: !reset []
+    mem_limit: 1536m
+    logging: *logging
+    environment:
+      NEO4J_server_memory_pagecache_size: 256M
+      NEO4J_server_memory_heap_initial__size: 512M
+      NEO4J_server_memory_heap_max__size: 512M
+
+  neo4j-init:
+    profiles: !override ["graph"]
+    mem_limit: 512m
+    logging: *logging
+
+  # ---------------------------------------------------------------------------
+  # Development tools — never started on the server
+  # ---------------------------------------------------------------------------
+  kafka-ui:
+    profiles: !override ["dev-tools"]
+    ports: !reset []
+
+  redis-commander:
+    profiles: !override ["dev-tools"]
+    ports: !reset []
+
+  prometheus:
+    profiles: !override ["dev-tools"]
+    ports: !reset []
