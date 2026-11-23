@@ -9,6 +9,7 @@ import {
   isAboveThreshold,
   MISSING,
   type AlertEvidence,
+  type MlEvidenceDetails,
 } from "@/lib/ml"
 import { cn } from "@/lib/utils"
 
@@ -47,16 +48,25 @@ export function ModelEvaluation({ fraudType, evidence }: ModelEvaluationProps) {
   )
 }
 
-function MlDetails({
+interface MlDetailsProps {
+  details: MlEvidenceDetails
+  summary: string | null
+  /** Label above the model version; the alert view records the model at alert time. */
+  modelLabel?: string
+}
+
+/** Score, threshold and top contributions; shared by alert detail and /score. */
+export function MlDetails({
   details,
   summary,
-}: Extract<ReturnType<typeof extractModelEvaluation>, { kind: "ml" }>) {
+  modelLabel = "Alarm anındaki model",
+}: MlDetailsProps) {
   const above = isAboveThreshold(details.score, details.threshold)
 
   return (
     <div className="space-y-3">
       <dl>
-        <dt className="text-xs text-zinc-500 block">Alarm anındaki model</dt>
+        <dt className="text-xs text-zinc-500 block">{modelLabel}</dt>
         <dd className="text-sm text-zinc-300 font-mono break-all">
           {details.model_version ?? MISSING}
         </dd>
