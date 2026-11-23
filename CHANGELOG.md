@@ -13,6 +13,10 @@ versioning follows [Semantic Versioning](https://semver.org/).
 - **Tailscale Funnel demo.** `scripts/funnel.ps1` starts the stack with `deploy/funnel/compose.funnel.yml` (every container port bound to `127.0.0.1`, registration closed, Caddy on `127.0.0.1:8088` routing `/api` and `/ws` to the API and blocking `/metrics`, `/docs` and registration), waits for health, turns Funnel on and prints the address; `-Stop` / `-Down` turn it off.
 - **Web same-origin mode.** `NEXT_PUBLIC_API_URL=same-origin` makes the web call `/api` on the page's own host and open the WebSocket from `window.location`, so one bundle works on `localhost` and on the Funnel address.
 
+### Fixed
+- **Graph page main view was always empty (SF-510).** `GET /api/v1/graph/data` compared the stored Neo4j `DATE_TIME` with an ISO string, which never matches; the query now uses `datetime($since)`.
+- **Change-password dialog was clipped (SF-510).** The dialog rendered inside the blurred header, which became the containing block of its fixed overlay; it now renders in a portal on `document.body`.
+
 ### Security
 - **SF-507 — self-registration.** `POST /api/v1/auth/register` always creates a `viewer`; a `role` in the request body is ignored (it previously let an unauthenticated client open an admin account). `SENTINELFLOW_REGISTRATION_ENABLED=false` closes the endpoint with `403 registration_disabled`; production sets it, and other roles are created with `scripts/seed_admin.py`.
 
