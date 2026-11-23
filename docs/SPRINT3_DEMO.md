@@ -106,6 +106,9 @@ docker compose exec -e SEED_ADMIN_PASSWORD=$env:SEED_ADMIN_PASSWORD api python s
 - `--no-generate` olmadan ve şifre verilmeden çalıştırılırsa script rastgele şifre
   üretir ve **log'a yazar**; paylaşılan ekranda bu yolu kullanmayın.
 - Kullanıcı zaten varsa script hiçbir şeyi değiştirmeden çıkar (idempotent).
+- Demo analist ve viewer hesapları için `--role analyst` veya `--role viewer`
+  ekleyin (varsayılan kullanıcı adı rolün adıdır, e-posta `<rol>@example.com`).
+  Her hesap için ayrı bir `SEED_ADMIN_PASSWORD` verin.
 
 ### 5. Demo alarmı (yalnız Sprint 3 smoke fixture'ı)
 
