@@ -46,7 +46,10 @@ $ComposeArgs = @('compose', '-f', 'docker-compose.yml', '-f', 'deploy/funnel/com
 function Find-Tailscale {
     $cmd = Get-Command tailscale -ErrorAction SilentlyContinue
     if ($cmd) { return $cmd.Source }
+    # ProgramW6432 is the 64-bit Program Files even from a 32-bit PowerShell,
+    # where ProgramFiles points to "Program Files (x86)".
     foreach ($path in @(
+            "$env:ProgramW6432\Tailscale\tailscale.exe",
             "$env:ProgramFiles\Tailscale\tailscale.exe",
             '/Applications/Tailscale.app/Contents/MacOS/Tailscale',
             '/usr/bin/tailscale')) {
