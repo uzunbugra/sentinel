@@ -1,0 +1,10 @@
+# SF-509: health, disk and memory check. Install: see deploy/README.md "İzleme".
+[Unit]
+Description=SentinelFlow health, disk and memory check
+After=docker.service
+
+[Service]
+Type=oneshot
+# SENTINELFLOW_DOMAIN and optional ALERT_WEBHOOK_URL / thresholds.
+EnvironmentFile=/etc/sentinelflow/healthcheck.env
+ExecStart=/opt/sentinelflow/deploy/monitor/healthcheck.sh
