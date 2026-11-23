@@ -11,6 +11,7 @@ Playwright testleri gerçek API'ye ve web'in production build'ine karşı koşar
 | `demo-transaction.spec.ts` | Analist dashboard'daki "Demo işlem gönder" formuyla sentetik bir işlem gönderir. Modelsiz API işlemi kaydeder ama skorlamaz ve form bunu söyler. Route ile verilen dolandırıcılık cevabında alarm kimliği ve "Alarmlara git" bağlantısı görünür. Viewer formu görmez (SF-523) |
 | `change-password.spec.ts` | Viewer başlıktaki menüden parolasını değiştirir. Yanlış mevcut parola "Mevcut parola yanlış." der. Değişiklikten sonra eski parola 401 alır, yenisiyle giriş yapılır. Test sonunda seed parolası API ile geri yüklenir (SF-524) |
 | `kyc.spec.ts` | Analist başlıktan Müşteri taraması'na gider; örnek listeler uyarısı görünür. Gerçek API'de "Banned Person" OFAC SDN (örnek) listesinde takma ad eşleşmesi verir, "Ayşe Temiz" temiz döner. Viewer bağlantıyı ve formu görmez, API de 403 döner (SF-522) |
+| `graph.spec.ts` | Viewer başlıktan Ağ grafiği'ne gider. Neo4j'siz API örnek veri döndüğü için sayfa grafiği çizmez, "Neo4j bu ortamda çalışmıyor" der; hesap araması da 503'ü açıklar. Route ile verilen grafikte halka listelenir, halkadaki hesaba tıklayınca komşuluğu açılır (SF-520) |
 
 ## Test verisi
 

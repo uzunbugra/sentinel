@@ -17,6 +17,7 @@ describe("Header erişilebilirliği", () => {
     render(<Header />)
     const nav = screen.getByRole("navigation", { name: "Ana gezinme" })
     expect(within(nav).getByRole("link", { name: "Vakalar" })).toHaveAttribute("href", "/cases")
+    expect(within(nav).getByRole("link", { name: "Ağ grafiği" })).toHaveAttribute("href", "/graph")
     expect(screen.getByText("Test Analisti")).toBeInTheDocument()
   })
 
@@ -32,6 +33,8 @@ describe("Header erişilebilirliği", () => {
     render(<Header />)
     expect(screen.queryByRole("link", { name: "Skorlama" })).not.toBeInTheDocument()
     expect(screen.queryByRole("link", { name: "Müşteri taraması" })).not.toBeInTheDocument()
+    // The graph page is read-only: viewers see it too.
+    expect(screen.getByRole("link", { name: "Ağ grafiği" })).toHaveAttribute("href", "/graph")
     mocks.role = "analyst"
   })
 
