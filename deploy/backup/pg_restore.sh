@@ -4,12 +4,15 @@
 # =============================================================================
 # Usage:
 #   deploy/backup/pg_restore.sh <dump-file>                 # restore test
-#   deploy/backup/pg_restore.sh <dump-file> --into <db>     # into another DB
+#   deploy/backup/pg_restore.sh <dump-file> --into <db>     # into a NEW database
 #   deploy/backup/pg_restore.sh <dump-file> --replace       # REAL restore
 #
 # Default (restore test): creates an empty database `sentinelflow_restore_test`,
 # restores into it, prints row counts of the main tables and the elapsed time,
 # then drops it. The production database is not touched.
+#
+# --into restores into a database that must not exist yet; it never drops
+# anything and refuses the production database (use --replace for that).
 #
 # --replace drops and recreates the production database from the dump. Stop the
 # API first (docker compose ... stop api) and take a fresh backup; see
@@ -37,8 +40,11 @@ psql_c() {  # run SQL against the maintenance database `postgres`
   docker exec -i "$PG_CONTAINER" sh -c 'psql -v ON_ERROR_STOP=1 -q --username="$POSTGRES_USER" --dbname=postgres' <<<"$1"
 }
 
+prod_db="$(docker exec "$PG_CONTAINER" sh -c 'printf %s "$POSTGRES_DB"')"
+[ -n "$prod_db" ] || { echo "cannot read POSTGRES_DB from $PG_CONTAINER" >&2; exit 1; }
+
 if [ "$mode" = replace ]; then
-  target="$(docker exec "$PG_CONTAINER" sh -c 'printf %s "$POSTGRES_DB"')"
+  target="$prod_db"
   if docker ps --format '{{.Names}}' | grep -qx sentinelflow-api; then
     echo "sentinelflow-api is running; stop it before --replace" >&2
     exit 1
@@ -49,8 +55,28 @@ fi
 
 case "$target" in *[!a-z0-9_]*|"") echo "invalid database name: $target" >&2; exit 2 ;; esac
 
+if [ "$mode" != replace ]; then
+  # Only --replace may touch the production database (it checks the API is
+  # stopped and asks for the name). postgres/template* are never targets.
+  case "$target" in
+    "$prod_db"|postgres|template0|template1)
+      echo "refusing to restore into '$target'; use --replace to restore the production database" >&2
+      exit 1 ;;
+  esac
+fi
+
+if [ "$mode" = into ]; then
+  exists="$(docker exec -i "$PG_CONTAINER" sh -c 'psql -At --username="$POSTGRES_USER" --dbname=postgres'     <<<"SELECT 1 FROM pg_database WHERE datname = '$target';")"
+  if [ -n "$exists" ]; then
+    echo "database '$target' already exists; --into only creates a new database (pick another name or drop it yourself)" >&2
+    exit 1
+  fi
+fi
+
 started=$(date +%s)
-psql_c "DROP DATABASE IF EXISTS \"$target\" WITH (FORCE);"
+if [ "$mode" != into ]; then
+  psql_c "DROP DATABASE IF EXISTS \"$target\" WITH (FORCE);"
+fi
 psql_c "CREATE DATABASE \"$target\";"
 docker exec -i "$PG_CONTAINER" sh -c \
   "pg_restore --username=\"\$POSTGRES_USER\" --dbname=\"$target\" --no-owner --exit-on-error" \
