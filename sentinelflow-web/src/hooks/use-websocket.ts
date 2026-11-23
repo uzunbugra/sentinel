@@ -30,9 +30,9 @@ type Alert = {
 
 type WebSocketStatus = "connecting" | "connected" | "disconnected" | "error"
 
-const DEFAULT_WS_URL = getWsUrl(config.endpoints.wsAlerts)
-
-export function useWebSocket(url: string = DEFAULT_WS_URL) {
+// Resolved when connecting (in the browser): in same-origin mode the address
+// comes from window.location, which does not exist during server rendering.
+export function useWebSocket(urlOverride?: string) {
     const [status, setStatus] = useState<WebSocketStatus>("disconnected")
     const [alerts, setAlerts] = useState<Alert[]>([])
     const [isConnected, setIsConnected] = useState(false)
@@ -48,6 +48,7 @@ export function useWebSocket(url: string = DEFAULT_WS_URL) {
             return
         }
 
+        const url = urlOverride ?? getWsUrl(config.endpoints.wsAlerts)
         try {
             setStatus("connecting")
             ws.current = new WebSocket(url)
@@ -102,7 +103,7 @@ export function useWebSocket(url: string = DEFAULT_WS_URL) {
             setReconnectAttempts((prev) => prev + 1)
             reconnectTimeout.current = setTimeout(connect, delay)
         }
-    }, [url, reconnectAttempts])
+    }, [urlOverride, reconnectAttempts])
 
     useEffect(() => {
         connect()
