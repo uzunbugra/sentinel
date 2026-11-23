@@ -18,6 +18,7 @@ import {
   type FraudRing,
   type GraphOverview,
 } from "@/lib/graph"
+import { config } from "@/lib/config"
 import { cn } from "@/lib/utils"
 
 type Load<T> = { phase: "loading" } | { phase: "error"; error: unknown } | { phase: "done"; value: T }
@@ -28,6 +29,24 @@ const severityStyle: Record<string, string> = {
 }
 
 export default function GraphPage() {
+  if (!config.features.enableNetworkGraph) return <GraphDisabled />
+  return <GraphView />
+}
+
+/** NEXT_PUBLIC_ENABLE_NETWORK_GRAPH=false turns the page and its links off. */
+function GraphDisabled() {
+  const { isConnected } = useWebSocket()
+  return (
+    <div className="min-h-screen bg-zinc-950">
+      <Header isConnected={isConnected} />
+      <main className="mx-auto max-w-7xl p-4 lg:p-6">
+        <EmptyState message="Ağ grafiği bu kurulumda kapalı." />
+      </main>
+    </div>
+  )
+}
+
+function GraphView() {
   const { isConnected } = useWebSocket()
   const [overview, setOverview] = useState<Load<GraphOverview>>({ phase: "loading" })
   const [iban, setIban] = useState("")

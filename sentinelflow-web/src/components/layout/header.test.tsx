@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
+import { config } from "@/lib/config"
 import { Header } from "./header"
 
 const mocks = vi.hoisted(() => ({ logout: vi.fn(), role: "analyst" }))
@@ -42,5 +43,16 @@ describe("Header erişilebilirliği", () => {
     render(<Header />)
     await userEvent.click(screen.getByRole("button", { name: "Çıkış yap" }))
     expect(mocks.logout).toHaveBeenCalledOnce()
+  })
+
+  it("NEXT_PUBLIC_ENABLE_NETWORK_GRAPH=false ağ grafiği bağlantısını gizler", () => {
+    const features = config.features as { enableNetworkGraph: boolean }
+    features.enableNetworkGraph = false
+    try {
+      render(<Header />)
+      expect(screen.queryByRole("link", { name: "Ağ grafiği" })).not.toBeInTheDocument()
+    } finally {
+      features.enableNetworkGraph = true
+    }
   })
 })

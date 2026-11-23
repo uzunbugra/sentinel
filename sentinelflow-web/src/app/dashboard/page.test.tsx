@@ -165,3 +165,27 @@ describe("DashboardPage gezinme", () => {
     authMock.role = "analyst"
   })
 })
+
+describe("DashboardPage bayraklar", () => {
+  const features = config.features as { enableAiChat: boolean; enableNetworkGraph: boolean }
+  afterEach(() => {
+    features.enableAiChat = true
+    features.enableNetworkGraph = true
+  })
+
+  it("yardim asistanini ve ag grafigi baglantisini bayraga gore gosterir", async () => {
+    routeApi(STATS)
+    const { unmount } = render(<DashboardPage />)
+    expect(await screen.findByRole("region", { name: "Yardım asistanı" })).toBeInTheDocument()
+    expect(screen.getByRole("link", { name: "Ağ grafiği" })).toHaveAttribute("href", "/graph")
+    unmount()
+
+    features.enableAiChat = false
+    features.enableNetworkGraph = false
+    routeApi(STATS)
+    render(<DashboardPage />)
+    expect(await screen.findByText("42")).toBeInTheDocument()
+    expect(screen.queryByRole("region", { name: "Yardım asistanı" })).not.toBeInTheDocument()
+    expect(screen.queryByRole("link", { name: "Ağ grafiği" })).not.toBeInTheDocument()
+  })
+})

@@ -29,6 +29,7 @@ vi.mock("@/components/dashboard/network-graph", () => ({
 }))
 
 import { apiRequest, ApiError } from "@/lib/auth"
+import { config } from "@/lib/config"
 import { mockGraph, realGraph, ring, RING_B } from "@/test/graph-fixtures"
 import GraphPage from "./page"
 
@@ -107,5 +108,17 @@ describe("GraphPage", () => {
     mockApi.mockRejectedValueOnce(new ApiError(403, "Forbidden"))
     render(<GraphPage />)
     expect(await screen.findByText("Bu işlem için yetkiniz yok.")).toBeInTheDocument()
+  })
+
+  it("is switched off by NEXT_PUBLIC_ENABLE_NETWORK_GRAPH=false", () => {
+    const features = config.features as { enableNetworkGraph: boolean }
+    features.enableNetworkGraph = false
+    try {
+      render(<GraphPage />)
+      expect(screen.getByText("Ağ grafiği bu kurulumda kapalı.")).toBeInTheDocument()
+      expect(mockApi).not.toHaveBeenCalled()
+    } finally {
+      features.enableNetworkGraph = true
+    }
   })
 })
